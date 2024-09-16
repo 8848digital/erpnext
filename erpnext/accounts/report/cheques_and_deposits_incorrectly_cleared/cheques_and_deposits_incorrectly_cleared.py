@@ -5,6 +5,7 @@ import frappe
 from frappe import _, qb
 from frappe.query_builder import CustomFunction
 from frappe.query_builder.custom import ConstantColumn
+from frappe.query_builder import Case
 
 
 def execute(filters=None):
@@ -96,25 +97,47 @@ def get_amounts_not_reflected_in_system_for_bank_reconciliation_statement(filter
 	ifelse = CustomFunction("IF", ["condition", "then", "else"])
 	pe = qb.DocType("Payment Entry")
 	doctype_name = ConstantColumn("Payment Entry")
+	# payments = (
+	# 	qb.from_(pe)
+	# 	.select(
+	# 		doctype_name.as_("doctype"),
+	# 		pe.name,
+	# 		ifelse(pe.paid_from.eq(filters.account), pe.paid_amount, pe.received_amount).as_("amount"),
+	# 		pe.payment_type,
+	# 		pe.party_type,
+	# 		pe.posting_date,
+	# 		pe.clearance_date,
+	# 	)
+	# 	.where(
+	# 		pe.docstatus.eq(1)
+	# 		& (pe.paid_from.eq(filters.account) | pe.paid_to.eq(filters.account))
+	# 		& pe.posting_date.gt(filters.report_date)
+	# 		& pe.clearance_date.lte(filters.report_date)
+	# 	)
+	# 	.run(as_dict=1)
+	# )
 	payments = (
-		qb.from_(pe)
-		.select(
-			doctype_name.as_("doctype"),
-			pe.name,
-			ifelse(pe.paid_from.eq(filters.account), pe.paid_amount, pe.received_amount).as_("amount"),
-			pe.payment_type,
-			pe.party_type,
-			pe.posting_date,
-			pe.clearance_date,
-		)
-		.where(
-			pe.docstatus.eq(1)
-			& (pe.paid_from.eq(filters.account) | pe.paid_to.eq(filters.account))
-			& pe.posting_date.gt(filters.report_date)
-			& pe.clearance_date.lte(filters.report_date)
-		)
-		.run(as_dict=1)
-	)
+    qb.from_(pe)
+    .select(
+        doctype_name.as_("doctype"),
+        pe.name,
+        (Case()
+            .when(pe.paid_from.eq(filters.account), pe.paid_amount)
+            .else_(pe.received_amount)
+        ).as_("amount"),
+        pe.payment_type,
+        pe.party_type,
+        pe.posting_date,
+        pe.clearance_date,
+    )
+    .where(
+        pe.docstatus.eq(1)
+        & (pe.paid_from.eq(filters.account) | pe.paid_to.eq(filters.account))
+        & pe.posting_date.gt(filters.report_date)
+        & pe.clearance_date.lte(filters.report_date)
+    )
+    .run(as_dict=1)
+)
 
 	return journals + payments
 
