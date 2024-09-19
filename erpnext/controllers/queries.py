@@ -610,9 +610,6 @@ def get_filtered_dimensions(doctype, txt, searchfield, start, page_len, filters,
 	if meta.has_field("company"):
 		query_filters.append(["company", "=", filters.get("company")])
 
-	# for field in searchfields:
-	# 	or_filters.append([field, "LIKE", "%%%s%%" % txt])
-	# 	fields.append(field)
 	for field in searchfields:
 		field_meta = meta.get_field(field)
 		if field_meta and field_meta.fieldtype in ["Data", "Text", "Small Text", "Long Text"]:
