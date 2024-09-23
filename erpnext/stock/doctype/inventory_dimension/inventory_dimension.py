@@ -296,7 +296,7 @@ def get_inventory_documents(
 		filters=and_filters,
 		or_filters=or_filters,
 		start=start,
-		order_by="modified asc",
+		order_by="modified asc", 
 		page_length=page_len,
 		as_list=1,
 	)
