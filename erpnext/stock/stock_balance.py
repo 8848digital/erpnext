@@ -15,7 +15,7 @@ def repost(only_actual=False, allow_negative_stock=False, allow_zero_rate=False,
 	frappe.db.auto_commit_on_many_writes = 1
 
 	if allow_negative_stock:
-		existing_allow_negative_stock = frappe.db.get_single_value("Stock Settings", "allow_negative_stock")
+		existing_allow_negative_stock = frappe.db.get_value("Stock Settings", None, "allow_negative_stock")
 		frappe.db.set_single_value("Stock Settings", "allow_negative_stock", 1)
 
 	item_warehouses = frappe.db.sql(
@@ -95,7 +95,7 @@ def get_reserved_qty(item_code, warehouse):
 	reserved_qty = frappe.db.sql(
 		f"""
 		select
-		 	sum(dnpi_qty * ((so_item_qty - so_item_delivered_qty - case when dont_reserve_qty_on_return = 1 then so_item_returned_qty else 0 end) / so_item_qty))
+			sum(dnpi_qty * ((so_item_qty - so_item_delivered_qty - if(dont_reserve_qty_on_return, so_item_returned_qty, 0)) / so_item_qty))
 		from
 			(
 				(select
@@ -144,7 +144,7 @@ def get_reserved_qty(item_code, warehouse):
 	""",
 		(item_code, warehouse, item_code, warehouse),
 	)
-	
+
 	return flt(reserved_qty[0][0]) if reserved_qty else 0
 
 

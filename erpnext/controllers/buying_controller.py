@@ -210,14 +210,19 @@ class BuyingController(SubcontractingController):
 	def set_landed_cost_voucher_amount(self):
 		for d in self.get("items"):
 			lc_voucher_data = frappe.db.sql(
-				"""select sum(applicable_charges), cost_center
-				from `tabLanded Cost Item`
-				where docstatus = 1 and purchase_receipt_item = %s and receipt_document = %s""",
+				"""SELECT SUM(applicable_charges) AS total_applicable_charges, cost_center
+				FROM `tabLanded Cost Item`
+				WHERE docstatus = 1 AND purchase_receipt_item = %s AND receipt_document = %s
+				GROUP BY cost_center""",
 				(d.name, self.name),
 			)
-			d.landed_cost_voucher_amount = lc_voucher_data[0][0] if lc_voucher_data else 0.0
-			if not d.cost_center and lc_voucher_data and lc_voucher_data[0][1]:
-				d.db_set("cost_center", lc_voucher_data[0][1])
+			
+			if lc_voucher_data:
+				d.landed_cost_voucher_amount = lc_voucher_data[0][0] or 0.0
+				if not d.cost_center and lc_voucher_data[0][1]:
+					d.db_set("cost_center", lc_voucher_data[0][1])
+			else:
+				d.landed_cost_voucher_amount = 0.0
 
 	def validate_from_warehouse(self):
 		for item in self.get("items"):
