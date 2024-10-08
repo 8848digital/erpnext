@@ -986,7 +986,7 @@ def get_held_invoices(party_type, party):
 
 	if party_type == "Supplier":
 		held_invoices = frappe.db.sql(
-			"select name from `tabPurchase Invoice` where on_hold = 1 and release_date IS NOT NULL and release_date > CURDATE()",
+			"select name from `tabPurchase Invoice` where on_hold = 1 and release_date IS NOT NULL and release_date > CURRENT_DATE",
 			as_dict=1,
 		)
 		held_invoices = set(d["name"] for d in held_invoices)
@@ -1853,9 +1853,15 @@ class QueryPaymentLedger:
 				.where(Criterion.all(self.common_filter))
 				.where(Criterion.all(self.dimensions_filter))
 				.where(Criterion.all(self.voucher_posting_date))
-				.groupby(ple.against_voucher_type, ple.against_voucher_no, ple.party_type, ple.party)
+				.groupby(
+					ple.against_voucher_type, 
+					ple.against_voucher_no, 
+					ple.party_type, 
+					ple.party,
+					ple.posting_date
+				)
 				.orderby(ple.posting_date, ple.voucher_no)
-				.having(qb.Field("amount_in_account_currency") > 0)
+				.having(Sum(ple.amount_in_account_currency) > 0)
 				.limit(self.limit)
 				.run()
 			)
@@ -1966,14 +1972,14 @@ class QueryPaymentLedger:
 		if self.get_invoices:
 			self.cte_query_voucher_amount_and_outstanding = (
 				self.cte_query_voucher_amount_and_outstanding.having(
-					qb.Field("outstanding_in_account_currency") > 0
+					(Table("outstanding").amount_in_account_currency > 0)
 				)
 			)
 		# only fetch payments
 		elif self.get_payments:
 			self.cte_query_voucher_amount_and_outstanding = (
 				self.cte_query_voucher_amount_and_outstanding.having(
-					qb.Field("outstanding_in_account_currency") < 0
+					(Table("outstanding").amount_in_account_currency < 0)
 				)
 			)
 
