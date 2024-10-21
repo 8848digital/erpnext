@@ -758,6 +758,11 @@ def get_purchase_receipts(doctype, txt, searchfield, start, page_len, filters):
 			item_code=frappe.db.escape(filters.get("item_code"))
 		)
 
+	if filters and filters.get("company"):
+		query += " and pr.company = {company}".format(
+			company=frappe.db.escape(filters.get("company"))
+		)
+
 	return frappe.db.sql(query, filters)
 
 
