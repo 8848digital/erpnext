@@ -780,12 +780,16 @@ def get_purchase_invoices(doctype, txt, searchfield, start, page_len, filters):
 		from `tabPurchase Invoice` pi, `tabPurchase Invoice Item` piitem
 		where pi.docstatus = 1 and piitem.parent = pi.name
 		and pi.name like {txt}""".format(txt=frappe.db.escape(f"%{txt}%"))
+	
+	if filters and filters.get("update_stock"):
+		query += " and pi.update_stock = {update_stock}".format(
+			update_stock=filters.get("update_stock")
+		)
 
 	if filters and filters.get("item_code"):
 		query += " and piitem.item_code = {item_code}".format(
 			item_code=frappe.db.escape(filters.get("item_code"))
 		)
-
 	return frappe.db.sql(query, filters)
 
 
