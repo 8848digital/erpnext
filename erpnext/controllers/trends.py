@@ -102,7 +102,7 @@ def get_data(filters, conditions):
 			""" select {} from `tab{}` t1, `tab{} Item` t2 {}
 					where t2.parent = t1.name and t1.company = {} and {} between {} and {} and
 					t1.docstatus = 1 {} {}
-					group by {},{},{}
+					group by {}
 				""".format(
 				query_details,
 				conditions["trans"],
@@ -115,8 +115,6 @@ def get_data(filters, conditions):
 				conditions.get("addl_tables_relational_cond"),
 				cond,
 				conditions["group_by"],
-				"t1.customer_name",
-				"t1.territory"
 			),
 			(filters.get("company"), year_start_date, year_end_date),
 			as_list=1,
@@ -136,7 +134,6 @@ def get_data(filters, conditions):
 				FROM `tab{}` t1, `tab{} Item` t2 {}
 				WHERE
 					t2.parent = t1.name
-					AND {} IS NOT NULL
 					AND t1.company = {}
 					AND {} BETWEEN {} AND {}
 					AND t1.docstatus = 1
@@ -148,7 +145,6 @@ def get_data(filters, conditions):
 					conditions["trans"],
 					conditions["trans"],
 					conditions["addl_tables"],
-					sel_col,
 					"%s",
 					posting_date,
 					"%s",
@@ -229,7 +225,7 @@ def get_data(filters, conditions):
 				AND {} BETWEEN {} AND {}
 				AND t1.docstatus = 1
 				{} {}
-				group by {},{},{}
+				group by {}
 			"""
 			.format(
 				query_details,
@@ -243,8 +239,6 @@ def get_data(filters, conditions):
 				cond,
 				conditions.get("addl_tables_relational_cond", ""),
 				conditions["group_by"],
-				"t1.customer_name",
-				"t1.territory"
 			),
 			(filters.get("company"), year_start_date, year_end_date),
 			as_list=1,
@@ -368,7 +362,7 @@ def based_wise_columns_query(based_on, trans):
 			"Territory:Link/Territory:120",
 		]
 		based_on_details["based_on_select"] = "t1.customer_name, t1.territory, "
-		based_on_details["based_on_group_by"] = "t1.party_name, t1.customer_name , t1.territory" if trans == "Quotation" else "t1.customer_name , t1.territory"
+		based_on_details["based_on_group_by"] = "t1.party_name,t1.customer_name,t1.territory" if trans == "Quotation" else "t1.customer_name , t1.territory"
 		based_on_details["addl_tables"] = ""
 
 	elif based_on == "Customer Group":
