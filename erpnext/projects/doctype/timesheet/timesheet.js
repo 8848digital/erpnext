@@ -158,6 +158,17 @@ frappe.ui.form.on("Timesheet", {
 		calculate_time_and_amount(frm);
 	},
 
+	parent_project: async function(frm){
+        await frappe.db.get_value('Project', frm.doc.parent_project, 'customer')
+        .then(r => {
+            frm.set_value("customer",r.message.customer)
+            }) 
+		await frappe.db.get_value('Project', frm.doc.parent_project, 'company')
+		.then(r => {
+			frm.set_value("company",r.message.company)
+			})
+    },
+
 	set_dynamic_field_label: function (frm) {
 		let base_currency = frappe.defaults.get_global_default("currency");
 		frm.set_currency_labels(
