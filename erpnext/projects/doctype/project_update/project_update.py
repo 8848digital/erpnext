@@ -27,14 +27,15 @@ class ProjectUpdate(Document):
 	# end: auto-generated types
 
 	def validate(self):
-		for user in self.users:
-			user_type = frappe.db.get_value("User", user.user, 'user_type')
-			
-			if user_type == 'Website User':
-				frappe.throw(
-					_(f"At line {user.idx}, user <b>{user.user}</b> is a Website User."),
-					title=_("Only System Users are allowed.")
-				)
+		if self.users:
+			for user in self.users:
+				user_type = frappe.db.get_value("User", user.user, 'user_type')
+				
+				if user_type == 'Website User':
+					frappe.throw(
+						_(f"At line {user.idx}, user <b>{user.user}</b> is a Website User."),
+						title=_("Only System Users are allowed.")
+					)
 
 
 @frappe.whitelist()
