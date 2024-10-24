@@ -51,6 +51,14 @@ frappe.query_reports["Product Bundle Balance"] = {
 			fieldtype: "Link",
 			width: "80",
 			options: "Warehouse",
+			get_query: function () {
+				return {
+					filters: {
+						company: frappe.query_report.get_filter_value("company"),
+					},
+				};
+			},
+
 		},
 	],
 	initial_depth: 0,
