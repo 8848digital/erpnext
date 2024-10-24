@@ -4,6 +4,7 @@
 
 import frappe
 from frappe.model.document import Document
+from frappe import _
 
 
 class ProjectUpdate(Document):
@@ -26,7 +27,18 @@ class ProjectUpdate(Document):
 		users: DF.Table[ProjectUser]
 	# end: auto-generated types
 
-	pass
+	
+	def validate(self):
+		for user in self.users:
+			user_type = frappe.db.get_value("User", user.user, 'user_type')
+			
+			if user_type == 'Website User':
+				frappe.throw(
+					_(f"At line {user.idx}, user <b>{user.user}</b> is a Website User."),
+					title=_("Only System Users are allowed.")
+				)
+
+
 
 
 @frappe.whitelist()
