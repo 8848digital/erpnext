@@ -1969,10 +1969,10 @@ class TestPurchaseInvoice(FrappeTestCase, StockTestMixin):
 		pi.submit()
 
 		expected_gle = [
-			["_Test Account Cost for Goods Sold - _TC", 1000, 0.0, nowdate(), branch2.branch],
 			["Creditors - _TC", 0.0, 1000, nowdate(), branch1.branch],
 			["Offsetting - _TC", 1000, 0.0, nowdate(), branch1.branch],
 			["Offsetting - _TC", 0.0, 1000, nowdate(), branch2.branch],
+			["_Test Account Cost for Goods Sold - _TC", 1000, 0.0, nowdate(), branch2.branch]
 		]
 
 		check_gl_entries(
