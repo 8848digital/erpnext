@@ -1329,15 +1329,15 @@ class TestMaterialRequest(FrappeTestCase):
 			},
 		]
 
-		args['pr'] = []
-		args['pi'] = [1, 1]
+		args['pr'] = [1, 1]
+		args['pi'] = []
 		total_pi_qty = 0 
 		
 		doc_mr = make_material_request(**args['mr'][0])
 		source_name_rfq = make_test_rfq(doc_mr.name)
 		source_name_sq= make_test_sq(source_name_rfq)
 		source_name_po = make_test_po(source_name_sq)
-		for pr_received_qty in args['pi']:
+		for pr_received_qty in args['pr']:
 			source_name_pr = make_test_pr(source_name_po, received_qty=pr_received_qty)
 			doc_pi = make_test_pi(source_name_pr)
 			total_pi_qty += doc_pi.items[0].qty
