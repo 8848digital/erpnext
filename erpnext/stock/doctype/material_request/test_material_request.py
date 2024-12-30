@@ -1316,6 +1316,35 @@ class TestMaterialRequest(FrappeTestCase):
 			
 		self.assertEqual(doc_pi.docstatus, 1)
 		self.assertEqual(doc_mr.items[0].qty, total_pi_qty)
+	
+
+	def test_mr_to_partial_pr(self):
+		args = frappe._dict()
+		args['mr'] = [{
+				"company" : "PP Ltd",
+				"item_code" : "Testing-31",
+				"warehouse" : "Stores - PP Ltd",
+				"qty" : 2,
+				"rate" : 100,
+			},
+		]
+
+		args['pr'] = []
+		args['pi'] = [1, 1]
+		total_pi_qty = 0 
+		
+		doc_mr = make_material_request(**args['mr'][0])
+		source_name_rfq = make_test_rfq(doc_mr.name)
+		source_name_sq= make_test_sq(source_name_rfq)
+		source_name_po = make_test_po(source_name_sq)
+		for pr_received_qty in args['pi']:
+			source_name_pr = make_test_pr(source_name_po, received_qty=pr_received_qty)
+			doc_pi = make_test_pi(source_name_pr)
+			total_pi_qty += doc_pi.items[0].qty
+
+		self.assertEqual(doc_pi.docstatus, 1)
+		self.assertEqual(doc_mr.items[0].qty, total_pi_qty)
+
 
 
 def get_in_transit_warehouse(company):
@@ -1424,8 +1453,12 @@ def make_test_po(source_name):
 	return doc_po.name
 
 
-def make_test_pr(source_name):
+def make_test_pr(source_name, received_qty = None):
 	doc_pr = make_purchase_receipt_aganist_mr(source_name)
+
+	if received_qty is not None:
+		doc_pr.items[0].qty = received_qty
+
 	doc_pr.insert()
 	doc_pr.submit()
 	return doc_pr.name
@@ -1437,7 +1470,7 @@ def make_test_pi(source_name, received_qty = None):
 		doc_pi.items[0].qty = received_qty
 	doc_pi.insert()
 	doc_pi.submit()
-	return doc_pi.name
+	return doc_pi
 
 
 def create_mr_to_pi(**args):
@@ -1504,6 +1537,35 @@ def test_mr_to_partial_pi(**args):
 	source_name_pr = make_test_pr(source_name_po)
 	for pi_received_ceqty in args['pi']:
 		doc_pi = make_test_pi(source_name_pr, received_qty = pi_received_ceqty)
+		total_pi_qty += doc_pi.items[0].qty
+
+	test_Obj.assertEqual(doc_pi.docstatus, 1)
+	test_Obj.assertEqual(doc_mr.items[0].qty, total_pi_qty)
+
+
+@frappe.whitelist()
+def test_mr_to_partial_pr(**args):
+	args = frappe._dict()
+	args['mr'] = [{
+			"company" : "PP Ltd",
+			"item_code" : "Testing-31",
+			"warehouse" : "Stores - PP Ltd",
+			"qty" : 2,
+			"rate" : 100,
+		},
+	]
+
+	args['pr'] = []
+	args['pi'] = [1, 1]
+	total_pi_qty = 0 
+	test_Obj = TestMaterialRequest()
+	doc_mr = make_material_request(**args['mr'][0])
+	source_name_rfq = make_test_rfq(doc_mr.name)
+	source_name_sq= make_test_sq(source_name_rfq)
+	source_name_po = make_test_po(source_name_sq)
+	for pr_received_qty in args['pi']:
+		source_name_pr = make_test_pr(source_name_po, received_qty=pr_received_qty)
+		doc_pi = make_test_pi(source_name_pr)
 		total_pi_qty += doc_pi.items[0].qty
 
 	test_Obj.assertEqual(doc_pi.docstatus, 1)
