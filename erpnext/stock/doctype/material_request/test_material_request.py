@@ -8,7 +8,7 @@
 import frappe
 import json
 from frappe.tests.utils import FrappeTestCase
-from frappe.utils import flt, today
+from frappe.utils import flt, today, add_days, nowdate
 
 from erpnext.stock.doctype.item.test_item import create_item
 from erpnext.stock.doctype.material_request.material_request import (
@@ -17,7 +17,13 @@ from erpnext.stock.doctype.material_request.material_request import (
 	make_stock_entry,
 	make_supplier_quotation,
 	raise_work_orders,
+	make_request_for_quotation,
 )
+from erpnext.buying.doctype.request_for_quotation.request_for_quotation import make_supplier_quotation_from_rfq
+from erpnext.buying.doctype.supplier_quotation.supplier_quotation import make_purchase_order
+from erpnext.buying.doctype.purchase_order.purchase_order import make_purchase_receipt as make_purchase_receipt_aganist_mr
+from erpnext.stock.doctype.purchase_receipt.purchase_receipt import make_purchase_invoice
+
 from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
 from erpnext.stock.doctype.pick_list.pick_list import create_stock_entry as pl_stock_entry
 from erpnext.buying.doctype.purchase_order.purchase_order import make_purchase_receipt
@@ -1256,6 +1262,22 @@ class TestMaterialRequest(FrappeTestCase):
 		if frappe.db.exists('GL Entry',{'account': 'Stock In Hand - _TC'}):
 			gl_stock_debit = frappe.db.get_value('GL Entry',{'voucher_no':return_pr.name, 'account': 'Stock In Hand - _TC'},'credit')
 			self.assertEqual(gl_stock_debit, 1000)
+	
+	def test_mr_pi():
+		args = frappe._dict()
+		args['mr'] = [{
+				"company" : "PP Ltd",
+				"item_code" : "Testing-31",
+				"warehouse" : "Stores - PP Ltd",
+				"qty" : 20,
+				"rate" : 100,
+			},
+		]
+
+		args['pr'] = [3, 3]
+		args['pi'] = [6]
+		create_mr_to_pi(**args)
+
 
 def get_in_transit_warehouse(company):
 	if not frappe.db.exists("Warehouse Type", "Transit"):
@@ -1311,3 +1333,79 @@ def make_material_request(**args):
 
 test_dependencies = ["Currency Exchange", "BOM"]
 test_records = frappe.get_test_records("Material Request")
+
+
+
+@frappe.whitelist()
+def test_mr_to_pi(**args):
+	args = frappe._dict()
+	args['mr'] = [{
+			"company" : "PP Ltd",
+			"item_code" : "Testing-31",
+			"warehouse" : "Stores - PP Ltd",
+			"qty" : 20,
+			"rate" : 100,
+		},
+	]
+
+	args['pr'] = [3, 3]
+	args['pi'] = [6]
+	create_mr_to_pi(**args)
+
+
+def make_test_rfq(source_name):
+	doc_rfq = make_request_for_quotation(source_name)
+
+	supplier_data=[
+				{
+					"supplier": "Shivank",
+					"supplier_name": "Shivank",
+					"email_id": "Shivankrfquser@example.com",
+				}
+			]
+	doc_rfq.append("suppliers", supplier_data[0])
+	doc_rfq.message_for_supplier = "Please supply the specified items at the best possible rates."
+	doc_rfq.insert()
+	doc_rfq.submit()
+	return doc_rfq.name
+
+
+def make_test_sq(source_name):
+	doc_sq = make_supplier_quotation_from_rfq(source_name, for_supplier = "Shivank")
+	doc_sq.insert()
+	doc_sq.submit()
+	return doc_sq.name
+
+
+def make_test_po(source_name):
+	doc_po = make_purchase_order(source_name)
+	doc_po.insert()
+	doc_po.submit()
+	return doc_po.name
+
+
+def make_test_pr(source_name):
+	doc_pr = make_purchase_receipt_aganist_mr(source_name)
+	doc_pr.insert()
+	doc_pr.submit()
+	return doc_pr.name
+
+
+def make_test_pi(source_name):
+	doc_pi = make_purchase_invoice(source_name)
+	doc_pi.insert()
+	doc_pi.submit()
+	return doc_pi.name
+
+
+def create_mr_to_pi(**args):
+	args = frappe._dict(args)
+	for arg in args['mr']:
+		doc_mr = make_material_request(**arg)
+		source_name_rfq = make_test_rfq(doc_mr.name)
+		source_name_sq= make_test_sq(source_name_rfq)
+		source_name_po = make_test_po(source_name_sq)
+		source_name_pr = make_test_pr(source_name_po)
+		source_name_pi = make_test_pi(source_name_pr)
+		return source_name_pi
+	
