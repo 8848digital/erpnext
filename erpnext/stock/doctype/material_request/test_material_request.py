@@ -1319,6 +1319,7 @@ class TestMaterialRequest(FrappeTestCase):
 	
 
 	def test_mr_to_partial_pr(self):
+		# MR => RFQ => SQ => PO => 2PR => 2PI
 		args = frappe._dict()
 		args['mr'] = [{
 				"company" : "PP Ltd",
@@ -1404,24 +1405,6 @@ test_dependencies = ["Currency Exchange", "BOM"]
 test_records = frappe.get_test_records("Material Request")
 
 
-
-@frappe.whitelist()
-def test_mr_to_pi(**args):
-	args = frappe._dict()
-	args['mr'] = [{
-			"company" : "PP Ltd",
-			"item_code" : "Testing-31",
-			"warehouse" : "Stores - PP Ltd",
-			"qty" : 20,
-			"rate" : 100,
-		},
-	]
-
-	args['pr'] = [3, 3]
-	args['pi'] = [6]
-	create_mr_to_pi(**args)
-
-
 def make_test_rfq(source_name):
 	doc_rfq = make_request_for_quotation(source_name)
 
@@ -1484,89 +1467,3 @@ def create_mr_to_pi(**args):
 		source_name_pi = make_test_pi(source_name_pr)
 		return source_name_pi
 	
-	
-@frappe.whitelist()
-def test_mr_to_partial_pi(**args):
-	args = frappe._dict()
-	args['mr'] = [{
-			"company" : "PP Ltd",
-			"item_code" : "Testing-31",
-			"warehouse" : "Stores - PP Ltd",
-			"qty" : 2,
-			"rate" : 100,
-		},
-	]
-
-	args['pr'] = []
-	args['pi'] = [1, 1]
-	total_pi_qty = 0 
-	test_Obj = TestMaterialRequest()
-	doc_mr = make_material_request(**args['mr'][0])
-	source_name_rfq = make_test_rfq(doc_mr.name)
-	source_name_sq= make_test_sq(source_name_rfq)
-	source_name_po = make_test_po(source_name_sq)
-	source_name_pr = make_test_pr(source_name_po)
-	for pi_received_ceqty in args['pi']:
-		doc_pi = make_test_pi(source_name_pr, received_qty = pi_received_ceqty)
-		total_pi_qty += doc_pi.items[0].qty
-
-	test_Obj.assertEqual(doc_pi.docstatus, 1)
-	test_Obj.assertEqual(doc_mr.items[0].qty, total_pi_qty)
-
-
-@frappe.whitelist()
-def test_mr_to_partial_pi(**args):
-	args = frappe._dict()
-	args['mr'] = [{
-			"company" : "PP Ltd",
-			"item_code" : "Testing-31",
-			"warehouse" : "Stores - PP Ltd",
-			"qty" : 2,
-			"rate" : 100,
-		},
-	]
-
-	args['pr'] = []
-	args['pi'] = [1, 1]
-	total_pi_qty = 0 
-	test_Obj = TestMaterialRequest()
-	doc_mr = make_material_request(**args['mr'][0])
-	source_name_rfq = make_test_rfq(doc_mr.name)
-	source_name_sq= make_test_sq(source_name_rfq)
-	source_name_po = make_test_po(source_name_sq)
-	source_name_pr = make_test_pr(source_name_po)
-	for pi_received_ceqty in args['pi']:
-		doc_pi = make_test_pi(source_name_pr, received_qty = pi_received_ceqty)
-		total_pi_qty += doc_pi.items[0].qty
-
-	test_Obj.assertEqual(doc_pi.docstatus, 1)
-	test_Obj.assertEqual(doc_mr.items[0].qty, total_pi_qty)
-
-
-@frappe.whitelist()
-def test_mr_to_partial_pr(**args):
-	args = frappe._dict()
-	args['mr'] = [{
-			"company" : "PP Ltd",
-			"item_code" : "Testing-31",
-			"warehouse" : "Stores - PP Ltd",
-			"qty" : 2,
-			"rate" : 100,
-		},
-	]
-
-	args['pr'] = []
-	args['pi'] = [1, 1]
-	total_pi_qty = 0 
-	test_Obj = TestMaterialRequest()
-	doc_mr = make_material_request(**args['mr'][0])
-	source_name_rfq = make_test_rfq(doc_mr.name)
-	source_name_sq= make_test_sq(source_name_rfq)
-	source_name_po = make_test_po(source_name_sq)
-	for pr_received_qty in args['pi']:
-		source_name_pr = make_test_pr(source_name_po, received_qty=pr_received_qty)
-		doc_pi = make_test_pi(source_name_pr)
-		total_pi_qty += doc_pi.items[0].qty
-
-	test_Obj.assertEqual(doc_pi.docstatus, 1)
-	test_Obj.assertEqual(doc_mr.items[0].qty, total_pi_qty)
