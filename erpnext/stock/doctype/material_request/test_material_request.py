@@ -1263,7 +1263,8 @@ class TestMaterialRequest(FrappeTestCase):
 			gl_stock_debit = frappe.db.get_value('GL Entry',{'voucher_no':return_pr.name, 'account': 'Stock In Hand - _TC'},'credit')
 			self.assertEqual(gl_stock_debit, 1000)
 	
-	def test_mr_pi():
+	def test_mr_pi(self):
+		# MR => RFQ => SQ => PO => PR => PI
 		args = frappe._dict()
 		args['mr'] = [{
 				"company" : "PP Ltd",
@@ -1276,7 +1277,45 @@ class TestMaterialRequest(FrappeTestCase):
 
 		args['pr'] = [3, 3]
 		args['pi'] = [6]
-		create_mr_to_pi(**args)
+		
+		doc_mr = make_material_request(**args['mr'][0])
+		self.assertEqual(doc_mr.docstatus, 1)
+
+		source_name_rfq = make_test_rfq(doc_mr.name)
+		source_name_sq= make_test_sq(source_name_rfq)
+		source_name_po = make_test_po(source_name_sq)
+		source_name_pr = make_test_pr(source_name_po)
+		doc_pi = make_test_pi(source_name_pr)
+			
+		self.assertEqual(doc_pi.docstatus, 1)
+	
+	def test_mr_to_partial_pi(self):
+		# MR => RFQ => SQ => PO => PR => 2PI
+		args = frappe._dict()
+		args['mr'] = [{
+				"company" : "PP Ltd",
+				"item_code" : "Testing-31",
+				"warehouse" : "Stores - PP Ltd",
+				"qty" : 2,
+				"rate" : 100,
+			},
+		]
+
+		args['pr'] = []
+		args['pi'] = [1, 1]
+		total_pi_qty = 0 
+		
+		doc_mr = make_material_request(**args['mr'][0])
+		source_name_rfq = make_test_rfq(doc_mr.name)
+		source_name_sq= make_test_sq(source_name_rfq)
+		source_name_po = make_test_po(source_name_sq)
+		source_name_pr = make_test_pr(source_name_po)
+		for pi_received_qty in args['pi']:
+			doc_pi = make_test_pi(source_name_pr, received_qty = pi_received_qty)
+			total_pi_qty += doc_pi.items[0].qty
+			
+		self.assertEqual(doc_pi.docstatus, 1)
+		self.assertEqual(doc_mr.items[0].qty, total_pi_qty)
 
 
 def get_in_transit_warehouse(company):
@@ -1323,6 +1362,7 @@ def make_material_request(**args):
 			"schedule_date": args.schedule_date or today(),
 			"warehouse": args.warehouse or "_Test Warehouse - _TC",
 			"cost_center": args.cost_center or "_Test Cost Center - _TC",
+			"rate" : args.cost_center or "100",
 		},
 	)
 	mr.insert()
@@ -1391,8 +1431,10 @@ def make_test_pr(source_name):
 	return doc_pr.name
 
 
-def make_test_pi(source_name):
+def make_test_pi(source_name, received_qty = None):
 	doc_pi = make_purchase_invoice(source_name)
+	if received_qty is not None:
+		doc_pi.items[0].qty = received_qty
 	doc_pi.insert()
 	doc_pi.submit()
 	return doc_pi.name
@@ -1409,3 +1451,60 @@ def create_mr_to_pi(**args):
 		source_name_pi = make_test_pi(source_name_pr)
 		return source_name_pi
 	
+	
+@frappe.whitelist()
+def test_mr_to_partial_pi(**args):
+	args = frappe._dict()
+	args['mr'] = [{
+			"company" : "PP Ltd",
+			"item_code" : "Testing-31",
+			"warehouse" : "Stores - PP Ltd",
+			"qty" : 2,
+			"rate" : 100,
+		},
+	]
+
+	args['pr'] = []
+	args['pi'] = [1, 1]
+	total_pi_qty = 0 
+	test_Obj = TestMaterialRequest()
+	doc_mr = make_material_request(**args['mr'][0])
+	source_name_rfq = make_test_rfq(doc_mr.name)
+	source_name_sq= make_test_sq(source_name_rfq)
+	source_name_po = make_test_po(source_name_sq)
+	source_name_pr = make_test_pr(source_name_po)
+	for pi_received_ceqty in args['pi']:
+		doc_pi = make_test_pi(source_name_pr, received_qty = pi_received_ceqty)
+		total_pi_qty += doc_pi.items[0].qty
+
+	test_Obj.assertEqual(doc_pi.docstatus, 1)
+	test_Obj.assertEqual(doc_mr.items[0].qty, total_pi_qty)
+
+
+@frappe.whitelist()
+def test_mr_to_partial_pi(**args):
+	args = frappe._dict()
+	args['mr'] = [{
+			"company" : "PP Ltd",
+			"item_code" : "Testing-31",
+			"warehouse" : "Stores - PP Ltd",
+			"qty" : 2,
+			"rate" : 100,
+		},
+	]
+
+	args['pr'] = []
+	args['pi'] = [1, 1]
+	total_pi_qty = 0 
+	test_Obj = TestMaterialRequest()
+	doc_mr = make_material_request(**args['mr'][0])
+	source_name_rfq = make_test_rfq(doc_mr.name)
+	source_name_sq= make_test_sq(source_name_rfq)
+	source_name_po = make_test_po(source_name_sq)
+	source_name_pr = make_test_pr(source_name_po)
+	for pi_received_ceqty in args['pi']:
+		doc_pi = make_test_pi(source_name_pr, received_qty = pi_received_ceqty)
+		total_pi_qty += doc_pi.items[0].qty
+
+	test_Obj.assertEqual(doc_pi.docstatus, 1)
+	test_Obj.assertEqual(doc_mr.items[0].qty, total_pi_qty)
