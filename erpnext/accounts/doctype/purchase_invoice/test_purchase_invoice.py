@@ -2802,7 +2802,53 @@ class TestPurchaseInvoice(FrappeTestCase, StockTestMixin):
 				posting_date=pi.posting_date,
 				voucher_type="Journal Entry"
 			)
+	
+	def test_invoice_status_on_payment_entry_submit_TC_B_035_and_TC_B_037(self):
+		from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_payment_entry
+		from erpnext.accounts.doctype.unreconcile_payment.unreconcile_payment import payment_reconciliation_record_on_unreconcile,create_unreconcile_doc_for_selection
+		import json
+		pi = make_purchase_invoice(
+			qty=1,
+			item_code="_Test Item",
+			supplier = "_Test Supplier",
+			company = "_Test Company",
+			rate = 30
+		)
 
+		pi.save()
+		pi.submit()
+
+		pe = create_payment_entry(
+			company="_Test Company",
+			payment_type="Pay",
+			party_type="Supplier",
+			party=f"_Test Supplier",
+			paid_to="Creditors - _TC",
+			paid_from ="Cash - _TC",
+			paid_amount=pi.grand_total,
+		)
+		pe.append("references", {"reference_doctype": "Purchase Invoice", "reference_name": pi.name,"allocated_amount":pi.rounded_total})
+		pe.save()
+		pi_status_before = frappe.db.get_value("Purchase Invoice", pi.name, "status")
+		self.assertEqual(pi_status_before, "Unpaid")
+		pe.submit()
+		pi_status_after = frappe.db.get_value("Purchase Invoice", pi.name, "status")
+		self.assertEqual(pi_status_after, "Paid")
+		header = {
+			"company":"_Test Company",
+			"unreconcile":1,
+			"clearing_date":"2025-01-07",
+			"party_type":"Supplier",
+			"party":"_Test Supplier"
+		}
+		selection = {"company":"_Test Company","voucher_type":"Payment Entry","voucher_no":f"{pe.name}","against_voucher_type":"Purchase Invoice","against_voucher_no":f"{pi.name}","allocated_amount":pi.rounded_total}
+		allocation = [{"reference_type":"Payment Entry","reference_name":pe.name,"invoice_type":"Purchase Invoice","invoice_number":pi.name,"allocated_amount":pi.rounded_total}]
+		payment_reconciliation_record_on_unreconcile(header=header,allocation=allocation)
+		create_unreconcile_doc_for_selection(selections = json.dumps([selection]))
+		pi_status_after_reconcile = frappe.db.get_value("Purchase Invoice", pi.name, "status")
+		self.assertEqual(pi_status_after_reconcile, "Unpaid")
+	
+	
 def set_advance_flag(company, flag, default_account):
 	frappe.db.set_value(
 		"Company",
