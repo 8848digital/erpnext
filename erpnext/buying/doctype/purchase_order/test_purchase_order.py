@@ -1960,7 +1960,139 @@ class TestPurchaseOrder(FrappeTestCase):
 		)
 		self.assertGreater(len(gl_entries), 0)
 
+	def test_po_to_pr_to_pi_fully_paid_TC_B_087(self):
+		from erpnext.stock.doctype.purchase_receipt.purchase_receipt import make_purchase_invoice
+		po = create_purchase_order()
+		po_status_before = frappe.db.get_value("Purchase Order",po.name,'status')
+		self.assertEqual(po_status_before,'To Receive and Bill')
 
+		pr = make_purchase_receipt(po.name)
+		pr.save()
+		pr.submit()
+
+		po_status_after_pr = frappe.db.get_value("Purchase Order",po.name,'status')
+		self.assertEqual(po_status_after_pr,'To Bill')
+
+		pi = make_purchase_invoice(pr.name)
+		pi.is_paid = 1
+		pi.mode_of_payment = "Cash"
+		pi.cash_bank_account = "Cash - _TC"
+		pi.paid_amount = pr.grand_total
+		pi.save()
+		pi.submit()
+
+		pi_status = frappe.db.get_value("Purchase Invoice",pi.name,'status')
+		self.assertEqual(pi_status,'Paid')
+
+		po_status_after_paid =  frappe.db.get_value("Purchase Order",po.name,'status')
+		self.assertEqual(po_status_after_paid,'Completed')
+
+	def test_po_to_pr_to_pi_partly_paid_TC_B_089(self):
+		from erpnext.stock.doctype.purchase_receipt.purchase_receipt import make_purchase_invoice
+		po = create_purchase_order()
+		po_status_before = frappe.db.get_value("Purchase Order",po.name,'status')
+		self.assertEqual(po_status_before,'To Receive and Bill')
+
+		pr = make_purchase_receipt(po.name)
+		pr.save()
+		pr.submit()
+
+		po_status_after_pr = frappe.db.get_value("Purchase Order",po.name,'status')
+		self.assertEqual(po_status_after_pr,'To Bill')
+
+		pi = make_purchase_invoice(pr.name)
+		pi.is_paid = 1
+		pi.mode_of_payment = "Cash"
+		pi.cash_bank_account = "Cash - _TC"
+		pi.paid_amount = pr.grand_total / 2
+		pi.save()
+		pi.submit()
+
+		pi_status = frappe.db.get_value("Purchase Invoice",pi.name,'status')
+		self.assertEqual(pi_status,'Partly Paid')
+
+		po_status_after_paid =  frappe.db.get_value("Purchase Order",po.name,'status')
+		self.assertEqual(po_status_after_paid,'Completed')
+		
+	def test_po_to_pr_with_gst_partly_paid_TC_B_085(self):
+		# Scenario : PO => PR with GST Partly Paid
+
+		purchase_tax = frappe.new_doc("Purchase Taxes and Charges Template")
+		purchase_tax.title = "TEST"
+		purchase_tax.company = "_Test Company"
+		purchase_tax.tax_category = "_Test Tax Category 1"
+
+		purchase_tax.append("taxes",{
+			"category":"Total",
+			"add_deduct_tax":"Add",
+			"charge_type":"On Net Total",
+			"account_head":"_Test Account Excise Duty - _TC",
+			"_Test Account Excise Duty":"_Test Account Excise Duty",
+			"rate":100,
+			"description":"GST"
+		})
+		purchase_tax.save()
+		po = create_purchase_order(do_not_submit=True)
+		po.taxes_and_charges = purchase_tax.name
+		po.save()
+		po.submit()
+		self.assertEqual(po.docstatus,1)
+
+		args = {
+				"dt": po.doctype,
+				"dn": po.name,
+				"payment_request_type": 'Outward',
+				"party_type":  "Supplier",
+				"party":  po.supplier,
+				"party_name": po.supplier_name
+			}
+		partly_pr = make_payment_request(**args)
+		doc_pr = frappe.get_doc("Payment Request", partly_pr.name)
+		# set half amount to be paid
+		doc_pr.grand_total = po.grand_total / 2
+		doc_pr.submit()
+		po_status = frappe.db.get_value("Purchase Order",po.name,'status')
+		self.assertEqual(po_status,'To Receive and Bill')
+	
+	def test_po_to_pr_with_gst_fully_paid_TC_B_086(self):
+		# Scenario : PO => PR with GST Fully Paid
+
+		purchase_tax = frappe.new_doc("Purchase Taxes and Charges Template")
+		purchase_tax.title = "TEST"
+		purchase_tax.company = "_Test Company"
+		purchase_tax.tax_category = "_Test Tax Category 1"
+
+		purchase_tax.append("taxes",{
+			"category":"Total",
+			"add_deduct_tax":"Add",
+			"charge_type":"On Net Total",
+			"account_head":"_Test Account Excise Duty - _TC",
+			"_Test Account Excise Duty":"_Test Account Excise Duty",
+			"rate":100,
+			"description":"GST"
+		})
+		purchase_tax.save()
+		po = create_purchase_order(do_not_submit=True)
+		po.taxes_and_charges = purchase_tax.name
+		po.save()
+		po.submit()
+		self.assertEqual(po.docstatus,1)
+
+		args = {
+				"dt": po.doctype,
+				"dn": po.name,
+				"payment_request_type": 'Outward',
+				"party_type":  "Supplier",
+				"party":  po.supplier,
+				"party_name": po.supplier_name
+			}
+		partly_pr = make_payment_request(**args)
+		doc_pr = frappe.get_doc("Payment Request", partly_pr.name)
+		doc_pr.grand_total = po.grand_total 
+		doc_pr.submit()
+		po_status = frappe.db.get_value("Purchase Order",po.name,'status')
+		self.assertEqual(po_status,'To Receive and Bill')
+		
 
 def create_po_for_sc_testing():
 	from erpnext.controllers.tests.test_subcontracting_controller import (
