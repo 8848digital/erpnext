@@ -2217,7 +2217,6 @@ class TestPurchaseOrder(FrappeTestCase):
 
 	def test_create_po_pr_TC_SCK_177(self):
 		from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
-		
 		po = create_purchase_order(qty=10)
 		po.submit()
 
