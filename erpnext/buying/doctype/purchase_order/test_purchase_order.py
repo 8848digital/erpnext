@@ -2175,6 +2175,45 @@ class TestPurchaseOrder(FrappeTestCase):
 		self.assertEqual(pi.discount_amount, 1000)
 		self.assertEqual(pi.net_total, 9000)
 
+	def test_create_po_pr_partial_TC_SCK_046(self):
+		po = create_purchase_order(rate=10000,qty=10)
+		po.submit()
+
+		pr = create_pr_against_po(po.name, received_qty=5)
+		bin_qty = frappe.db.get_value("Bin", {"item_code": "_Test Item", "warehouse": "_Test Warehouse - _TC"}, "actual_qty")
+		sle = frappe.get_doc('Stock Ledger Entry',{'voucher_no':pr.name})
+		self.assertEqual(sle.qty_after_transaction, bin_qty)
+		self.assertEqual(sle.warehouse, po.get("items")[0].warehouse)
+
+		#if account setup in company
+		if frappe.db.exists('GL Entry',{'account': 'Stock Received But Not Billed - _TC'}):
+			gl_temp_credit = frappe.db.get_value('GL Entry',{'voucher_no':pr.name, 'account': 'Stock Received But Not Billed - _TC'},'credit')
+			self.assertEqual(gl_temp_credit, 50000)
+
+		#if account setup in company
+		if frappe.db.exists('GL Entry',{'account': 'Stock In Hand - _TC'}):
+			gl_stock_debit = frappe.db.get_value('GL Entry',{'voucher_no':pr.name, 'account': 'Stock In Hand - _TC'},'debit')
+			self.assertEqual(gl_stock_debit, 50000)
+
+		
+		from erpnext.controllers.sales_and_purchase_return import make_return_doc
+		return_pr = make_return_doc("Purchase Receipt", pr.name)
+		return_pr.get("items")[0].received_qty = -5
+		return_pr.submit()
+
+		bin_qty = frappe.db.get_value("Bin", {"item_code": "_Test Item", "warehouse": "_Test Warehouse - _TC"}, "actual_qty")
+		sle = frappe.get_doc('Stock Ledger Entry',{'voucher_no':return_pr.name})
+		self.assertEqual(sle.qty_after_transaction, bin_qty)
+		
+		#if account setup in company
+		if frappe.db.exists('GL Entry',{'account': 'Stock Received But Not Billed - _TC'}):
+			gl_temp_credit = frappe.db.get_value('GL Entry',{'voucher_no':pr.name, 'account': 'Stock Received But Not Billed - _TC'},'debit')
+			self.assertEqual(gl_temp_credit, 500)
+		
+		#if account setup in company
+		if frappe.db.exists('GL Entry',{'account': 'Stock In Hand - _TC'}):
+			gl_stock_debit = frappe.db.get_value('GL Entry',{'voucher_no':return_pr.name, 'account': 'Stock In Hand - _TC'},'credit')
+			self.assertEqual(gl_stock_debit, 500)
 
 def create_po_for_sc_testing():
 	from erpnext.controllers.tests.test_subcontracting_controller import (
