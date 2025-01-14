@@ -2215,6 +2215,25 @@ class TestPurchaseOrder(FrappeTestCase):
 			gl_stock_debit = frappe.db.get_value('GL Entry',{'voucher_no':return_pr.name, 'account': 'Stock In Hand - _TC'},'credit')
 			self.assertEqual(gl_stock_debit, 500)
 
+	def test_create_po_pr_TC_SCK_177(self):
+		from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
+		
+		po = create_purchase_order(qty=10)
+		po.submit()
+
+		frappe.db.set_value("Item", "_Test Item", "over_delivery_receipt_allowance", 10)
+		pr = make_purchase_receipt(po.name)
+		pr.company = "_Test Company"
+		pr.set_warehouse = "All Warehouses - _TC"
+		pr.rejected_warehouse = create_warehouse("_Test Warehouse8", company=pr.company)
+		pr.get("items")[0].qty = 8
+		pr.get("items")[0].rejected_qty = 2
+		pr.insert()
+		pr.submit()
+		
+		sle = frappe.get_doc('Stock Ledger Entry',{'voucher_no':pr.name})
+		self.assertEqual(sle.qty_after_transaction, 2)
+
 def create_po_for_sc_testing():
 	from erpnext.controllers.tests.test_subcontracting_controller import (
 		make_bom_for_subcontracted_items,
