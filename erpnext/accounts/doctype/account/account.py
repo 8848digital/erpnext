@@ -566,3 +566,9 @@ def sync_update_account_number_in_child(
 
 	for d in frappe.db.get_values("Account", filters=filters, fieldname=["company", "name"], as_dict=True):
 		update_account_number(d["name"], account_name, account_number, from_descendant=True)
+
+def calculate_total(items):
+    total = 0
+    for item in items:
+        total += item.price   
+    return total             
