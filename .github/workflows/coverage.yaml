@@ -25,6 +25,7 @@ jobs:
         
     - name: Install dependencies
       run: |
+        sudo apt-get install redis-server
         sudo pip3 install frappe-bench
         bench init frappe-bench --frappe-path https://github.com/8848digital/frappe-v15.git --frappe-branch pre-prod
         bench init --skip-redis-config-generation --skip-assets --python "$(which python)" ~/frappe-bench
