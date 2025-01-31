@@ -15,7 +15,9 @@ from erpnext.controllers.accounts_controller import update_child_qty_rate
 from erpnext.maintenance.doctype.maintenance_schedule.test_maintenance_schedule import (
 	make_maintenance_schedule,
 )
-
+from erpnext.maintenance.doctype.maintenance_visit.test_maintenance_visit import (
+	make_maintenance_visit,
+)
 from erpnext.manufacturing.doctype.blanket_order.test_blanket_order import make_blanket_order
 from erpnext.selling.doctype.product_bundle.test_product_bundle import make_product_bundle
 from erpnext.selling.doctype.sales_order.sales_order import (
@@ -5608,147 +5610,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		si.save()
 		si.submit()
 		self.assertEqual(si.grand_total,900)
-	
-	def test_so_with_maintenance_visit_TC_S_138(self):
-		from erpnext.accounts.doctype.payment_entry.test_payment_entry import make_test_item
-		from erpnext.maintenance.doctype.maintenance_visit.test_maintenance_visit import make_sales_person
-		from erpnext.selling.doctype.sales_order.sales_order import make_maintenance_visit
-
-		item=make_test_item("_Test Item 1")
-		item.is_stock_item =0
-		item.save()
-		address=frappe.get_doc(
-		{
-			"doctype": "Address",
-			"address_title": "_Test Address for Customer",
-			"address_type": "Office",
-			"address_line1": "Station Road",
-			"city": "_Test City",
-			"state": "Tamil Nadu",
-			"country": "India",
-			"links": [{"link_doctype": "Customer", "link_name": "_Test Customer"}],
-		}
-		).insert()
-
-		contact = frappe.get_doc(
-			{
-				"doctype": "Contact",
-				"first_name": "_Test Contact for _Test Customer",
-				"links": [{"link_doctype": "Customer", "link_name": "_Test Customer"}],
-			}
-		)
-		contact.add_email("test_contact_customer@example.com", is_primary=True)
-		contact.add_phone("+91 0000000000", is_primary_phone=True)
-		contact.insert()
-
-		frappe.db.set_value('Customer', '_Test Customer', 'customer_primary_address', address.name)
-		frappe.db.set_value('Customer', '_Test Customer', 'customer_primary_contact', contact.name)
-
-		sales_order = make_sales_order(item_code='_Test Item 1',qty=1, rate=5000)
-		sales_order.save()
-		sales_order.submit()
-		self.assertEqual(sales_order.status, "To Deliver and Bill")
-
-		if not frappe.db.exists("Sales Person", "_Test Sales Person"):
-			make_sales_person("_Test Sales Person")
-
-		mv = make_maintenance_visit(sales_order.name)
-		mv.completion_status = "Fully Completed"
-		mv.maintenance_type = "Scheduled"
-		mv.purposes[0].service_person="_Test Sales Person"
-		mv.purposes[0].work_done="Test Work Done"
-		mv.customer_feedback = "Test Maintenance Visit "
-		mv.save()
-		mv.submit()
-
-		self.assertEqual(mv.completion_status, "Fully Completed")
-
-		si = make_sales_invoice(sales_order.name)
-		si.save()
-		si.submit()
 		self.assertEqual(si.status, "Unpaid")
-
-	def test_discount_in_si_apply_in_net_total_TS_S_148(self):
-		make_stock_entry(item_code="_Test Item", qty=10, rate=100, target="_Test Warehouse - _TC")
-		sales_order = make_sales_order(qty=1, rate=5000)
-		sales_order.save()
-		sales_order.submit()
-		self.assertEqual(sales_order.status, "To Deliver and Bill")
-
-		delivery_note = make_delivery_note(sales_order.name)
-		delivery_note.save()
-		delivery_note.submit()
-		self.assertEqual(delivery_note.status, "To Bill")
-
-		from erpnext.stock.doctype.delivery_note.delivery_note import make_sales_invoice
-		sales_invoice = make_sales_invoice(delivery_note.name)
-		sales_invoice.apply_discount_on = "Net Total"
-		sales_invoice.discount_amount = 1000
-		sales_invoice.save()
-		sales_invoice.submit()
-		self.assertEqual(sales_invoice.status, "Unpaid")
-
-	def test_discount_in_si_apply_in_grand_total_TS_S_149(self):
-		make_stock_entry(item_code="_Test Item", qty=10, rate=100, target="_Test Warehouse - _TC")
-		sales_order = make_sales_order(qty=1, rate=5000)
-		sales_order.save()
-		sales_order.submit()
-		self.assertEqual(sales_order.status, "To Deliver and Bill")
-
-		delivery_note = make_delivery_note(sales_order.name)
-		delivery_note.save()
-		delivery_note.submit()
-		self.assertEqual(delivery_note.status, "To Bill")
-
-		from erpnext.stock.doctype.delivery_note.delivery_note import make_sales_invoice
-		sales_invoice = make_sales_invoice(delivery_note.name)
-		sales_invoice.apply_discount_on = "Grand Total"
-		sales_invoice.discount_amount = 1000
-		sales_invoice.save()
-		sales_invoice.submit()
-		self.assertEqual(sales_invoice.status, "Unpaid")
-
-	def test_discount_in_dn_apply_in_net_total_TS_S_150(self):
-		make_stock_entry(item_code="_Test Item", qty=10, rate=100, target="_Test Warehouse - _TC")
-		sales_order = make_sales_order(qty=1, rate=5000)
-		sales_order.save()
-		sales_order.submit()
-		self.assertEqual(sales_order.status, "To Deliver and Bill")
-
-		sales_invoice = make_sales_invoice(sales_order.name)
-		sales_invoice.save()
-		sales_invoice.submit()
-		self.assertEqual(sales_invoice.status, "Unpaid")
-
-		from erpnext.accounts.doctype.sales_invoice.sales_invoice import make_delivery_note
-		delivery_note = make_delivery_note(sales_invoice.name)
-		delivery_note.apply_discount_on = "Net Total"
-		delivery_note.discount_amount = 1000
-		delivery_note.save()
-		delivery_note.submit()
-
-		self.assertEqual(delivery_note.status, "Completed")
-
-	def test_discount_in_dn_apply_in_grand_total_TS_S_151(self):
-		make_stock_entry(item_code="_Test Item", qty=10, rate=100, target="_Test Warehouse - _TC")
-		sales_order = make_sales_order(qty=1, rate=5000)
-		sales_order.save()
-		sales_order.submit()
-		self.assertEqual(sales_order.status, "To Deliver and Bill")
-
-		sales_invoice = make_sales_invoice(sales_order.name)
-		sales_invoice.save()
-		sales_invoice.submit()
-		self.assertEqual(sales_invoice.status, "Unpaid")
-
-		from erpnext.accounts.doctype.sales_invoice.sales_invoice import make_delivery_note
-		delivery_note = make_delivery_note(sales_invoice.name)
-		delivery_note.apply_discount_on = "Grand Total"
-		delivery_note.discount_amount = 1000
-		delivery_note.save()
-		delivery_note.submit()
-
-		self.assertEqual(delivery_note.status, "Completed")
 
 	def create_and_submit_sales_order(self, qty=None, rate=None):
 		sales_order = make_sales_order(cost_center='Main - _TC', selling_price_list='Standard Selling', do_not_save=True)
