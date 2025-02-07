@@ -3100,19 +3100,32 @@ class TestPurchaseOrder(FrappeTestCase):
 
 	def test_po_pr_pi_multiple_flow_TC_B_065(self):
 		# Scenario : PO=>2PR=>2PI 
+		from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
 		args = {
 					"calculate_based_on" : "Fixed",
 					"shipping_amount" : 200
 				}
-		shipping_rule_name = get_shipping_rule_name(args)
+		from erpnext.accounts.doctype.shipping_rule.test_shipping_rule import create_shipping_rule
+		doc_shipping_rule = create_shipping_rule("Buying", "_Test Shipping Rule _TC", args)
+		item = create_item("_Test Item")
+		supplier = create_supplier(supplier_name="_Test Supplier PO")
+		company = "_Test Company"
+		if not frappe.db.exists("Company", company):
+			company = frappe.new_doc("Company")
+			company.company_name = company
+			company.country="India",
+			company.default_currency= "INR",
+			company.save()
+		else:
+			company = frappe.get_doc("Company", company)
 		po_data = {
-			"company" : "_Test Company",
-			"supplier": "_Test Supplier",
-			"item_code" : "_Test Item",
-			"warehouse" : "_Test Warehouse 1 - _TC",
+			"company" : company.name,
+			"supplier":supplier.name,
+			"item_code" : item.item_code,
+			"warehouse" : create_warehouse("Stores - _TC", company=company.name),
 			"qty" : 4,
 			"rate" : 3000,
-			"shipping_rule" :shipping_rule_name
+			"shipping_rule" :doc_shipping_rule.name
 
 		}
 		po = create_purchase_order(**po_data)
