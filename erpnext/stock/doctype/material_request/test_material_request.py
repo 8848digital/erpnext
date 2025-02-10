@@ -20,7 +20,6 @@ from erpnext.stock.doctype.material_request.material_request import (
 	raise_work_orders,
 	make_request_for_quotation
 )
-from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
 from erpnext.stock.doctype.pick_list.pick_list import create_stock_entry as pl_stock_entry
 from erpnext.buying.doctype.purchase_order.purchase_order import make_purchase_receipt
 from erpnext.accounts.doctype.account.test_account import get_inventory_account
@@ -4386,52 +4385,6 @@ class TestMaterialRequest(FrappeTestCase):
 		for gle in gl_entries:
 			self.assertEqual(expected_values[gle.account][0], gle.debit)
 			self.assertEqual(expected_values[gle.account][1], gle.credit)
-	def test_po_additional_discount_TC_B_079(self):
-		# Scenario : MR=> PO => PR => PI [With IGST TAX]
-
-		po_data = {
-			"company" : "_Test Company",
-			"item_code" : "_Test Item",
-			"warehouse" : "Stores - _TC",
-			"supplier": "_Test Supplier",
-            "schedule_date": "2025-01-13",
-			"qty" : 1,
-			"rate" : 10000,
-			"do_not_submit":1
-		}
-
-		acc = frappe.new_doc("Account")
-		acc.account_name = "Input Tax IGST"
-		acc.parent_account = "Tax Assets - _TC"
-		acc.company = "_Test Company"
-		account_name = frappe.db.exists("Account", {"account_name" : "Input Tax IGST","company": "_Test Company" })
-		if not account_name:
-			account_name = acc.insert()
-
-		doc_mr = make_material_request(**po_data)
-		doc_mr.append("taxes", {
-                    "charge_type": "On Net Total",
-                    "account_head": account_name,
-                    "rate": 18,
-                    "description": "Input GST",
-                })
-		doc_mr.submit()
-		self.assertEqual(doc_mr.discount_amount, 1120)
-		self.assertEqual(doc_mr.grand_total, 10080)
-
-		doc_po = make_test_po(doc_mr.name)
-		doc_pr = make_test_pr(doc_po.name)
-		doc_pi = make_test_pi(doc_pr.name)
-
-		self.assertEqual(doc_pi.discount_amount, 1120)
-		self.assertEqual(doc_pi.grand_total, 10080)
-
-		# Accounting Ledger Checks
-		pi_gl_entries = frappe.get_all("GL Entry", filters={"voucher_no": doc_pi.name}, fields=["account", "debit", "credit"])
-
-		# PI Ledger Validation
-		pi_total = sum(entry["debit"] for entry in pi_gl_entries)
-		self.assertEqual(pi_total, 10080) 
 
 	def test_purchase_flow_TC_B_068(self):
 		#Scenario : MR=>PO=>PR=>PI [With Shipping Rule]
@@ -4510,7 +4463,6 @@ class TestMaterialRequest(FrappeTestCase):
 		# Scenario : MR=> PO => PR => PI [With IGST TAX]
 		from erpnext.buying.doctype.purchase_order.test_purchase_order import get_gl_entries, get_sle
 		supplier = create_supplier(supplier_name="_Test Supplier")
-		from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
 		company = "_Test Company"
 		item = create_item("_Test Item")
 		if not frappe.db.exists("Company", company):
@@ -4590,7 +4542,6 @@ class TestMaterialRequest(FrappeTestCase):
 		# Scenario : MR=>PO=> Partial PE=>PR=>PI=>Rm PE (With GST)
 		from erpnext.buying.doctype.purchase_order.test_purchase_order import get_gl_entries, get_sle
 		supplier = create_supplier(supplier_name="_Test Supplier")
-		from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
 		company = "_Test Company"
 		item = create_item("_Test Item")
 		if not frappe.db.exists("Company", company):

@@ -44,6 +44,7 @@ from erpnext.stock.doctype.purchase_receipt.purchase_receipt import make_purchas
 from erpnext.buying.doctype.request_for_quotation.request_for_quotation import make_supplier_quotation_from_rfq
 from erpnext.accounts.doctype.payment_entry.test_payment_entry import make_test_item
 from io import BytesIO
+from erpnext.accounts.doctype.shipping_rule.test_shipping_rule import create_shipping_rule
 
 class TestPurchaseOrder(FrappeTestCase):
 	def test_purchase_order_qty(self):
@@ -2816,12 +2817,10 @@ class TestPurchaseOrder(FrappeTestCase):
 
 	def test_po_pr_pi_with_shipping_rule_TC_B_064(self):
 		# Scenario : PO=>PR=>PI [With Shipping Rule]
-		from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
 		args = {
 					"calculate_based_on" : "Fixed",
 					"shipping_amount" : 200
 				}
-		from erpnext.accounts.doctype.shipping_rule.test_shipping_rule import create_shipping_rule
 		doc_shipping_rule = create_shipping_rule("Buying", "_Test Shipping Rule _TC", args)
 		item = create_item("_Test Item")
 		supplier = create_supplier(supplier_name="_Test Supplier PO")
@@ -2879,12 +2878,10 @@ class TestPurchaseOrder(FrappeTestCase):
 
 	def test_po_pi_pr_flow_TC_B_067(self):
 		# Scenario : PO => PI => PR [With Shipping Rule]
-		from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
 		args = {
 					"calculate_based_on" : "Fixed",
 					"shipping_amount" : 200
 				}
-		from erpnext.accounts.doctype.shipping_rule.test_shipping_rule import create_shipping_rule
 		doc_shipping_rule = create_shipping_rule("Buying", "_Test Shipping Rule _TC", args)
 		item = create_item("_Test Item")
 		supplier = create_supplier(supplier_name="_Test Supplier PO")
@@ -3100,12 +3097,10 @@ class TestPurchaseOrder(FrappeTestCase):
 
 	def test_po_pr_pi_multiple_flow_TC_B_065(self):
 		# Scenario : PO=>2PR=>2PI 
-		from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
 		args = {
 					"calculate_based_on" : "Fixed",
 					"shipping_amount" : 200
 				}
-		from erpnext.accounts.doctype.shipping_rule.test_shipping_rule import create_shipping_rule
 		doc_shipping_rule = create_shipping_rule("Buying", "_Test Shipping Rule _TC", args)
 		item = create_item("_Test Item")
 		supplier = create_supplier(supplier_name="_Test Supplier PO")
