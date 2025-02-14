@@ -29,6 +29,7 @@ from erpnext.stock.doctype.item.item import (
 )
 from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 from erpnext.stock.get_item_details import get_item_details
+from erpnext.stock.doctype.warehouse.warehouse import convert_to_group_or_ledger
 
 test_ignore = ["BOM"]
 test_dependencies = ["Warehouse", "Item Group", "Item Tax Template", "Brand", "Item Attribute"]
@@ -924,6 +925,31 @@ class TestItem(FrappeTestCase):
 		self.assertEqual(item.has_batch_no, 1)
 		self.assertEqual(item.has_expiry_date, 1)
 		self.assertEqual(item.shelf_life_in_days, 30)
+
+	def test_auto_reorder_item_TC_SCK_126(self):
+		from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
+		group_warehouse = frappe.get_doc("Warehouse", create_warehouse("TestGroup"))
+		convert_to_group_or_ledger(group_warehouse.name)
+		group_warehouse.reload()
+		self.assertEqual(group_warehouse.is_group, 1)
+		item = make_item(
+			"Test Auto Reorder Item",
+			{
+				"reorder_levels": [
+					{
+						"warehouse_group":group_warehouse.name,
+						"warehouse":create_warehouse("Test Store", {"parent_warehouse":group_warehouse.name}),
+						"warehouse_reorder_level":100,
+						"warehouse_reorder_qty":200,
+						"material_request_type":"Purchase"
+					}
+				]
+			}
+		)
+		self.assertEqual(item.reorder_levels[0].warehouse_group, group_warehouse.name)
+		self.assertEqual(item.reorder_levels[0].warehouse_reorder_level, 100)
+		self.assertEqual(item.reorder_levels[0].warehouse_reorder_qty, 200)
+		self.assertEqual(item.reorder_levels[0].material_request_type, "Purchase")
 
 	def test_cr_item_TC_SCK_129(self):
 		from frappe.utils import random_string
