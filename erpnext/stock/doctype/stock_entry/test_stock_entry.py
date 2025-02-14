@@ -6,6 +6,8 @@ from frappe.permissions import add_user_permission, remove_user_permission
 from frappe.tests.utils import FrappeTestCase, change_settings
 from frappe.utils import add_days, cstr, flt, get_time, getdate, nowtime, today
 from frappe.desk.query_report import run
+from erpnext.stock.doctype.material_request.test_material_request import create_company
+
 
 from erpnext.accounts.doctype.account.test_account import get_inventory_account
 from erpnext.stock.doctype.item.test_item import (
@@ -3311,19 +3313,10 @@ class TestStockEntry(FrappeTestCase):
 	@change_settings("Stock Settings", {"allow_negative_stock": 1})
 	def test_create_mr_se_TC_SCK_063(self):
 		from erpnext.stock.doctype.material_request.material_request import make_stock_entry as _make_stock_entry
-		company = "_Test Company"
-		if not frappe.db.exists("Company", company):
-			company_doc = frappe.new_doc("Company")
-			company_doc.company_doc_name = company
-			company_doc.country="India",
-			company_doc.default_currency= "INR",
-			company_doc.save()
-		else:
-			company_doc = frappe.get_doc("Company", company) 
 		item = make_item("_Test Item")
-		target_warehouse = create_warehouse("_Test Warehouse")
-		source_warehouse = create_warehouse("_Test Source Warehouse")
-		mr = make_material_request(material_request_type="Material Transfer", company=company_doc.name, qty=10, warehouse=target_warehouse, from_warehouse=source_warehouse, item=item.name)
+		target_warehouse = create_warehouse("_Test Warehouse", company="_Test Company")
+		source_warehouse = create_warehouse("_Test Source Warehouse", company="_Test Company")
+		mr = make_material_request(material_request_type="Material Transfer", qty=10, warehouse=target_warehouse, from_warehouse=source_warehouse, item=item.name)
 		self.assertEqual(mr.status, "Pending")
 		se_1 = _make_stock_entry(mr.name)
 		se_1.get("items")[0].qty = 5
