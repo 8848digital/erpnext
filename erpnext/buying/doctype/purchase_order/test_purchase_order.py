@@ -2598,8 +2598,7 @@ class TestPurchaseOrder(FrappeTestCase):
 		create_company()
 		validate_fiscal_year('_Test Company')
 		create_company_and_suppliers()
-
-
+		
 	def tearDown(self):
 		frappe.db.rollback()
 
@@ -7625,12 +7624,33 @@ class TestPurchaseOrder(FrappeTestCase):
 		company = get_company_supplier.get("child_company")
 		supplier = get_company_supplier.get("supplier")
 		item = make_test_item("_test_item")
-		tax_template = "GST 5% - TC-3"
-		if not frappe.db.exists("Item Tax Template", tax_template):
-			tax_template = get_item_tax_template(company, tax_template, 5)
+		item_tax_template = 'Test Item Tax Template'
+		account = frappe.db.get_value("Account", {'company':company}, "name")
+		tax_category = "In-State"
+		if not frappe.db.exists("Tax Category", tax_category):
+			tax_category = frappe.new_doc("Tax Category")
+			tax_category.title = "In-State"
+			tax_category.save()
+
+		if frappe.db.exists("Purchase Taxes and Charges Template", item_tax_template):
+			existing_templates = item_tax_template
+		else:
+			purchase_tax_template = frappe.new_doc("Purchase Taxes and Charges Template")
+			purchase_tax_template.company = company
+			purchase_tax_template.title = item_tax_template
+			purchase_tax_template.tax_category = tax_category
+			purchase_tax_template.append("taxes", {
+				"category":"Total",
+				"add_deduct_tax":"Add",
+				"charge_type":"On Net Total",
+				"account_head":account,
+				"rate":5,
+				"description":"GST"
+			})
+			purchase_tax_template.save()
+			existing_templates = purchase_tax_template.name
 
 		apply_tax_to_item = frappe.get_doc("Item", item.name)
-		apply_tax_to_item.append("taxes", {"item_tax_template": tax_template})
 		apply_tax_to_item.flags.ignore_mandatory = True
 		apply_tax_to_item.save()
 
@@ -7651,6 +7671,8 @@ class TestPurchaseOrder(FrappeTestCase):
 			}
 		)
 		po.insert()
+		po.taxes_and_charges = existing_templates
+		po.save()
 		po.submit()
 		self.assertEqual(po.docstatus, 1)
 		self.assertEqual(po.total_taxes_and_charges, 500)
@@ -7831,9 +7853,32 @@ class TestPurchaseOrder(FrappeTestCase):
 		supplier = get_company_supplier.get("supplier")
 		warehouse = "Stores - TC-3"
 		item = make_test_item("_test_item")
-		tax_template = "GST 5% - TC-3"
-		if not frappe.db.exists("Item Tax Template", tax_template):
-			tax_template = get_item_tax_template(company, tax_template, 5)
+		item_tax_template = 'Test Item Tax Template'
+		account = frappe.db.get_value("Account", {'company':company}, "name")
+		tax_category = "In-State"
+		if not frappe.db.exists("Tax Category", tax_category):
+			tax_category = frappe.new_doc("Tax Category")
+			tax_category.title = "In-State"
+			tax_category.save()
+
+		if frappe.db.exists("Purchase Taxes and Charges Template", item_tax_template):
+			existing_templates = item_tax_template
+		else:
+			purchase_tax_template = frappe.new_doc("Purchase Taxes and Charges Template")
+			purchase_tax_template.company = company
+			purchase_tax_template.title = item_tax_template
+			purchase_tax_template.tax_category = tax_category
+			purchase_tax_template.append("taxes", {
+				"category":"Total",
+				"add_deduct_tax":"Add",
+				"charge_type":"On Net Total",
+				"account_head":account,
+				"rate":5,
+				"description":"GST"
+			})
+			purchase_tax_template.save()
+			existing_templates = purchase_tax_template.name
+			
 
 		po = frappe.get_doc(
 			{
@@ -7848,12 +7893,13 @@ class TestPurchaseOrder(FrappeTestCase):
 						"qty": 1,
 						"rate": 1000,
 						"warehouse": warehouse,
-						"item_tax_template": tax_template
 					}
 				]
 			}
 		)
 		po.insert()
+		po.taxes_and_charges = existing_templates
+		po.save()
 		po.submit()
 		self.assertEqual(po.docstatus, 1)
 		self.assertEqual(po.total_taxes_and_charges, 50)
@@ -8399,8 +8445,6 @@ def make_pr_form_pi(source_name):
 	return doc_pi
 
 def create_company_and_suppliers():
-	from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import get_active_fiscal_year
-	fiscal_year = get_active_fiscal_year()
 	company = "_Test company with other country address"
 	supplier = "Test supplier for other country address"
 	if not frappe.db.exists("Company", company):
@@ -8415,7 +8459,7 @@ def create_company_and_suppliers():
 			}
 		)
 		company.insert()
-
+		fiscal_year = get_or_create_fiscal_year("_Test company with other country address")
 		add_company_fiscal_year = frappe.get_doc("Fiscal Year", fiscal_year)
 		add_company_fiscal_year.append("companies",{"company": company})
 		add_company_fiscal_year.save()
@@ -8620,7 +8664,7 @@ def create_fiscal_with_company(company):
 def get_or_create_fiscal_year(company):
 	from datetime import datetime
 	current_date = datetime.today()
-	formatted_date = current_date.strftime("%d-%m-%Y")
+	formatted_date = current_date.strftime("%m-%d-%Y")
 	existing_fy = frappe.get_all(
 		"Fiscal Year",
 		filters={ 
@@ -8639,6 +8683,7 @@ def get_or_create_fiscal_year(company):
 			else:
 				fiscal_year.append("companies", {"company": company})
 				fiscal_year.save()
+		return existing_fy[0].name
 	else:
 		current_year = datetime.now().year
 		first_date = f"01-01-{current_year}"
@@ -8651,6 +8696,7 @@ def get_or_create_fiscal_year(company):
 			'company':company
 		})
 		fiscal_year.save()
+		return fiscal_year.name
 
 def get_company_or_supplier():
 	from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import get_active_fiscal_year
