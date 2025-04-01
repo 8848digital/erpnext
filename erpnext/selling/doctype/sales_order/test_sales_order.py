@@ -4615,7 +4615,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import create_stock_reservation_entries_for_so_items
   
 		item_details = [{'__checked': 1, 'sales_order_item': so.items[0].get("name"), 'item_code': '_Test Item', 
-                   'warehouse': '_Test Warehouse - _TC', 'qty_to_reserve': 2, 'idx': 1, 'name': 'row 1'}]
+                   'warehouse': '_Test Warehouse - _TC', 'qty_to_reserve': 1, 'idx': 1, 'name': 'row 1'}]
   
 		create_stock_reservation_entries_for_so_items(
 			sales_order=so,
