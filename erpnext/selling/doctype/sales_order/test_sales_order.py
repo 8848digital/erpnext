@@ -18,7 +18,6 @@ from erpnext.maintenance.doctype.maintenance_schedule.test_maintenance_schedule 
 from erpnext.maintenance.doctype.maintenance_visit.test_maintenance_visit import (
 	make_maintenance_visit,
 )
-from erpnext.manufacturing.doctype.blanket_order.test_blanket_order import make_blanket_order
 from erpnext.selling.doctype.product_bundle.test_product_bundle import make_product_bundle
 from erpnext.selling.doctype.sales_order.sales_order import (
 	WarehouseRequired,
@@ -1476,7 +1475,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		Second Sales Order should not add on to Blanket Orders Ordered Quantity.
 		"""
 
-		make_blanket_order(blanket_order_type="Selling", quantity=10, rate=10)
+		_make_blanket_order(blanket_order_type="Selling", quantity=10, rate=10)
 
 		so = make_sales_order(item_code="_Test Item", qty=5, against_blanket_order=1)
 		so_doc = frappe.get_doc("Sales Order", so.get("name"))
@@ -6651,3 +6650,7 @@ def get_or_create_fiscal_year(company):
 			'company':company
 		})
 		fiscal_year.save()
+
+def _make_blanket_order(**args):
+	from erpnext.manufacturing.doctype.blanket_order.test_blanket_order import make_blanket_order
+	return make_blanket_order(**args)

@@ -21,7 +21,7 @@ from erpnext.buying.doctype.purchase_order.purchase_order import (
 	make_purchase_invoice as make_pi_from_po,
 )
 from erpnext.controllers.accounts_controller import InvalidQtyError, update_child_qty_rate
-from erpnext.manufacturing.doctype.blanket_order.test_blanket_order import make_blanket_order
+
 from erpnext.stock.doctype.item.test_item import make_item
 from erpnext.stock.doctype.material_request.material_request import (
 	make_purchase_order,
@@ -875,7 +875,7 @@ class TestPurchaseOrder(FrappeTestCase):
 		Second Purchase Order should not add on to Blanket Orders Ordered Quantity.
 		"""
 
-		make_blanket_order(blanket_order_type="Purchasing", quantity=10, rate=10)
+		_make_blanket_order(blanket_order_type="Purchasing", quantity=10, rate=10)
 
 		po = create_purchase_order(item_code="_Test Item", qty=5, against_blanket_order=1)
 		po_doc = frappe.get_doc("Purchase Order", po.get("name"))
@@ -3295,6 +3295,10 @@ class TestPurchaseOrder(FrappeTestCase):
 		from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_company
 		create_company()
 		company = "_Test Company"
+		if not frappe.db.exists("Tax Category", "Out-State"):
+			tax_category = frappe.new_doc("Tax Category")
+			tax_category.title = "Out-State"
+			tax_category.save()
 
 		exists_purchase_tax = frappe.db.get_value('Purchase Taxes and Charges Template',{'company':company,'tax_category':'Out-State'},'name')
 		if exists_purchase_tax is None:
@@ -8814,3 +8818,7 @@ def remove_existing_shipping_rules():
 	existing_shipping_rules = frappe.get_all("Shipping Rule", pluck="name")
 	for rule in existing_shipping_rules:
 		frappe.delete_doc("Shipping Rule", rule, force=1)
+
+def _make_blanket_order(**args):
+	from erpnext.manufacturing.doctype.blanket_order.test_blanket_order import make_blanket_order
+	return make_blanket_order(**args)
