@@ -4615,7 +4615,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import create_stock_reservation_entries_for_so_items
   
 		item_details = [{'__checked': 1, 'sales_order_item': so.items[0].get("name"), 'item_code': '_Test Item', 
-                   'warehouse': '_Test Warehouse - _TC', 'qty_to_reserve': 1, 'idx': 1, 'name': 'row 1'}]
+                   'warehouse': '_Test Warehouse - _TC', 'qty_to_reserve': 2, 'idx': 1, 'name': 'row 1'}]
   
 		create_stock_reservation_entries_for_so_items(
 			sales_order=so,
@@ -4766,15 +4766,10 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		qty_change_return = frappe.db.get_value('Stock Ledger Entry', {'item_code': '_Test Item', 'voucher_no': sr.name, 'warehouse': '_Test Warehouse - _TC'}, 'actual_qty')
 		self.assertEqual(qty_change_return, 1)	
   
-	def test_sales_order_for_stock_reservation_with_returns_and_note_TC_S_068(self):
+	def test_sales_order_for_stock_reservation_with_returns_and_note_TC_S_068(self):		
 		si = self.test_sales_order_for_stock_reservation_with_returns_TC_S_064()
-  
-		from erpnext.accounts.doctype.sales_invoice.sales_invoice import make_sales_return as make_credit_note
-		cn = make_credit_note(si.name)
-		cn.save()
-		cn.submit()
-  
-		self.assertEqual(cn.status, "Return", "Credit Note not created")
+		resturn_si = frappe.db.get_value('Sales Invoice', {'return_against': si.name}, 'status')
+		self.assertEqual(resturn_si, "Return", "Credit Note not created")
 		self.assertEqual(frappe.db.get_value('GL Entry', {'voucher_no': si.name, 'account': 'Sales - _TC'}, 'credit'), 5000)
 		self.assertEqual(frappe.db.get_value('GL Entry', {'voucher_no': si.name, 'account': 'Debtors - _TC'}, 'debit'), 5000)
 	
