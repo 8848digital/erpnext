@@ -7222,6 +7222,7 @@ def create_company_and_supplier():
 				"doctype": "Company",
 				"company_name": parent_company,
 				"abbr": "TC-1",
+				"country":"India",
 				"default_currency": "INR",
 				"is_group": 1,
 				"gstin": "27AAAAP0267H2ZN",
@@ -7239,6 +7240,7 @@ def create_company_and_supplier():
 				"doctype": "Company",
 				"company_name": child_company,
 				"abbr": "TC-3",
+				"country":"India",
 				"default_currency": "INR",
 				"gstin": "27AABCT1296R1ZN",
 				"gst_category": "Registered Regular",
@@ -7444,7 +7446,7 @@ def create_test_tax_data():
 			]
 		}).insert()
 
-	if not frappe.db.exists("Purchase Taxes and Charges Template", "Input GST In-state - TC-1"):
+	if not frappe.db.exists("Purchase Taxes and Charges Template", "Input GST In-state - TC-3"):
 		frappe.get_doc({
 			"doctype": "Purchase Taxes and Charges Template",
 			"title": "Input GST In-state",
@@ -7469,7 +7471,7 @@ def get_active_fiscal_year():
 	from datetime import datetime
 	get_fiscal_year = frappe.db.get_value(
 		"Fiscal Year",
-		{"disabled": 0, "year_start_date": ["<", today()], "year_end_date": [">", today()]},
+		{"disabled": 0, "year_start_date": ["=<", today()], "year_end_date": [">=", today()]},
 		pluck="name",
 		order_by="creation ASC"
 	)
