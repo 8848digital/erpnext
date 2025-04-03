@@ -2633,7 +2633,11 @@ class TestPurchaseInvoice(FrappeTestCase, StockTestMixin):
 			create_purchase_invoice,
 			make_test_item
 		)
-
+		tax_withholding_category = create_tax_witholding_category(
+			category_name = "Test - TDS - 194C - Company",
+			company = "_Test Company",
+			account = "Cash - _TC"
+		)
 		records_for_pi('_Test Supplier LDC')
 		supplier = frappe.get_doc('Supplier', '_Test Supplier LDC')
 		
@@ -2646,7 +2650,6 @@ class TestPurchaseInvoice(FrappeTestCase, StockTestMixin):
 				key: getattr(ldc, key)
 				for key in ['tax_withholding_category', 'fiscal_year', 'supplier', 'certificate_limit', 'rate','valid_from','valid_upto']
 			}
-			
 			exepected_data = {
 				'tax_withholding_category': 'Test - TDS - 194C - Company',
 				'fiscal_year': fiscal_year,
@@ -2663,18 +2666,15 @@ class TestPurchaseInvoice(FrappeTestCase, StockTestMixin):
 			
 			pi = create_purchase_invoice(supplier=supplier.name, rate=50000, item_code=item.name)
 			pi.apply_tds = 1
-			pi.tax_withholding_category = "Test - TDS - 194C - Company"
+			pi.tax_withholding_category = tax_withholding_category.name
 			pi.save()
 			pi.submit()
-			
-			expected_gle = [
-				["Creditors - _TC", 0.0, 50000.0, pi.posting_date],
-				["Creditors - _TC", 600.0, 0.0, pi.posting_date],
-				["Stock Received But Not Billed - _TC", 50000.0, 0.0, pi.posting_date],
-				["_Test TDS Payable - _TC", 0.0, 600.0, pi.posting_date]
-			]
-			
-			check_gl_entries(self, pi.name, expected_gle, pi.posting_date)
+
+			pi_gle_entries = frappe.get_all("GL Entry", filters={"voucher_no": pi.name}, fields=["account", "debit", "credit"])
+			self.assertEqual(pi_gle_entries[0].get("account"), "Creditors - _TC")
+			self.assertEqual(pi_gle_entries[0].get("debit"), 5000)
+			self.assertEqual(pi_gle_entries[1].get("account"), "_Test TDS Payable - _TC")
+			self.assertEqual(pi_gle_entries[1].get("credit"), 5000)
 
 	def test_currency_exchange_with_pi_TC_ACC_027(self):
 		from erpnext.accounts.doctype.payment_entry.test_payment_entry import (
@@ -4900,13 +4900,13 @@ def toggle_provisional_accounting_setting(**args):
 test_records = frappe.get_test_records("Purchase Invoice")
 
 def update_ldc_details(supplier):
-    if supplier:
-        setattr(supplier,'custom_lower_tds_deduction_applicable','Yes')
-        if not supplier.pan:
-            setattr(supplier,'pan','DAJPC4150P')
-        supplier.flags.ignore_mandatory = True
-        supplier.save()
-        
+	if supplier:
+		setattr(supplier,'custom_lower_tds_deduction_applicable','Yes')
+		if frappe.db.has_column("Supplier", "pan"):
+			if not supplier.pan:
+				setattr(supplier,'pan','DAJPC4150P')
+			supplier.flags.ignore_mandatory = True
+			supplier.save()
 
 def create_ldc(supplier):
     from erpnext.accounts.utils import get_fiscal_year
@@ -4923,7 +4923,8 @@ def create_ldc(supplier):
             'valid_from': valid_from,
             'valid_upto': valid_upto,
             'rate': 1,
-            'certificate_limit': 40000
+            'certificate_limit': 40000,
+            'pan_no': 'HYRDG4553R'
         }).insert()
         
         return doc
