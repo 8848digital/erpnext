@@ -1201,6 +1201,17 @@ class TestItem(FrappeTestCase):
 		alternate_item_in_wo = next((item.item_code for item in wo_items if item.item_code == alt_item.name), None)
 		self.assertEqual(alternate_item_in_wo, alt_item.name, "Alternative item not found in Work Order")
 
+	def test_set_valuation_method_for_item_TC_SCK_179(self):
+		item_fields = {
+			"item_name": "_Test Book",
+			"stock_uom": "Nos",
+			"is_stock_item": 1,
+			"valuation_method": "FIFO"
+		}
+		item = make_item("_Test Book", item_fields)
+		self.assertEqual(item.name, "_Test Book")
+		self.assertEqual(item.valuation_method, "FIFO")
+
 def set_item_variant_settings(fields):
 	doc = frappe.get_doc("Item Variant Settings")
 	doc.set("fields", fields)

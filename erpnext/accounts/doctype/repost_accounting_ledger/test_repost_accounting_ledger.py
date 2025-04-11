@@ -139,6 +139,8 @@ class TestRepostAccountingLedger(AccountsTestMixin, FrappeTestCase):
 				"transaction_date": today(),
 				"posting_date": today(),
 				"company": self.company,
+				"period_start_date":frappe.utils.getdate(fy[1]),
+				"period_end_date":frappe.utils.getdate(fy[2]),
 				"fiscal_year": fy[0],
 				"cost_center": self.cost_center,
 				"closing_account_head": self.retained_earnings,

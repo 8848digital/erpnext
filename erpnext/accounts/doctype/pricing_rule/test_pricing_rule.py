@@ -1184,6 +1184,7 @@ class TestPricingRule(FrappeTestCase):
 		so = make_sales_order(item_code="_Test Item", qty=5, do_not_submit=1)
 		so.items[0].qty = 1
 		del so.items[-1]
+		so.set_missing_values()
 		so.save()
 		self.assertEqual(len(so.items), 1)
 

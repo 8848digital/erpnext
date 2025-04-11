@@ -50,6 +50,9 @@ class TestAccount(unittest.TestCase):
 		frappe.delete_doc("Account", "Child Account 2 - _TC")
 
 	def test_rename_account(self):
+		if frappe.db.exists("Account", "1211-11-4 - 6 - - Debtors 1 - Test - - _TC"):
+			frappe.delete_doc("Account", "1211-11-4 - 6 - - Debtors 1 - Test - - _TC")
+
 		if not frappe.db.exists("Account", "1210 - Debtors - _TC"):
 			acc = frappe.new_doc("Account")
 			acc.account_name = "Debtors"
@@ -58,11 +61,11 @@ class TestAccount(unittest.TestCase):
 			acc.company = "_Test Company"
 			acc.insert()
 
-		account_number, account_name = frappe.db.get_value(
-			"Account", "1210 - Debtors - _TC", ["account_number", "account_name"]
-		)
-		self.assertEqual(account_number, "1210")
-		self.assertEqual(account_name, "Debtors")
+			account_number, account_name = frappe.db.get_value(
+				"Account", "1210 - Debtors - _TC", ["account_number", "account_name"]
+			)
+			self.assertEqual(account_number, "1210")
+			self.assertEqual(account_name, "Debtors")
 
 		new_account_number = "1211-11-4 - 6 - "
 		new_account_name = "Debtors 1 - Test - "

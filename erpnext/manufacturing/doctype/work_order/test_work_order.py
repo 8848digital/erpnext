@@ -972,11 +972,23 @@ class TestWorkOrder(FrappeTestCase):
 			"Test RM Item 2 for Scrap Item Test",
 		]
 
-		job_cards = frappe.get_all(
-			"Job Card Time Log",
-			fields=["distinct parent as name", "docstatus"],
-			order_by="creation asc",
-		)
+		JobCardTimeLog = frappe.qb.DocType("Job Card Time Log")
+
+		sub = (
+			frappe.qb.from_(JobCardTimeLog)
+			.select(JobCardTimeLog.parent, JobCardTimeLog.creation)
+			.orderby(JobCardTimeLog.creation)
+		).as_("sub")
+
+		job_cards = (
+			frappe.qb.from_(JobCardTimeLog)
+			.join(sub)
+			.on((JobCardTimeLog.parent == sub.parent) & (JobCardTimeLog.creation == sub.creation))
+			.select(JobCardTimeLog.parent.as_("name"), JobCardTimeLog.docstatus)
+		).run(as_dict=True)
+
+
+
 
 		for job_card in job_cards:
 			if job_card.docstatus == 1:
@@ -3566,6 +3578,7 @@ class TestWorkOrder(FrappeTestCase):
 			raw_materials=[item_raw],
 			rm_qty=10
 		)
+		make_stock_entry(item_code="Test raw material", qty=200, rate=500, target="Stores - _TC")
 
 		# Create a work order
 		wo_doc = make_wo_order_test_record(production_item=item_code, qty=10,do_not_submit=1)
@@ -3618,6 +3631,7 @@ class TestWorkOrder(FrappeTestCase):
 			raw_materials=[item_raw],
 			rm_qty=10
 		)
+		make_stock_entry(item_code="Test raw material", qty=200, rate=500, target="Stores - _TC")
 
 		# Create a work order
 		wo_doc = make_wo_order_test_record(production_item=item_code, qty=10,do_not_submit=1)
@@ -3683,6 +3697,7 @@ class TestWorkOrder(FrappeTestCase):
 			raw_materials=[item_raw],
 			rm_qty=10
 		)
+		make_stock_entry(item_code="Test raw material", qty=200, rate=500, target="Stores - _TC")
 
 		# Create a work order
 		wo_doc = make_wo_order_test_record(production_item=item_code, qty=10,do_not_submit=1)
@@ -3737,6 +3752,7 @@ class TestWorkOrder(FrappeTestCase):
 			rm_qty=10,
 			do_not_submit=True
 		)
+		make_stock_entry(item_code="Test raw material", qty=200, rate=500, target="Stores - _TC")
 		item_scrap = make_item("Test scrap material1")
 		frappe.db.set_value('Item',item_scrap.item_code,'valuation_rate',20)
 		bom_doc.append("scrap_items", {"item_code": item_scrap.item_code, "qty": 1})
@@ -3794,6 +3810,7 @@ class TestWorkOrder(FrappeTestCase):
 			rm_qty=10,
 			do_not_submit=True
 		)
+		make_stock_entry(item_code="Test raw material", qty=200, rate=500, target="Stores - _TC")
 		item_scrap = make_item("Test scrap material1")
 		frappe.db.set_value('Item',item_scrap.item_code,'valuation_rate',20)
 		bom_doc.append("scrap_items", {"item_code": item_scrap.item_code, "qty": 1})
@@ -3855,6 +3872,7 @@ class TestWorkOrder(FrappeTestCase):
 			rm_qty=10,
 			do_not_submit=True
 		)
+		make_stock_entry(item_code="Test raw material", qty=200, rate=500, target="Stores - _TC")
 		item_scrap = make_item("Test scrap material1")
 		frappe.db.set_value('Item',item_scrap.item_code,'valuation_rate',20)
 		bom_doc.append("scrap_items", {"item_code": item_scrap.item_code, "qty": 1})

@@ -58,7 +58,6 @@ class PeriodClosingVoucher(AccountsController):
 		valid_start_date = (
 			add_days(prev_closed_period_end_date, 1) if prev_closed_period_end_date else self.fy_start_date
 		)
-
 		if getdate(self.period_start_date) != getdate(valid_start_date):
 			frappe.throw(_("Period Start Date must be {0}").format(formatdate(valid_start_date)))
 
@@ -139,7 +138,8 @@ class PeriodClosingVoucher(AccountsController):
 		self.cancel_gl_entries()
 
 	def make_gl_entries(self):
-		if frappe.db.estimate_count("GL Entry") > 100_000:
+		count = frappe.db.count("GL Entry")
+		if count > 100_000:
 			frappe.enqueue(
 				process_gl_and_closing_entries,
 				doc=self,

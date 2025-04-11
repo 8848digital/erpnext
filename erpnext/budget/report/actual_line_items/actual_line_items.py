@@ -48,6 +48,10 @@ def execute(filters=None):
         conditions.append("be.voucher_type = %(voucher_type)s")
         params["voucher_type"] = filters["voucher_type"]
 
+    if filters.get("voucher_name"):
+        conditions.append("be.voucher_no = %(voucher_name)s")
+        params["voucher_name"] = filters["voucher_name"]
+
     if filters.get("supplier"):
         conditions.append("pi.supplier IN %(supplier)s")
         params["supplier"] = tuple(filters["supplier"])

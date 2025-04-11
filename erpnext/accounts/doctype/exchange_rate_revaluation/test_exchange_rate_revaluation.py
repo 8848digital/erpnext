@@ -42,6 +42,7 @@ class TestExchangeRateRevaluation(AccountsTestMixin, FrappeTestCase):
 		"""
 		Test Forex account balance and Journal creation post Revaluation
 		"""
+		frappe.db.set_value("Customer", self.customer, "default_currency", "USD")
 		si = create_sales_invoice(
 			item=self.item,
 			company=self.company,
@@ -95,6 +96,7 @@ class TestExchangeRateRevaluation(AccountsTestMixin, FrappeTestCase):
 		"""
 		Test Revaluation on Forex account with balance only in base currency
 		"""
+		frappe.db.set_value("Customer", self.customer, "default_currency", "USD")
 		si = create_sales_invoice(
 			item=self.item,
 			company=self.company,
@@ -145,13 +147,14 @@ class TestExchangeRateRevaluation(AccountsTestMixin, FrappeTestCase):
 		self.assertEqual(je.total_debit, 500.0)
 		self.assertEqual(je.total_credit, 500.0)
 
-		acc_balance = frappe.db.get_all(
-			"GL Entry",
-			filters={"account": self.debtors_usd, "is_cancelled": 0},
-			fields=[
-				"sum(debit)-sum(credit) as balance",
-				"sum(debit_in_account_currency)-sum(credit_in_account_currency) as balance_in_account_currency",
-			],
+		acc_balance = frappe.db.sql(
+			"""
+			SELECT
+				SUM(debit) - SUM(credit) AS balance,
+				SUM(debit_in_account_currency) - SUM(credit_in_account_currency) AS balance_in_account_currency
+			FROM `tabGL Entry`
+			WHERE account = %s AND is_cancelled = 0
+			""", (self.debtors_usd,), as_dict=True
 		)[0]
 		# account shouldn't have balance in base and account currency
 		self.assertEqual(acc_balance.balance, 0.0)
@@ -169,6 +172,7 @@ class TestExchangeRateRevaluation(AccountsTestMixin, FrappeTestCase):
 
 		# posting on previous date to make sure that ERR picks up the Payment entry's exchange
 		# rate while calculating gain/loss for account currency balance
+		frappe.db.set_value("Customer", self.customer, "default_currency", "USD")
 		si = create_sales_invoice(
 			item=self.item,
 			company=self.company,
@@ -192,14 +196,16 @@ class TestExchangeRateRevaluation(AccountsTestMixin, FrappeTestCase):
 		pe.references = []
 		pe.save().submit()
 
-		acc_balance = frappe.db.get_all(
-			"GL Entry",
-			filters={"account": self.debtors_usd, "is_cancelled": 0},
-			fields=[
-				"sum(debit)-sum(credit) as balance",
-				"sum(debit_in_account_currency)-sum(credit_in_account_currency) as balance_in_account_currency",
-			],
+		acc_balance = frappe.db.sql(
+			"""
+			SELECT
+				SUM(debit) - SUM(credit) AS balance,
+				SUM(debit_in_account_currency) - SUM(credit_in_account_currency) AS balance_in_account_currency
+			FROM `tabGL Entry`
+			WHERE account = %s AND is_cancelled = 0
+			""", (self.debtors_usd,), as_dict=True
 		)[0]
+
 		# account should have balance only in account currency
 		self.assertEqual(flt(acc_balance.balance, precision), 0.0)
 		self.assertEqual(flt(acc_balance.balance_in_account_currency, precision), 5.0)  # in USD
@@ -234,13 +240,14 @@ class TestExchangeRateRevaluation(AccountsTestMixin, FrappeTestCase):
 		self.assertEqual(flt(je.total_debit, precision), 0.0)
 		self.assertEqual(flt(je.total_credit, precision), 0.0)
 
-		acc_balance = frappe.db.get_all(
-			"GL Entry",
-			filters={"account": self.debtors_usd, "is_cancelled": 0},
-			fields=[
-				"sum(debit)-sum(credit) as balance",
-				"sum(debit_in_account_currency)-sum(credit_in_account_currency) as balance_in_account_currency",
-			],
+		acc_balance = frappe.db.sql(
+			"""
+			SELECT
+				SUM(debit) - SUM(credit) AS balance,
+				SUM(debit_in_account_currency) - SUM(credit_in_account_currency) AS balance_in_account_currency
+			FROM `tabGL Entry`
+			WHERE account = %s AND is_cancelled = 0
+			""", (self.debtors_usd,), as_dict=True
 		)[0]
 		# account shouldn't have balance in base and account currency post revaluation
 		self.assertEqual(flt(acc_balance.balance, precision), 0.0)
@@ -251,6 +258,7 @@ class TestExchangeRateRevaluation(AccountsTestMixin, FrappeTestCase):
 		{"allow_multi_currency_invoices_against_single_party_account": 1, "allow_stale": 0},
 	)
 	def test_04_get_account_details_function(self):
+		frappe.db.set_value("Customer", self.customer, "default_currency", "USD")
 		si = create_sales_invoice(
 			item=self.item,
 			company=self.company,

@@ -4796,7 +4796,7 @@ class TestMaterialRequest(FrappeTestCase):
 		company = get_or_create_data.get("company")
 		supplier = get_or_create_data.get("supplier")
 		customer = get_or_create_data.get("customer")
-		item = make_test_item("_Test Item")
+		item = make_test_item("_test_item_1")
 
 		mr_dict_list = {
 				"company" : company,
@@ -5102,14 +5102,12 @@ class TestMaterialRequest(FrappeTestCase):
 		return_pi.submit()
 		pr.reload()
 
-		#if account setup in company
-		credit_account = frappe.db.get_value("Company",return_pi.company,"stock_received_but_not_billed")
-		gl_temp_credit = frappe.db.get_value('GL Entry',{'voucher_no':return_pi.name, 'account': credit_account},'credit_in_transaction_currency')
-		self.assertEqual(gl_temp_credit, 500)
-		
-		debit_account = frappe.db.get_value("Company",return_pi.company,"default_payable_account")
-		gl_stock_debit = frappe.db.get_value('GL Entry',{'voucher_no':return_pi.name, 'account': debit_account},'debit_in_transaction_currency')
-		self.assertEqual(gl_stock_debit, 500)
+		self.voucher_no = return_pi.name
+		self.expected_gle = [
+			{'account': '_Test Account Cost for Goods Sold - _TC', 'debit': 0.0, 'credit': 500.0},
+			{'account': 'Creditors - _TC', 'debit': 500.0, 'credit': 0.0}
+		]
+		self.check_gl_entries()
 
 	def test_mr_po_pi_serial_TC_SCK_092(self):
 		from erpnext.buying.doctype.purchase_order.test_purchase_order import get_or_create_fiscal_year
@@ -6467,6 +6465,7 @@ class TestMaterialRequest(FrappeTestCase):
 		po = make_purchase_order(mr.name)
 		po.supplier = supplier
 		po.items[0].rate = 1000
+		po.currency = "INR"
 		po.insert()
 		po.submit()
 
@@ -7890,6 +7889,22 @@ class TestMaterialRequest(FrappeTestCase):
 			self.assertEqual(cogs_gle[0], cogs_gle[1])
 			self.assertEqual(current_bin_qty, bin_qty)
 
+	def check_gl_entries(self):
+		gle = frappe.qb.DocType("GL Entry")
+		gl_entries = (
+			frappe.qb.from_(gle)
+			.select(
+				gle.account,
+				gle.debit,
+				gle.credit,
+			)
+			.where((gle.voucher_no == self.voucher_no) & (gle.is_cancelled == 0))
+			.orderby(gle.account, gle.debit, gle.credit, order=frappe.qb.desc)
+		).run(as_dict=True)
+		for row in range(len(self.expected_gle)):
+			for field in ["account", "debit", "credit"]:
+				self.assertEqual(gl_entries[row][field],self.expected_gle[row][field])
+
 def get_in_transit_warehouse(company):
 	if not frappe.db.exists("Warehouse Type", "Transit"):
 		frappe.get_doc(
@@ -8082,17 +8097,17 @@ def create_mr_to_pi(**args):
 		source_name_pi = make_test_pi(source_name_pr)
 		return source_name_pi
 
-def create_company():
-	company_name = "_Test Company MR"
-	if not frappe.db.exists("Company", company_name):
+def create_company(company= None):
+	company = "_Test Company MR"
+	if not frappe.db.exists("Company", company):
 		company = frappe.new_doc("Company")
-		company.company_name = company_name
+		company.company_name = company
 		company.country="India",
 		company.default_currency= "INR",
 		company.chart_of_accounts= "Standard",
 		company = company.save()
 		company.load_from_db()
-	return company_name
+	return company
 		
 def create_fiscal_year(company=None):
 	today = date.today()

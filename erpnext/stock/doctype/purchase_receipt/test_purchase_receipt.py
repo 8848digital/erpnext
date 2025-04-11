@@ -5056,8 +5056,9 @@ class TestPurchaseReceipt(FrappeTestCase):
 		get_or_create_fiscal_year('_Test Company')
 		warehouse_new = create_warehouse("Stores", properties=None, company="_Test Company")
 		item_code = make_item("_Test Item225", {'item_name':"_Test Item225", "valuation_rate":500, "is_stock_item":1}).name
-		se1 = make_stock_entry(item_code=item_code, qty=10, to_warehouse=warehouse_new, purpose="Material Receipt")
-	
+		se1 = make_stock_entry(item_code=item_code, qty=10, to_warehouse=warehouse_new, purpose="Material Receipt", do_not_submit=True)
+		se1.items[0].to_inv_site = "Site 1"
+		se1.submit()
 		
 		from erpnext.stock.report.stock_ledger.stock_ledger import execute
 		
@@ -5101,7 +5102,10 @@ class TestPurchaseReceipt(FrappeTestCase):
 			item_group.insert()
 		warehouse_new = create_warehouse("Stores", properties=None, company="_Test Company")
 		item_code = make_item("_Test Item225", {'item_name':"_Test Item225", "valuation_rate":500, "is_stock_item":1, "item_group": "_Test Group"}).name
-		se1 = make_stock_entry(item_code=item_code, qty=10, to_warehouse=warehouse_new, purpose="Material Receipt")
+		se1 = make_stock_entry(item_code=item_code, qty=10, to_warehouse=warehouse_new, purpose="Material Receipt", do_not_submit=True)
+		se1.items[0].to_inv_site = "Site 1"
+		se1.submit()
+
 		from erpnext.stock.report.stock_ledger.stock_ledger import execute
 		filters = frappe._dict({  # Convert to allow dot notation
         "from_date": "2024-01-13",

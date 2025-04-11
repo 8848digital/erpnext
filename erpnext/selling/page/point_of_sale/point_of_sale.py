@@ -207,10 +207,11 @@ def get_items(start, page_length, price_list, item_group, pos_profile, search_te
 				"selling": True,
 				"valid_from": ["<=", current_date],
 			},
-			or_filters=[
-				["valid_upto","in",[None,""]],
-				["valid_upto",">=",current_date]
-			],
+			 or_filters=[
+			["valid_upto", "is", "not set"], 
+			["valid_upto", "=", ""],
+			["valid_upto", ">=", current_date]
+		],
 			order_by="valid_from desc",
 			limit=1	
 			)

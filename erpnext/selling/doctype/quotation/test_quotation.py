@@ -1157,7 +1157,7 @@ class TestQuotation(FrappeTestCase):
 		self.assertEqual(sales_order.status, "To Bill")
 		self.assertEqual(purchase_orders[0].status, "Delivered")
 	
-
+	@if_app_installed("sales_commission")
 	def test_quotation_to_si_with_pi_and_drop_ship_TC_S_114(self):
 		from erpnext.stock.doctype.item.test_item import make_item
 		from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice

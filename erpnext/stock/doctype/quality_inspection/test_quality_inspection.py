@@ -287,10 +287,12 @@ class TestQualityInspection(FrappeTestCase):
 		se.delete()
 
 	def test_qa_for_pr_TC_SCK_159(self):
-		from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_company
 		from erpnext.buying.doctype.supplier.test_supplier import create_supplier
 		from erpnext.buying.doctype.purchase_order.test_purchase_order import get_or_create_fiscal_year
+		from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_company
 		create_company()
+		company = "_Test Company"
+		frappe.db.set_value("Company", company, "stock_received_but_not_billed", 'Cost of Goods Sold - _TC')
 
 		create_supplier(supplier_name = "_Test Supplier")
 		create_warehouse(
@@ -399,10 +401,13 @@ class TestQualityInspection(FrappeTestCase):
 		si.cancel()
 
 	def test_qa_for_pr_out_TC_SCK_162(self):
-		from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_company
 		from erpnext.buying.doctype.supplier.test_supplier import create_supplier
 		from erpnext.buying.doctype.purchase_order.test_purchase_order import get_or_create_fiscal_year
+		from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_company
 		create_company()
+		company = "_Test Company"
+		frappe.db.set_value("Company", company, "stock_received_but_not_billed", 'Cost of Goods Sold - _TC')
+
 		create_supplier(supplier_name = "_Test Supplier")
 		create_warehouse(
 			warehouse_name="_Test Warehouse - _TC",
@@ -489,10 +494,13 @@ class TestQualityInspection(FrappeTestCase):
 		qa.cancel()
 
 	def test_qa_for_pr_proc_TC_SCK_166(self):
-		from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_company
 		from erpnext.buying.doctype.supplier.test_supplier import create_supplier
 		from erpnext.buying.doctype.purchase_order.test_purchase_order import get_or_create_fiscal_year
+		from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_company
 		create_company()
+		company = "_Test Company"
+		frappe.db.set_value("Company", company, "stock_received_but_not_billed", 'Cost of Goods Sold - _TC')
+		
 		create_supplier(supplier_name = "_Test Supplier")
 		create_warehouse(
 			warehouse_name="_Test Warehouse - _TC",

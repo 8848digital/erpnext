@@ -73,25 +73,26 @@ def get_items_list(pos_profile, company):
 			args_list.extend([d.name for d in get_child_nodes("Item Group", d.item_group)])
 		if args_list:
 			cond = "and i.item_group in (%s)" % (", ".join(["%s"] * len(args_list)))
+	base_query = f"""
+	select
+		i.name, i.item_code, i.item_name, i.description, i.item_group, i.has_batch_no,
+		i.has_serial_no, i.is_stock_item, i.brand, i.stock_uom, i.image,
+		id.expense_account, id.selling_cost_center, id.default_warehouse,
+		i.sales_uom, c.conversion_factor
+	from
+		`tabItem` i
+	left join `tabItem Default` id on id.parent = i.name and id.company = %s
+	left join `tabUOM Conversion Detail` c on i.name = c.parent and i.sales_uom = c.uom
+	where
+		i.disabled = 0 and i.has_variants = 0 and i.is_sales_item = 1
+	"""
 
-	return frappe.db.sql(
-		f"""
-		select
-			i.name, i.item_code, i.item_name, i.description, i.item_group, i.has_batch_no,
-			i.has_serial_no, i.is_stock_item, i.brand, i.stock_uom, i.image,
-			id.expense_account, id.selling_cost_center, id.default_warehouse,
-			i.sales_uom, c.conversion_factor
-		from
-			`tabItem` i
-		left join `tabItem Default` id on id.parent = i.name and id.company = %s
-		left join `tabUOM Conversion Detail` c on i.name = c.parent and i.sales_uom = c.uom
-		where
-			i.disabled = 0 and i.has_variants = 0 and i.is_sales_item = 1 and i.is_fixed_asset = 0
-			{cond}
-		""",
-		tuple([company, *args_list]),
-		as_dict=1,
-	)
+	if frappe.db.has_column("Item", "is_fixed_asset"):
+		base_query += " and i.is_fixed_asset = 0"
+
+	query = base_query + f"{cond}"
+
+	return frappe.db.sql(query, tuple([company, *args_list]), as_dict=1)
 
 
 def make_pos_profile(**args):

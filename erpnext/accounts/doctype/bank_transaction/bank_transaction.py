@@ -123,7 +123,7 @@ class BankTransaction(Document):
 		self.set_status()
 
 	def before_save(self):
-		if self.deposit > 0 and self.withdrawal == 0:
+		if self.deposit or 0 > 0 and self.withdrawal == 0:
 			if frappe.db.exists("Bank Transaction", {'date':self.date, 'deposit':self.deposit, 'reference_number': self.reference_number, 'description': self.description, 'docstatus':1}) :
 				frappe.throw("Entry already exists")
 		elif self.deposit == 0 and self.withdrawal > 0:
