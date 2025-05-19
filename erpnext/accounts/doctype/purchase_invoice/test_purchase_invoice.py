@@ -4644,7 +4644,7 @@ class TestPurchaseInvoice(FrappeTestCase, StockTestMixin):
 		lvc.submit()
   
 		expected_gle =[
-			['CWIP Account - _TC',pi.grand_total, 0.0, pi.posting_date],
+			['Capital Equipments - _TC',pi.grand_total, 0.0, pi.posting_date],
 			['Creditors - _TC', 0.0, 1000.0, pi.posting_date],
 			['Expenses Included In Valuation - _TC', 0.0, 300.0, pi.posting_date],
 		]
