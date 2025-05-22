@@ -3999,6 +3999,11 @@ class TestPurchaseReceipt(FrappeTestCase):
 
 	def test_purchase_order_and_receipt_TC_SCK_072(self):
 		company = "_Test Company"
+		company_doc = frappe.get_doc("Company", company)
+		if not company_doc.stock_received_but_not_billed:
+			company_doc.stock_received_but_not_billed = "Stock Received But Not Billed - _TC"
+			company_doc.save()
+
 		item1 = make_item("ST-N-001", {"is_stock_item": 1, "gst_hsn_code": "01011010"})
 		item2 = make_item("W-N-001", {"is_stock_item": 1, "gst_hsn_code": "01011020"})
 		warehouse1 = create_warehouse("Raw Material - Iron Building - _TC", company=company)
@@ -4213,6 +4218,11 @@ class TestPurchaseReceipt(FrappeTestCase):
 		self.assertEqual(se.get("warehouse"), pr.get("items")[0].warehouse)
 
 	def test_direct_create_purchase_return_partial_TC_SCK_039(self):
+		company = "_Test Company"
+		company_doc = frappe.get_doc("Company", company)
+		if not company_doc.stock_received_but_not_billed:
+			company_doc.stock_received_but_not_billed = "Stock Received But Not Billed - _TC"
+			company_doc.save()
 		pr = make_purchase_receipt(qty=10,rate=10000)
 		from erpnext.controllers.sales_and_purchase_return import make_return_doc
 		return_pr = make_return_doc("Purchase Receipt", pr.name)
@@ -4227,6 +4237,11 @@ class TestPurchaseReceipt(FrappeTestCase):
 		self.assertEqual(se.get("warehouse"), pr.get("items")[0].warehouse)
 
 	def test_direct_create_purchase_receipt_return_TC_SCK_030(self):
+		company = "_Test Company"
+		company_doc = frappe.get_doc("Company", company)
+		if not company_doc.stock_received_but_not_billed:
+			company_doc.stock_received_but_not_billed = "Stock Received But Not Billed - _TC"
+			company_doc.save()
 		pr = make_purchase_receipt(
 			qty=10,rate=10,
 		)
@@ -4764,6 +4779,11 @@ class TestPurchaseReceipt(FrappeTestCase):
 		self.assertEqual(warehouse_qty, 20)
 
 	def test_pr_with_additional_discount_TC_B_053(self):
+		company = "_Test Company"
+		company_doc = frappe.get_doc("Company", company)
+		if not company_doc.stock_received_but_not_billed:
+			company_doc.stock_received_but_not_billed = "Stock Received But Not Billed - _TC"
+			company_doc.save()
 		# Scenario : PR => PI [With Additional Discount]
 		from erpnext.stock.doctype.purchase_receipt.purchase_receipt import (
 			make_purchase_invoice as make_pi_from_pr,
@@ -4816,6 +4836,11 @@ class TestPurchaseReceipt(FrappeTestCase):
 		self.assertEqual(pi_total, 10080)
 
 	def test_pr_to_pi_with_additional_discount_TC_B_059(self):
+		company = "_Test Company"
+		company_doc = frappe.get_doc("Company", company)
+		if not company_doc.stock_received_but_not_billed:
+			company_doc.stock_received_but_not_billed = "Stock Received But Not Billed - _TC"
+			company_doc.save()
 		# Scenario : PR => PI [With Applied Additional Discount on Grand Total]
 		from erpnext.stock.doctype.purchase_receipt.purchase_receipt import (
 			make_purchase_invoice as make_pi_from_pr,
