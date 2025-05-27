@@ -795,7 +795,7 @@ class TestPOSInvoice(unittest.TestCase):
 		pos_inv2.load_from_db()
 		rounded_total = frappe.db.get_value("Sales Invoice", pos_inv2.consolidated_invoice, "rounded_total")
 		self.assertEqual(rounded_total, 400)
-		frappe.db.set_single_value("Selling Settings", "validate_selling_price", 1)
+		frappe.db.set_single_value("Selling Settings", "validate_selling_price", 0)
 		frappe.clear_cache()
 
 	def test_pos_batch_reservation(self):
