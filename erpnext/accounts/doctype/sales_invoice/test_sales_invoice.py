@@ -5733,43 +5733,59 @@ class TestSalesInvoice(FrappeTestCase):
 			create_supplier,
 		)
 		from erpnext.buying.doctype.purchase_order.test_purchase_order import get_or_create_fiscal_year
+		from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_sales_invoice
+		import frappe
+
 		get_or_create_fiscal_year("_Test Company")
-		selling_setting = frappe.get_doc("Selling Settings")
-		selling_setting.validate_selling_price = 1
-		selling_setting.save()
 
-		supplier = create_supplier(supplier_name="_Test Supplier")
-
-		item = make_test_item("_Test Sell Item")
-
-		pi = create_purchase_invoice(
-			supplier=supplier.name,
-			company="_Test Company",
-			item_code=item.name,
-			qty=1,
-			rate=100
-		)
-		pi.save().submit()
-
+		# Manually enable validation and remember previous value
+		selling_settings = frappe.get_single("Selling Settings")
+		selling_settings.validate_selling_price = 1
+		selling_settings.save(ignore_permissions=True)
+		frappe.clear_cache()
 		try:
-			si = create_sales_invoice(
-				customer="_Test Customer",
+			supplier = create_supplier(supplier_name="_Test Supplier")
+			item = make_test_item("_Test Sell Item")
+
+			# Purchase at 100
+			pi = create_purchase_invoice(
+				supplier=supplier.name,
 				company="_Test Company",
 				item_code=item.name,
 				qty=1,
-				rate=99
+				rate=100
 			)
-		except Exception as e:
-			error_msg = str(e)
-		self.assertEqual(
-            error_msg,
-            (
-                "Row #1: Selling rate for item _Test Item is lower than its last purchase rate.\n"
-                "\t\t\t\t\tSelling net rate should be atleast 100.0.Alternatively,\n"
-                "\t\t\t\t\tyou can disable selling price validation in Selling Settings to bypass\n"
-                "\t\t\t\t\tthis validation."
-            )
-        )
+			pi.save().submit()
+
+			error_msg = None
+			try:
+				# Try selling at 99, expect error
+				si = create_sales_invoice(
+					customer="_Test Customer",
+					company="_Test Company",
+					item_code=item.name,
+					qty=1,
+					rate=99
+				)
+				self.fail("Expected ValidationError was not raised.")
+			except Exception as e:
+				error_msg = str(e)
+
+			expected_msg = (
+				"Row #1: Selling rate for item _Test Item is lower than its last purchase rate.\n"
+				"\t\t\t\t\tSelling net rate should be atleast 100.0.Alternatively,\n"
+				"\t\t\t\t\tyou can disable selling price validation in Selling Settings to bypass\n"
+				"\t\t\t\t\tthis validation."
+			)
+			self.assertEqual(error_msg, expected_msg)
+
+		finally:
+			# Restore original setting to avoid affecting other tests
+			selling_settings = frappe.get_single("Selling Settings")
+			selling_settings.validate_selling_price = 0
+			selling_settings.save(ignore_permissions=True)
+			frappe.clear_cache()
+
 	
 	def test_test_unlink_payment_on_invoice_cancellation_TC_ACC_126(self):
 		from erpnext.accounts.doctype.payment_entry.test_payment_entry import (
