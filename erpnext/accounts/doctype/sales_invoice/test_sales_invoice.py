@@ -5738,53 +5738,50 @@ class TestSalesInvoice(FrappeTestCase):
 
 		get_or_create_fiscal_year("_Test Company")
 
+		if not frappe.db.get_value("Company","_Test Company","stock_received_but_not_billed"):
+			frappe.db.set_value("Company","_Test Company","stock_received_but_not_billed","Stock Received But Not Billed - _TC")
 		# Manually enable validation and remember previous value
 		selling_settings = frappe.get_single("Selling Settings")
 		selling_settings.validate_selling_price = 1
 		selling_settings.save(ignore_permissions=True)
 		frappe.clear_cache()
-		try:
-			supplier = create_supplier(supplier_name="_Test Supplier")
-			item = make_test_item("_Test Sell Item")
 
-			# Purchase at 100
-			pi = create_purchase_invoice(
-				supplier=supplier.name,
-				company="_Test Company",
-				item_code=item.name,
-				qty=1,
-				rate=100
-			)
-			pi.save().submit()
+		supplier = create_supplier(supplier_name="_Test Supplier")
+		item = make_test_item("_Test Sell Item")
 
-			error_msg = None
-			try:
-				# Try selling at 99, expect error
-				si = create_sales_invoice(
-					customer="_Test Customer",
-					company="_Test Company",
-					item_code=item.name,
-					qty=1,
-					rate=99
-				)
-				self.fail("Expected ValidationError was not raised.")
-			except Exception as e:
-				error_msg = str(e)
+		# Purchase at 100
+		pi = create_purchase_invoice(
+			supplier=supplier.name,
+			company="_Test Company",
+			item_code=item.name,
+			qty=1,
+			rate=100
+		)
+		pi.save().submit()
 
-			expected_msg = (
-				"Row #1: Selling rate for item _Test Item is lower than its last purchase rate.\n"
-				"\t\t\t\t\tSelling net rate should be atleast 100.0.Alternatively,\n"
-				"\t\t\t\t\tyou can disable selling price validation in Selling Settings to bypass\n"
-				"\t\t\t\t\tthis validation."
-			)
-			self.assertEqual(error_msg, expected_msg)
+		expected_msg = (
+			"Row #1: Selling rate for item _Test Item is lower than its last purchase rate.\n"
+			"\t\t\t\t\tSelling net rate should be atleast 100.0.Alternatively,\n"
+			"\t\t\t\t\tyou can disable selling price validation in Selling Settings to bypass\n"
+			"\t\t\t\t\tthis validation."
+		)
+		si = create_sales_invoice(
+			customer="_Test Customer",
+			company="_Test Company",
+			item_code=item.name,
+			qty=1,
+			rate=99,
+			do_not_save=1
+		)
+		with self.assertRaises(frappe.ValidationError) as context:
+			si.save()
+		self.assertEqual(str(context.exception), expected_msg)
 
-		finally:
-			# Restore original setting to avoid affecting other tests
-			selling_settings = frappe.get_single("Selling Settings")
-			selling_settings.validate_selling_price = 0
-			selling_settings.save(ignore_permissions=True)
-			frappe.clear_cache()
+		# Restore original setting to avoid affecting other tests
+		selling_settings = frappe.get_single("Selling Settings")
+		selling_settings.validate_selling_price = 0
+		selling_settings.save(ignore_permissions=True)
+		frappe.clear_cache()
 
 	
 	def test_test_unlink_payment_on_invoice_cancellation_TC_ACC_126(self):
