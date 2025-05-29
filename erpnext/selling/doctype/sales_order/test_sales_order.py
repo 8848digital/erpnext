@@ -4179,10 +4179,6 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		so = make_sales_order(qty=10,rate=90)
 		so.save()
 		so.submit()
-		frappe.log_error("so_item_rate",so.items[0].rate)
-		frappe.log_error("so_grand_total",so.grand_total)
-		print("so_item_rate",so.items[0].rate)
-		print("so_grand_total",so.grand_total)
   
 		from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
   
@@ -4197,7 +4193,6 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 			filters={"voucher_no": pe.name},
 			fields=["account", "debit", "credit"]
 		)
-		print("gl_entry_list", gl_entry_list)
 
 		# Get the first debit and credit entry with corresponding amounts
 		debit_entry = next((entry for entry in gl_entry_list if entry['debit'] > 0), None)
@@ -4208,14 +4203,6 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 
 		credit_account = credit_entry['account'] if credit_entry else None
 		credit_amount = credit_entry['credit'] if credit_entry else None
-
-		frappe.log_error("Debit Account:", debit_account)
-		frappe.log_error("credit_account:", credit_account)
-		frappe.log_error("debit_amount:", debit_amount)
-		frappe.log_error("credit_amount:", credit_amount)
-
-		print("Debit Account:", debit_account, "Amount:", debit_amount)
-		print("Credit Account:", credit_account, "Amount:", credit_amount)
   
 		self.assertEqual(pe.status, 'Submitted')
 		self.assertEqual(credit_amount, 900)
