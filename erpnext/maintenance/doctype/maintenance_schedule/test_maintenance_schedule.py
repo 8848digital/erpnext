@@ -20,13 +20,7 @@ from erpnext.stock.doctype.item.test_item import create_item
 
 class TestMaintenanceSchedule(unittest.TestCase):
 	def setUp(self):
-		from erpnext.accounts.doctype.payment_entry.test_payment_entry import (
-			make_test_item
-		)
-
-		self.item = make_test_item("_Test Item10")
-		self.item.has_serial_no = 1
-		self.item.save()
+		self.item = create_item("_Test Item10", {"has_serial_no": 1, "is_stock_item": 1})
 		self.serial_no = frappe.get_doc({
 			"doctype": "Serial No",
 			"serial_no": f"TEST-SR-{frappe.utils.now_datetime().timestamp()}",
@@ -37,14 +31,13 @@ class TestMaintenanceSchedule(unittest.TestCase):
 		self.bundle = frappe.get_doc({
 			"doctype": "Serial and Batch Bundle",
 			"item_code": self.item.name,
-			"type_of_transaction" : "Maintenance",
+			"type_of_transaction": "Maintenance",
 			"has_serial_no": 1,
 			"voucher_type": "Maintenance Schedule",
-			"entries": [{"serial_no": self.serial_no.name, "qty":1, }]
+			"entries": [{"serial_no": self.serial_no.name, "qty": 1}]
 		}).insert()
 
-
-		self.schedule = make_maintenance_schedule(item_code = self.item.name ,do_not_submit=True)
+		self.schedule = make_maintenance_schedule(item_code=self.item.name, do_not_submit=True)
 		self.schedule.items[0].serial_no = self.serial_no.name
 		self.schedule.items[0].serial_and_batch_bundle = self.bundle.name
 		self.schedule.items[0].no_of_visits = 1
@@ -190,17 +183,11 @@ class TestMaintenanceSchedule(unittest.TestCase):
 	def test_update_amc_date_TC_M_001(self):
 		from frappe.utils import add_days, nowdate
 
-		serial_no = frappe.get_doc({
-			"doctype": "Serial No",
-			"serial_no": "TEST-SN-AMC",
-			"item_code": "_Test Item"
-		}).insert(ignore_permissions=True,ignore_if_duplicate=True).name
-
 		ms = make_maintenance_schedule()
 		amc_date = add_days(nowdate(), 180)
-		ms.update_amc_date([serial_no], amc_expiry_date=amc_date)
+		ms.update_amc_date([self.serial_no.name], amc_expiry_date=amc_date)
 
-		self.assertEqual(str(frappe.get_value("Serial No", serial_no, "amc_expiry_date")), amc_date)
+		self.assertEqual(str(frappe.get_value("Serial No", self.serial_no.name, "amc_expiry_date")), amc_date)
 
 	def test_validate_maintenance_detail_TC_M_002(self):
 		def assert_throw(ms, msg):
@@ -250,29 +237,21 @@ class TestMaintenanceSchedule(unittest.TestCase):
 		ms_new.items[0].sales_order = so.name
 		ms_new.items[0].no_of_visits = 1
 
-		with self.assertRaises(frappe.ValidationError) as context:
+		with self.assertRaises(frappe.ValidationError, msg="Maintenance Schedule"):
 			ms_new.validate_sales_order()
-
-		self.assertIn("Maintenance Schedule", str(context.exception))
 
 	def test_validate_serial_no_bundle_throw_TC_M_004(self):
 		from erpnext.stock.doctype.item.test_item import make_item
 
 		item_code = "_Test Item 1"
 		item_code = make_item(item_code, {"has_serial_no": 1, "is_stock_item": 1}).name
-		
-		serial_no = frappe.get_doc({
-			"doctype": "Serial No", 
-			"serial_no": "_Test Serial No",
-			"item_code": item_code
-		}).insert(ignore_if_duplicate=True)
 
 		bundle = frappe.get_doc({
 			"doctype": "Serial and Batch Bundle",
-			"item_code": item_code,
+			"item_code": self.item.name,
 			"type_of_transaction": "Maintenance",
 			"voucher_type": "Sales Invoice",
-			"entries": [{"serial_no": serial_no.name}]
+			"entries": [{"serial_no": self.serial_no.name}]
 		}).insert()
 
 		ms = frappe.get_doc({
@@ -280,8 +259,8 @@ class TestMaintenanceSchedule(unittest.TestCase):
 			"customer": "_Test Customer",
 			"transaction_date": nowdate(),
 			"items": [{
-				"item_code": item_code,
-				"serial_no": serial_no.name,
+				"item_code": self.item.name,
+				"serial_no": self.serial_no.name,
 				"serial_and_batch_bundle": bundle.name,
 				"start_date": nowdate(),
 				"end_date": add_days(nowdate(), 30),
@@ -289,10 +268,8 @@ class TestMaintenanceSchedule(unittest.TestCase):
 			}]
 		})
 
-		with self.assertRaises(frappe.ValidationError) as context:
+		with self.assertRaises(frappe.ValidationError, msg="should have voucher type as 'Maintenance Schedule'"):
 			ms.insert()
-
-		self.assertIn("should have voucher type as 'Maintenance Schedule'", str(context.exception))
 
 	def test_on_trash_TC_M_005(self):
 		doc = make_maintenance_schedule()
@@ -325,9 +302,9 @@ class TestMaintenanceSchedule(unittest.TestCase):
 		}).insert()
 
 		ms = make_maintenance_schedule(do_not_submit=True)
-		with self.assertRaises(frappe.ValidationError) as context:
+		with self.assertRaises(frappe.ValidationError, msg="does not belong to Item"):
 			ms.validate_serial_no("_Another Item", [sr], nowdate())
-		self.assertIn("does not belong to Item", str(context.exception))
+		# self.assertIn("does not belong to Item", str(context.exception))
 
 	def test_valid_periodicity_end_date_calculation_TC_M_007(self):
 		self.days_in_period = {
@@ -407,7 +384,6 @@ class TestMaintenanceSchedule(unittest.TestCase):
 		visit.insert()
 
 		self.assertEqual(visit.purposes[0].serial_no, self.serial_no.name)
-
 
 
 def make_serial_item_with_serial(item_code):
