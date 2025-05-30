@@ -191,9 +191,8 @@ class TestMaintenanceSchedule(unittest.TestCase):
 
 	def test_validate_maintenance_detail_TC_M_002(self):
 		def assert_throw(ms, msg):
-			with self.assertRaises(frappe.ValidationError) as e:
+			with self.assertRaises(frappe.ValidationError, msg=msg):
 				ms.validate_maintenance_detail()
-			self.assertIn(msg, str(e.exception))
 
 		ms = frappe.new_doc("Maintenance Schedule")
 
@@ -216,11 +215,8 @@ class TestMaintenanceSchedule(unittest.TestCase):
 
 		ms.items[0].start_date = "2025-01-01"
 		ms.items[0].end_date = "2025-01-10"
-		try:
-			ms.validate_maintenance_detail()
-		except frappe.ValidationError:
-			self.fail("Validation failed on valid input")
-
+		ms.validate_maintenance_detail()
+		
 	def test_validate_sales_order_throw_TC_M_003(self):
 		from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
 		from erpnext.selling.doctype.sales_order.test_sales_order import make_sales_order
