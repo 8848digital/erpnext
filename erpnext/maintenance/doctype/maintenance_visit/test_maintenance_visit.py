@@ -1,17 +1,29 @@
 # Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
 # See license.txt
-
 import unittest
 
 import frappe
 from frappe.utils.data import today
+from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_customer
+from erpnext.stock.doctype.item.test_item import create_item
 
 # test_records = frappe.get_test_records('Maintenance Visit')
 
 
 class TestMaintenanceVisit(unittest.TestCase):
+	def setUp(self):
+		from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_company
+		create_company()
+		self.customer = create_customer("_Test Customer",currency="INR")
+		self.item_code = create_item("_Test Item", is_stock_item=1)
+		self.company = "_Test Company"
+		self.sales_person = self.make_sales_person("_Test Sales Person")
+
+	def tearDown(self):
+		frappe.db.rollback()
+
 	def test_update_customer_issue_sets_resolution_fields_TC_M_012(self):
-		sales_person = make_sales_person("_Test Sales Person")
+		sales_person = self.sales_person
 		wc = frappe.get_doc({
 			"doctype": "Warranty Claim",
 			"item_code": "_Test Item",
@@ -83,7 +95,6 @@ class TestMaintenanceVisit(unittest.TestCase):
 		mv1.purposes[0].prevdoc_doctype = "Warranty Claim"
 		mv1.update_customer_issue(flag=0)
 		if "sales_commission" in frappe.get_installed_apps():
-			print("sal_comm")
 			self.assertNotEqual("service_person_field", "t2.service_person")
 		else:
 			self.assertEqual("service_person_field", "NULL")
@@ -114,13 +125,11 @@ class TestMaintenanceVisit(unittest.TestCase):
 		mv2.mntc_time = "11:00:00"
 		mv2.submit()
 
-		with self.assertRaises(frappe.ValidationError) as context:
+		with self.assertRaises(frappe.ValidationError, msg="Cancel Material Visits"):
 			mv1.cancel()
 
-		self.assertIn("Cancel Material Visits", str(context.exception))
-
 	def test_update_customer_issue_flag_0_with_previous_partial_visit_TC_M_016(self):
-		sales_person = make_sales_person("_Test Sales Person")
+		sales_person = self.sales_person
 
 		wc = frappe.get_doc({
 			"doctype": "Warranty Claim",
