@@ -20,6 +20,8 @@ from erpnext.stock.doctype.item.test_item import create_item
 
 class TestMaintenanceSchedule(unittest.TestCase):
 	def setUp(self):
+		from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_company
+		create_company()
 		self.item = create_item("_Test Item10", {"has_serial_no": 1, "is_stock_item": 1})
 		self.serial_no = frappe.get_doc({
 			"doctype": "Serial No",
