@@ -9,6 +9,7 @@ from frappe.tests.utils import FrappeTestCase
 from frappe.utils import cint, flt
 from frappe.utils.data import add_to_date, getdate
 
+from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_company, make_test_item
 from erpnext.accounts.doctype.purchase_invoice.test_purchase_invoice import make_purchase_invoice
 from erpnext.stock.doctype.batch.batch import get_batch_qty
 from erpnext.stock.doctype.item.test_item import make_item
@@ -20,11 +21,15 @@ from erpnext.stock.doctype.serial_and_batch_bundle.test_serial_and_batch_bundle 
 	get_batch_from_bundle,
 )
 from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
+from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
 from erpnext.stock.get_item_details import get_item_details
 from erpnext.stock.serial_batch_bundle import SerialBatchCreation
 
 
 class TestBatch(FrappeTestCase):
+	def teardown(self):
+		frappe.db.rollback()
+
 	def test_item_has_batch_enabled(self):
 		self.assertRaises(
 			ValidationError,

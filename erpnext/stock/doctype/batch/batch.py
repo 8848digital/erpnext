@@ -92,7 +92,7 @@ class Batch(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING:  # pragma: no cover
 		from frappe.types import DF
 
 		batch_id: DF.Data
@@ -249,7 +249,6 @@ def get_batch_qty(
 			"for_stock_levels": for_stock_levels,
 			"consider_negative_batches": consider_negative_batches,
 		}
-
 	)
 
 	batches = get_auto_batch_nos(kwargs)
