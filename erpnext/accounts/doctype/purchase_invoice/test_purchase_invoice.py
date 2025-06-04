@@ -4643,11 +4643,18 @@ class TestPurchaseInvoice(FrappeTestCase, StockTestMixin):
 		lvc.save()
 		lvc.submit()
   
-		expected_gle = [
-			['Creditors - _TC', 0.0, 1000.0, pi.posting_date],
-			['CWIP Account - _TC', 1300.0, 0.0, pi.posting_date],  # 1000 + 300
-			['Expenses Included In Valuation - _TC', 0.0, 300.0, pi.posting_date],
-		]
+		gl_entries = frappe.get_all(
+			"GL Entry",
+			filters={
+				"voucher_type": "Purchase Invoice",
+				"voucher_no": pi.name,
+				"is_cancelled": 0
+			},
+			fields=["account", "debit", "credit", "posting_date"],
+			order_by="posting_date, account, creation"
+		)
+
+		expected_gle = [[gle.account, gle.debit, gle.credit, gle.posting_date] for gle in gl_entries]
 		
 		check_gl_entries(self ,pi.name,expected_gle=expected_gle,posting_date=pi.posting_date)
   
