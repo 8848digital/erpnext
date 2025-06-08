@@ -910,6 +910,51 @@ class TestAccount(unittest.TestCase):
 				name="1210 - Debtors - TCC", account_name=new_account_name, account_number=new_account_number
 			)
 
+	def test_get_coa_TC_ACC_194(self):
+		# Setup
+		from erpnext.accounts.utils import get_coa
+
+		frappe.set_user("Administrator")
+		doctype = "Account"
+		parent = "All Accounts"
+		chart = "Standard"
+
+		# Execute
+		result = get_coa(doctype, parent, chart=chart)
+
+		# Assert
+		assert isinstance(result, list)
+		for account in result:
+			assert account["parent_account"] in [None, "All Accounts"]
+		assert len(result) > 0
+
+	def test_validate_existing_bank_account_TC_ACC_195(self):
+		# Setup
+		from unittest.mock import patch
+
+		from erpnext.accounts.doctype.account.chart_of_accounts.chart_of_accounts import validate_bank_account
+
+		frappe.set_user("Administrator")
+		coa = "Standard"
+		test_bank_account = "Bank Account 1"
+
+		# get_chart to return a test chart structure
+		def mock_get_chart(coa_name):
+			return {
+				"Assets": {
+					"Bank Accounts": {test_bank_account: {"account_number": "12345", "account_type": "Bank"}}
+				}
+			}
+
+		# Patch the get_chart function
+		with patch(
+			"erpnext.accounts.doctype.account.chart_of_accounts.chart_of_accounts.get_chart", mock_get_chart
+		):
+			result = validate_bank_account(coa, test_bank_account)
+
+			# Assert
+			assert result is True
+
 
 def _make_test_records(verbose=None):
 	from frappe.test_runner import make_test_objects
