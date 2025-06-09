@@ -291,6 +291,8 @@ class TestWarehouse(FrappeTestCase):
 			
 		warehouse_doc = frappe.get_doc("Warehouse", test_warehouse_name)
 	
+		if not frappe.db.exists("Item", "_Test Item"):
+			create_item("_Test Item", warehouse=test_warehouse_name, company="_Test Company")
 
     	# Make sure the test item is stock item with valuation rate
 		item = frappe.get_doc("Item", "_Test Item")
