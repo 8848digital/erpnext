@@ -166,39 +166,27 @@ class TestWarehouse(FrappeTestCase):
 		if not frappe.db.exists("Item", "_Test Item"):
 			create_item("_Test Item", warehouse=warehouse, company="_Test Company")
 
-		# Create a bin with quantities
-		bin_key = {
-    		"item_code": "_Test Item",
-    		"warehouse": warehouse,
-		}
+		# Make sure the test item is stock item with valuation rate
+		item = frappe.get_doc("Item", "_Test Item")
+		item.is_stock_item = 1
+		item.valuation_rate = 100
+		item.save(ignore_permissions=True)	
 
-		existing_bin = frappe.db.get_value("Bin", bin_key, "name")
-
-		if existing_bin:
-		    # Update existing Bin
-			bin_doc = frappe.get_doc("Bin", existing_bin)
-			bin_doc.update({
-		        "actual_qty": 5,
-		        "reserved_qty": 0,
-		        "ordered_qty": 0,
-		        "indented_qty": 0,
-		        "planned_qty": 0,
-		        "projected_qty": 0,
-		    })
-			bin_doc.save()
-		else:
-		    # Insert new Bin
-			frappe.get_doc({
-		        "doctype": "Bin",
-		        **bin_key,
-		        "actual_qty": 5,
-		        "reserved_qty": 0,
-		        "ordered_qty": 0,
-		        "indented_qty": 0,
-		        "planned_qty": 0,
-		        "projected_qty": 0,
-			}).insert()
-
+		se = frappe.get_doc({
+        "doctype": "Stock Entry",
+        "stock_entry_type": "Material Receipt",
+        "company": "_Test Company",
+        "items": [{
+            "item_code": "_Test Item",
+            "qty": 5,
+            "t_warehouse": warehouse,
+            "uom": "Nos",
+            "stock_uom": "Nos",
+            "conversion_factor": 1
+        	}]
+    	})
+		se.insert()
+		se.submit()
 
 		# Try to delete warehouse, should raise ValidationError
 		with self.assertRaises(frappe.ValidationError) as context:
@@ -337,7 +325,6 @@ class TestWarehouse(FrappeTestCase):
 
 		# Call method to cover warning logic
 		warehouse_doc.warn_about_multiple_warehouse_account()		
-		self.assertTrue(True)
 
 
 
