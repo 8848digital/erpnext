@@ -410,5 +410,10 @@ def create_shipment_item(item_name, company_name):
 	item.stock_uom = "Nos"
 	item.standard_rate = 50
 	item.append("item_defaults", {"company": company_name, "default_warehouse": "Stores - _TC"})
+
+
+	if "india_compliance" in frappe.get_installed_apps():
+		item.gst_hsn_code = get_hsn()
+		
 	item.insert()
 	return item
