@@ -10,6 +10,7 @@ from frappe.utils import add_to_date, flt, get_time, now
 from erpnext.accounts.doctype.account.test_account import make_company
 from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_address
 from erpnext.stock.doctype.delivery_note.delivery_note import make_shipment
+from erpnext.stock.doctype.item.test_item import get_hsn
 
 
 class TestShipment(FrappeTestCase):
