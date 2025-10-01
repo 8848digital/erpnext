@@ -69,7 +69,15 @@ class AccountsSettings(Document):
 		submit_journal_entries: DF.Check
 		unlink_advance_payment_on_cancelation_of_order: DF.Check
 		unlink_payment_on_cancellation_of_invoice: DF.Check
+<<<<<<< HEAD
 		use_legacy_controller_for_pcv: DF.Check
+=======
+<<<<<<< HEAD
+=======
+		use_legacy_budget_controller: DF.Check
+		use_legacy_controller_for_pcv: DF.Check
+>>>>>>> 4888461be2 (refactor: checkbox for pcv controller)
+>>>>>>> 797b418af4 (refactor: checkbox for pcv controller)
 	# end: auto-generated types
 
 	def validate(self):
