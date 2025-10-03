@@ -14,6 +14,11 @@ class ProcessPeriodClosingVoucher(Document):
 	if TYPE_CHECKING:
 		from frappe.types import DF
 
+		from erpnext.accounts.doctype.process_period_closing_voucher_detail.process_period_closing_voucher_detail import (
+			ProcessPeriodClosingVoucherDetail,
+		)
+
+		dates_to_process: DF.Table[ProcessPeriodClosingVoucherDetail]
 		parent_pcv: DF.Link | None
 		status: DF.Literal["Queued", "Running", "Completed"]
 	# end: auto-generated types
