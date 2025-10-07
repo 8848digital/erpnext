@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_rename": 1,
  "autoname": "Prompt",
  "creation": "2020-05-22 16:46:18.712954",
  "doctype": "DocType",
@@ -377,7 +378,7 @@
   }
  ],
  "links": [],
- "modified": "2025-04-30 14:43:23.643006",
+ "modified": "2025-10-07 11:17:05.444394",
  "modified_by": "Administrator",
  "module": "Accounts",
  "name": "Process Statement Of Accounts",
