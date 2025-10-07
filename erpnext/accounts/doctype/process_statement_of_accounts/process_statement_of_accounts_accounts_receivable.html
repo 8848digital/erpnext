@@ -8,10 +8,64 @@
 	}
 	</style>
 
+<<<<<<< HEAD
 	<div id="header-html" class="hidden-pdf">
 		{% if letter_head.content %}
 		<div class="letter-head text-center">{{ letter_head.content }}</div>
 		<hr style="height:2px;border-width:0;color:black;background-color:black;">
+=======
+<div id="header-html" class="hidden-pdf">
+	{% if letter_head.content %}
+	<div class="letter-head text-center">{{ letter_head.content }}</div>
+	<hr style="height:2px;border-width:0;color:black;background-color:black;">
+	{% endif %}
+</div>
+<div id="footer-html" class="visible-pdf">
+	{% if letter_head.footer %}
+	<div class="letter-head-footer">
+		<hr style="border-width:0;color:black;background-color:black;padding-bottom:2px;">
+		{{ letter_head.footer }}
+	</div>
+	{% endif %}
+</div>
+
+<h2 class="text-center" style="margin-top:0">{{ _("STATEMENT OF ACCOUNTS") }}</h2>
+<h4 class="text-center">
+	{{ filters.customer_name }}
+</h4>
+<h6 class="text-center">
+	{% if (filters.tax_id) %}
+		{{ _("Tax Id: {0}").format(filters.tax_id) }}
+	{% endif %}
+</h6>
+<h5 class="text-center">
+	{{ _("{0} until {1}").format(
+		_(filters.ageing_based_on),
+		frappe.format(filters.report_date, 'Date')
+	) }}
+</h5>
+
+<div class="clearfix">
+	<div class="pull-left">
+	{% if(filters.payment_terms) %}
+		<strong>{{ _("Payment Terms:") }}</strong> {{ filters.payment_terms }}
+	{% endif %}
+	</div>
+	<div class="pull-right">
+	{% if(filters.credit_limit) %}
+		<strong>{{ _("Credit Limit:") }}</strong> {{ frappe.utils.fmt_money(filters.credit_limit) }}
+	{% endif %}
+	</div>
+</div>
+
+{% if(filters.show_future_payments)%}
+	{% set balance_row = data[-1] %}
+
+	{% set ns = namespace(idx=None) %}
+	{% for i in report.columns %}
+		{% if i.fieldname == "age" and ns.idx is none %}
+			{% set ns.idx = loop.index0 %}
+>>>>>>> 4a4c2188ec (fix(process statement of accounts): naming of reports)
 		{% endif %}
 	</div>
 	<div id="footer-html" class="visible-pdf">
