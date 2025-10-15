@@ -18,7 +18,8 @@ class TestSubcontractingBOM(FrappeTestCase):
 
 			})
 			service_item.save()
-
+		else:
+			service_item = frappe.get_doc("Item","Test Service Item")
 		if not frappe.db.exists("Item", "Test Finished Good"):
 			finished_good = make_item("Test Finished Good", {
 				"is_stock_item": 1,
