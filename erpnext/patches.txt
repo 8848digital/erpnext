@@ -387,7 +387,6 @@ erpnext.patches.v14_0.update_full_name_in_contract
 erpnext.patches.v15_0.drop_sle_indexes
 erpnext.patches.v15_0.update_payment_ledger_entries_against_advance_doctypes
 erpnext.patches.v15_0.update_uae_zero_rated_fetch
-execute:frappe.db.set_single_value("Accounts Settings", "show_party_balance", 1)
-execute:frappe.db.set_single_value("Accounts Settings", "show_account_balance", 1)
-
-
+erpnext.patches.v15_0.update_fieldname_in_accounting_dimension_filter
+erpnext.patches.v15_0.set_asset_status_if_not_already_set
+erpnext.patches.v15_0.toggle_legacy_controller_for_period_closing

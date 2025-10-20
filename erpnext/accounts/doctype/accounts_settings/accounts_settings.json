@@ -56,9 +56,6 @@
   "reconciliation_queue_size",
   "column_break_resa",
   "exchange_gain_loss_posting_date",
-  "payment_entry_settings",
-  "show_account_balance",
-  "show_party_balance",
   "invoicing_settings_tab",
   "accounts_transactions_settings_section",
   "over_billing_allowance",
@@ -69,6 +66,11 @@
   "pos_tab",
   "pos_setting_section",
   "post_change_gl_entries",
+  "assets_tab",
+  "asset_settings_section",
+  "calculate_depr_using_total_days",
+  "column_break_gjcc",
+  "book_asset_depreciation_entry_automatically",
   "closing_settings_tab",
   "period_closing_settings_section",
   "acc_frozen_upto",
@@ -93,8 +95,7 @@
   "legacy_section",
   "ignore_is_opening_check_for_reporting",
   "payment_request_settings",
-  "create_pr_in_draft_status",
-  "column_break_xrnd"
+  "create_pr_in_draft_status"
  ],
  "fields": [
   {
@@ -152,6 +153,12 @@
    "fieldname": "unlink_advance_payment_on_cancelation_of_order",
    "fieldtype": "Check",
    "label": "Unlink Advance Payment on Cancellation of Order"
+  },
+  {
+   "default": "1",
+   "fieldname": "book_asset_depreciation_entry_automatically",
+   "fieldtype": "Check",
+   "label": "Book Asset Depreciation Entry Automatically"
   },
   {
    "default": "1",
@@ -314,9 +321,19 @@
    "fieldtype": "Column Break"
   },
   {
+   "fieldname": "asset_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Asset Settings"
+  },
+  {
    "fieldname": "invoicing_settings_tab",
    "fieldtype": "Tab Break",
    "label": "Credit Limits"
+  },
+  {
+   "fieldname": "assets_tab",
+   "fieldtype": "Tab Break",
+   "label": "Assets"
   },
   {
    "fieldname": "closing_settings_tab",
@@ -471,6 +488,17 @@
    "label": "Enable Immutable Ledger"
   },
   {
+   "fieldname": "column_break_gjcc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "Enable this option to calculate daily depreciation by considering the total number of days in the entire depreciation period, (including leap years) while using daily pro-rata based depreciation",
+   "fieldname": "calculate_depr_using_total_days",
+   "fieldtype": "Check",
+   "label": "Calculate daily depreciation using total days in depreciation period"
+  },
+  {
    "description": "Payment Request created from Sales Order or Purchase Order will be in Draft status. When disabled document will be in unsaved state.",
    "fieldname": "payment_request_settings",
    "fieldtype": "Tab Break",
@@ -604,27 +632,16 @@
    "label": "Fetch Valuation Rate for Internal Transaction"
   },
   {
+   "default": "0",
+   "fieldname": "use_legacy_budget_controller",
+   "fieldtype": "Check",
+   "label": "Use Legacy Budget Controller"
+  },
+  {
    "default": "1",
    "fieldname": "use_legacy_controller_for_pcv",
    "fieldtype": "Check",
    "label": "Use Legacy Controller For Period Closing Voucher"
-   },
-  {
-   "fieldname": "payment_entry_settings",
-   "fieldtype": "Section Break",
-   "label": "Payment Entry Settings"
-  },
-  {
-   "default": "0",
-   "fieldname": "show_account_balance",
-   "fieldtype": "Check",
-   "label": "Show Account Balance"
-  },
-  {
-   "default": "0",
-   "fieldname": "show_party_balance",
-   "fieldtype": "Check",
-   "label": "Show Party Balance"
   }
  ],
  "icon": "icon-cog",
@@ -657,7 +674,6 @@
   }
  ],
  "quick_entry": 1,
- "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "ASC",
  "states": [],
