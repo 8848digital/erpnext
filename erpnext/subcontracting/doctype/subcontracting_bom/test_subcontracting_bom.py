@@ -26,7 +26,9 @@ class TestSubcontractingBOM(FrappeTestCase):
 				"is_sub_contracted_item": 1, 
 
 			})
-			finished_good.save()		
+			finished_good.save()	
+		else:
+			finished_good = frappe.get_doc("Item","Test Finished Good")
 
 		bom = make_bom(item=finished_good.name, raw_materials=[service_item.name])
 		sub_bom = create_subcontracting_bom(

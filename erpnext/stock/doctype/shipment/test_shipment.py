@@ -47,6 +47,15 @@ class TestShipment(FrappeTestCase):
 			"docname": self.company,
 		}
 
+	def test_shipment_from_delivery_note(self):
+		delivery_note = create_test_delivery_note()
+		delivery_note.submit()
+		shipment = create_test_shipment([delivery_note])
+		shipment.submit()
+		second_shipment = make_shipment(delivery_note.name)
+		self.assertEqual(second_shipment.value_of_goods, delivery_note.grand_total)
+		self.assertEqual(len(second_shipment.shipment_delivery_note), 1)
+		self.assertEqual(second_shipment.shipment_delivery_note[0].delivery_note, delivery_note.name)
 
 	def tearDown(self):
 		frappe.db.rollback()
