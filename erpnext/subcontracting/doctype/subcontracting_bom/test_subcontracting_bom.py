@@ -12,23 +12,14 @@ class TestSubcontractingBOM(FrappeTestCase):
 		from erpnext.stock.doctype.item.test_item import make_item
 
 
-		if not frappe.db.exists("Item", "Test Service Item"):
-			service_item = make_item("Test Service Item", {
-				"is_stock_item": 0,
-
-			})
-			service_item.save()
-		else:
-			service_item = frappe.get_doc("Item","Test Service Item")
-		if not frappe.db.exists("Item", "Test Finished Good"):
-			finished_good = make_item("Test Finished Good", {
-				"is_stock_item": 1,
-				"is_sub_contracted_item": 1, 
-
-			})
-			finished_good.save()	
-		else:
-			finished_good = frappe.get_doc("Item","Test Finished Good")
+		service_item = make_item("Test Service Item", {
+			"is_stock_item": 0,
+		})
+		
+		finished_good = make_item("Test Finished Good", {
+			"is_stock_item": 1,
+			"is_sub_contracted_item": 1, 
+		})
 
 		bom = make_bom(item=finished_good.name, raw_materials=[service_item.name])
 		sub_bom = create_subcontracting_bom(
