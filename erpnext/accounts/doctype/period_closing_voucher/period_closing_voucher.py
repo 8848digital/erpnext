@@ -162,7 +162,7 @@ class PeriodClosingVoucher(AccountsController):
 			"Process Period Closing Voucher", {"parent_pcv": self.name, "docstatus": ["in", [1, 2]]}
 		)
 		for x in ppcvs:
-			frappe.delete_doc("Process Period Closing Voucher", x.name)
+			frappe.delete_doc("Process Period Closing Voucher", x.name, force=True, ignore_permissions=True)
 
 
 	def cancel_process_pcv_docs(self):
