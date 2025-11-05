@@ -13,7 +13,7 @@ from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_sal
 from erpnext.accounts.utils import get_fiscal_year
 
 
-class TestPeriodClosingVoucher(IntegrationTestCase):
+class TestPeriodClosingVoucher(unittest.TestCase):
 	def setUp(self):
 		super().setUp()
 		frappe.db.set_single_value("Accounts Settings", "use_legacy_controller_for_pcv", 1)

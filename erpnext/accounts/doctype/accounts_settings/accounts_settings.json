@@ -632,12 +632,6 @@
    "label": "Fetch Valuation Rate for Internal Transaction"
   },
   {
-   "default": "0",
-   "fieldname": "use_legacy_budget_controller",
-   "fieldtype": "Check",
-   "label": "Use Legacy Budget Controller"
-  },
-  {
    "default": "1",
    "fieldname": "use_legacy_controller_for_pcv",
    "fieldtype": "Check",
