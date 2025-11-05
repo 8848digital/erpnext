@@ -310,6 +310,7 @@ class QualityInspection(Document):
 		for i in range(1, 11):
 			reading_value = reading.get("reading_" + str(i))
 			if reading_value is not None and reading_value.strip():
+				has_reading = True
 				result = (
 					flt(reading.get("min_value"))
 					<= parse_float(reading_value)
