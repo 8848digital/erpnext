@@ -13,8 +13,17 @@ from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_pay
 from erpnext.accounts.doctype.purchase_invoice.test_purchase_invoice import make_purchase_invoice
 from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_sales_invoice
 from erpnext.accounts.party import get_party_account
-from erpnext.buying.doctype.purchase_order.test_purchase_order import prepare_data_for_internal_transfer
+from erpnext.buying.doctype.purchase_order.test_purchase_order import (
+	create_purchase_order,
+	prepare_data_for_internal_transfer,
+)
+from erpnext.projects.doctype.project.test_project import make_project
+from erpnext.selling.doctype.quotation.test_quotation import make_quotation
+from erpnext.selling.doctype.sales_order.test_sales_order import make_sales_order
+from erpnext.stock.doctype.delivery_note.test_delivery_note import create_delivery_note
 from erpnext.stock.doctype.item.test_item import create_item
+from erpnext.stock.doctype.purchase_receipt.test_purchase_receipt import make_purchase_receipt
+
 
 def make_customer(customer_name, currency=None):
 	if not frappe.db.exists("Customer", customer_name):
@@ -2095,6 +2104,174 @@ class TestAccountsController(FrappeTestCase):
 		si_1 = create_sales_invoice(do_not_submit=True)
 		si_1.items[0].project = project.name
 		self.assertRaises(frappe.ValidationError, si_1.save)
+
+	def test_party_billing_and_shipping_address(self):
+		from erpnext.crm.doctype.prospect.test_prospect import make_address
+
+		customer_billing = make_address(address_title="Customer")
+		customer_billing.append("links", {"link_doctype": "Customer", "link_name": "_Test Customer"})
+		customer_billing.save()
+		supplier_billing = make_address(address_title="Supplier", address_line1="2", city="Ahmedabad")
+		supplier_billing.append("links", {"link_doctype": "Supplier", "link_name": "_Test Supplier"})
+		supplier_billing.save()
+
+		customer_shipping = make_address(
+			address_title="Customer", address_type="Shipping", address_line1="10"
+		)
+		customer_shipping.append("links", {"link_doctype": "Customer", "link_name": "_Test Customer"})
+		customer_shipping.save()
+		supplier_shipping = make_address(
+			address_title="Supplier", address_type="Shipping", address_line1="20", city="Ahmedabad"
+		)
+		supplier_shipping.append("links", {"link_doctype": "Supplier", "link_name": "_Test Supplier"})
+		supplier_shipping.save()
+
+		company_address = make_address(
+			address_title="Company", address_type="Shipping", address_line1="100", city="Mumbai"
+		)
+		company_address.append("links", {"link_doctype": "Company", "link_name": "_Test Company"})
+		company_address.save()
+
+		q = make_quotation(do_not_save=True, qty=10)
+		q.company_address = supplier_shipping.name
+		self.assertRaises(frappe.ValidationError, q.save)
+		q.company_address = company_address.name
+		q.save()
+
+		so = make_sales_order(do_not_save=True)
+		so.company_address = supplier_shipping.name
+		self.assertRaises(frappe.ValidationError, so.save)
+		so.company_address = company_address.name
+		so.save()
+
+		so.dispatch_address_name = supplier_shipping.name
+		self.assertRaises(frappe.ValidationError, so.save)
+		so.dispatch_address_name = company_address.name
+		so.reload()
+		so.save()
+
+		si = create_sales_invoice(do_not_save=True)
+		si.customer_address = supplier_billing.name
+		self.assertRaises(frappe.ValidationError, si.save)
+		si.customer_address = customer_billing.name
+		si.save()
+
+		si.shipping_address_name = supplier_shipping.name
+		self.assertRaises(frappe.ValidationError, si.save)
+		si.shipping_address_name = customer_shipping.name
+		si.reload()
+		si.save()
+
+		si.company_address = supplier_shipping.name
+		self.assertRaises(frappe.ValidationError, si.save)
+		si.company_address = company_address.name
+		si.reload()
+		si.save()
+
+		si.dispatch_address_name = supplier_shipping.name
+		self.assertRaises(frappe.ValidationError, si.save)
+		si.dispatch_address_name = company_address.name
+		si.reload()
+		si.save()
+
+		dn = create_delivery_note(do_not_save=True, qty=10)
+		dn.company_address = supplier_shipping.name
+		self.assertRaises(frappe.ValidationError, dn.save)
+		dn.company_address = company_address.name
+		dn.save()
+
+		dn.dispatch_address_name = supplier_shipping.name
+		self.assertRaises(frappe.ValidationError, dn.save)
+		dn.dispatch_address_name = company_address.name
+		dn.reload()
+		dn.save()
+
+		sq = frappe.new_doc("Supplier Quotation")
+		sq.naming_series = "PUR-SQTN-.YYYY.-"
+		sq.supplier = "_Test Supplier"
+		sq.company = "_Test Company"
+		sq.append(
+			"items",
+			{
+				"item_code": "_Test Item",
+				"item_name": "_Test Item",
+				"description": "_Test Item",
+				"warehouse": "_Test Warehouse - _TC",
+				"qty": 1,
+				"uom": "Nos",
+				"stock_uom": "Nos",
+				"rate": 100,
+			},
+		)
+		sq.shipping_address = customer_shipping.name
+		self.assertRaises(frappe.ValidationError, sq.save)
+		sq.shipping_address = company_address.name
+		sq.save()
+
+		sq.billing_address = customer_shipping.name
+		self.assertRaises(frappe.ValidationError, sq.save)
+		sq.billing_address = company_address.name
+		sq.reload()
+		sq.save()
+
+		po = create_purchase_order(do_not_save=True)
+		po.shipping_address = customer_shipping.name
+		self.assertRaises(frappe.ValidationError, po.save)
+		po.shipping_address = company_address.name
+		po.save()
+
+		po.billing_address = supplier_billing.name
+		self.assertRaises(frappe.ValidationError, po.save)
+		po.billing_address = company_address.name
+		po.reload()
+		po.save()
+
+		pi = make_purchase_invoice(do_not_save=True)
+		pi.supplier_address = customer_shipping.name
+		self.assertRaises(frappe.ValidationError, pi.save)
+		pi.supplier_address = supplier_shipping.name
+		pi.save()
+
+		pi.billing_address = customer_shipping.name
+		self.assertRaises(frappe.ValidationError, pi.save)
+		pi.billing_address = company_address.name
+		pi.reload()
+		pi.save()
+
+		pi.shipping_address = customer_shipping.name
+		self.assertRaises(frappe.ValidationError, pi.save)
+		pi.shipping_address = company_address.name
+		pi.reload()
+		pi.save()
+
+		pr = make_purchase_receipt(do_not_save=True)
+		pr.shipping_address = customer_shipping.name
+		self.assertRaises(frappe.ValidationError, pr.save)
+		pr.shipping_address = company_address.name
+		pr.save()
+
+		pr.billing_address = customer_shipping.name
+		self.assertRaises(frappe.ValidationError, pr.save)
+		pr.billing_address = company_address.name
+		pr.reload()
+		pr.save()
+
+	def test_party_contact(self):
+		from frappe.contacts.doctype.contact.test_contact import create_contact
+
+		customer_contact = create_contact(name="Customer", salutation="Mr", save=False)
+		customer_contact.append("links", {"link_doctype": "Customer", "link_name": "_Test Customer"})
+		customer_contact.save()
+
+		supplier_contact = create_contact(name="Supplier", salutation="Mr", save=False)
+		supplier_contact.append("links", {"link_doctype": "Supplier", "link_name": "_Test Supplier"})
+		supplier_contact.save()
+
+		si = create_sales_invoice(do_not_save=True)
+		si.contact_person = supplier_contact.name
+		self.assertRaises(frappe.ValidationError, si.save)
+		si.contact_person = customer_contact.name
+		si.save()
 
 	def test_discount_amount_not_mapped_repeatedly_for_sales_transactions(self):
 		"""
