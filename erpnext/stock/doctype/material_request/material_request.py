@@ -184,9 +184,6 @@ class MaterialRequest(BuyingController):
 			self.update_prevdoc_status()
 			if frappe.db.exists("Budget", {"applicable_on_material_request": 1, "docstatus": 1}):
 				self.validate_budget()
-		#increment overall budget
-		# increment_committed_overall_budget(self)
-		update_original_budget(self,"Submit")
 
 	def before_save(self):
 		self.set_status(update=True)
