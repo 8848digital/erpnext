@@ -439,12 +439,12 @@ class PaymentEntry(AccountsController):
 				self.party_name = frappe.db.get_value(self.party_type, self.party, "name")
 
 		if self.party:
-			if not self.contact_person:
-				set_contact_details(
-					self, party=frappe._dict({"name": self.party}), party_type=self.party_type
-				)
-			else:
-				complete_contact_details(self)
+			if self.party_type == "Employee":
+				self.contact_person = None
+			elif not self.contact_person:
+				self.contact_person = get_default_contact(self.party_type, self.party)
+
+			complete_contact_details(self)
 			if not self.party_balance and frappe.get_single_value("Accounts Settings", "show_party_balance"):
 				self.party_balance = get_balance_on(
 					party_type=self.party_type, party=self.party, date=self.posting_date, company=self.company
@@ -3525,7 +3525,7 @@ def get_paid_amount(dt, dn, party_type, party, account, due_date):
 @frappe.whitelist()
 def get_party_and_account_balance(
 	company, date, paid_from=None, paid_to=None, ptype=None, pty=None, cost_center=None
-):  # pragma: no cover
+):
 	show_account_balance = frappe.get_single_value("Accounts Settings", "show_account_balance")
 	return frappe._dict(
 		{
