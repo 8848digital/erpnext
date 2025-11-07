@@ -2241,11 +2241,9 @@ def validate_reserved_stock(kwargs):
 	if not kwargs.ignore_voucher_nos and kwargs.voucher_no:
 		kwargs.ignore_voucher_nos = [kwargs.voucher_no]
 	if kwargs.serial_no:
-		kwargs.serial_nos = kwargs.serial_no.split("\n")
 		validate_reserved_serial_nos(kwargs)
 
 	elif kwargs.batch_no:
-		kwargs.batch_nos = [kwargs.batch_no]
 		validate_reserved_batch_nos(kwargs)
 
 	elif kwargs.serial_and_batch_bundle:
@@ -2328,7 +2326,7 @@ def validate_reserved_batch_nos(kwargs):
 				msg = _("{0} units of {1} needed in {2} on {3} {4} to complete this transaction.").format(
 					abs(diff),
 					frappe.get_desk_link("Batch", batch_no),
-					frappe.get_desk_link("Warehouse", warehouse),
+					frappe.get_desk_link("Warehouse", kwargs.warehouse),
 					nowdate(),
 					nowtime(),
 				)

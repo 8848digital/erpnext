@@ -14,9 +14,7 @@ from erpnext.accounts.party import get_due_date
 from erpnext.controllers.accounts_controller import get_taxes_and_charges, merge_taxes
 from erpnext.controllers.selling_controller import SellingController
 from erpnext.stock.stock_ledger import validate_reserved_stock
-from erpnext.stock.stock_ledger import validate_reserved_stock
-from frappe.query_builder import DocType
-from frappe.query_builder.functions import Abs, Sum
+
 form_grid_templates = {"items": "templates/form_grid/item_grid.html"}
 
 
@@ -440,8 +438,10 @@ class DeliveryNote(SellingController):
 			self.make_bundle_using_old_serial_batch_fields(table_name)
 		
 		self.validate_standalone_serial_nos_customer()
+
 		if not self.is_return:
 			self.validate_reserved_stock()
+
 		self.update_stock_reservation_entries()
 
 		# Updating stock ledger should always be called after updating prevdoc status,
@@ -478,7 +478,7 @@ class DeliveryNote(SellingController):
 		)
 
 		self.delete_auto_created_batches()
-	
+
 	def validate_reserved_stock(self):
 		from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import (
 			get_sre_against_so_for_dn,
@@ -491,7 +491,7 @@ class DeliveryNote(SellingController):
 		reserved_stocks = self.get_reserved_stock_details()
 
 		for row in self.items:
-			if flt(reserved_stocks.get((row.item_code, row.warehouse))) > 0:
+			if reserved_stocks.get((row.item_code, row.warehouse)) > 0:
 				args = frappe._dict(
 					{
 						"item_code": row.item_code,

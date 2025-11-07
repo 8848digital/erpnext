@@ -761,7 +761,7 @@ def get_sre_reserved_serial_nos_details(
 
 	if serial_nos:
 		query = query.where(sb_entry.serial_no.isin(serial_nos))
-	
+
 	if ignore_voucher_nos:
 		query = query.where(sre.name.notin(ignore_voucher_nos))
 
@@ -797,10 +797,9 @@ def get_sre_reserved_batch_nos_details(
 
 	if batch_nos:
 		query = query.where(sb_entry.batch_no.isin(batch_nos))
-	
+
 	if ignore_voucher_nos:
 		query = query.where(sre.name.notin(ignore_voucher_nos))
-
 
 	return frappe._dict(query.run())
 
