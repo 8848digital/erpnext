@@ -251,6 +251,9 @@ class SerialandBatchBundle(Document):
 		if self.voucher_type == "Delivery Note":
 			kwargs["ignore_voucher_nos"] = self.get_sre_against_dn()
 
+		if self.voucher_type == "Delivery Note":
+			kwargs["ignore_voucher_nos"] = self.get_sre_against_dn()
+
 		available_serial_nos = get_available_serial_nos(frappe._dict(kwargs))
 
 		serial_no_warehouse = {}
@@ -1386,6 +1389,20 @@ class SerialandBatchBundle(Document):
 			return sre_names
 		return None
 
+
+	def get_sre_against_dn(self):
+		from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import (
+			get_sre_against_so_for_dn,
+		)
+
+		so_name, so_detail_no = frappe.db.get_value(
+			"Delivery Note Item", self.voucher_detail_no, ["against_sales_order", "so_detail"]
+		)
+
+		if so_name and so_detail_no:
+			sre_names = get_sre_against_so_for_dn(so_name, so_detail_no)
+
+			return sre_names
 
 	def get_sre_against_dn(self):
 		from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import (
