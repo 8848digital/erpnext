@@ -244,6 +244,11 @@ frappe.ui.form.on("Work Order", {
 		}
 
 		frm.trigger("allow_alternative_item");
+		frm.trigger("toggle_items_editable");
+	},
+
+	toggle_items_editable(frm) {
+		frm.toggle_enable("required_items", frm.doc.__onload?.allow_editing_items === 1 ? 1 : 0);
 	},
 
 	add_custom_button_to_return_components: function (frm) {
