@@ -491,7 +491,7 @@ class DeliveryNote(SellingController):
 		reserved_stocks = self.get_reserved_stock_details()
 
 		for row in self.items:
-			if reserved_stocks.get((row.item_code, row.warehouse)) > 0:
+			if flt(reserved_stocks.get((row.item_code, row.warehouse))) > 0:
 				args = frappe._dict(
 					{
 						"item_code": row.item_code,
