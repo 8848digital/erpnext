@@ -2240,6 +2240,7 @@ def validate_reserved_stock(kwargs):
 	# ignore current voucher when validating the reserved stock
 	if not kwargs.ignore_voucher_nos and kwargs.voucher_no:
 		kwargs.ignore_voucher_nos = [kwargs.voucher_no]
+
 	if kwargs.serial_no:
 		validate_reserved_serial_nos(kwargs)
 
