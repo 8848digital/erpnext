@@ -1324,17 +1324,30 @@ class SerialBatchCreation:
 		voucher_no = ""
 		if self.get("voucher_no"):
 			voucher_no = self.get("voucher_no")
-		
+
+<<<<<<< HEAD
+=======
+		voucher_type = ""
+		if self.get("voucher_type"):
+			voucher_type = self.get("voucher_type")
+
 		obj = NamingSeries(self.serial_no_series)
 		current_value = obj.get_current_value()
 
 		def get_series(partial_series, digits):
 			return f"{current_value:0{digits}d}"
 
+		posting_date = frappe.db.get_value(
+			voucher_type,
+			voucher_no,
+			"posting_date",
+		)
 
+>>>>>>> 19a9497273 (perf: serial no creation)
 		for _i in range(abs(cint(self.actual_qty))):
 			current_value += 1
 			serial_no = parse_naming_series(self.serial_no_series, number_generator=get_series)
+
 			sr_nos.append(serial_no)
 			serial_nos_details.append(
 				(
@@ -1374,7 +1387,7 @@ class SerialBatchCreation:
 			]
 
 			frappe.db.bulk_insert("Serial No", fields=fields, values=set(serial_nos_details))
-		
+
 		obj.update_counter(current_value)
 
 		return sr_nos
