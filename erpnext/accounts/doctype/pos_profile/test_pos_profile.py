@@ -70,6 +70,7 @@ class TestPOSProfile(unittest.TestCase):
 		)
 
 		test_user, pos_profile = init_user_and_profile()
+		frappe.db.delete("POS Opening Entry", {"pos_profile": pos_profile.name})
 
 		if pos_profile:
 			opening_entry = create_opening_entry(pos_profile, test_user.name)
