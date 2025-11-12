@@ -5,8 +5,6 @@ import unittest
 
 import frappe
 from frappe.utils import cint
-from frappe.tests import IntegrationTestCase
-from frappe.utils import cint
 
 from erpnext.accounts.doctype.pos_profile.pos_profile import (
 	get_child_nodes,
