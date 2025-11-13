@@ -61,6 +61,7 @@ class Customer(TransactionBase):
 		is_internal_customer: DF.Check
 		language: DF.Link | None
 		last_name: DF.ReadOnly | None
+		lead_name: DF.Link | None
 		loyalty_program: DF.Link | None
 		loyalty_program_tier: DF.Data | None
 		mobile_no: DF.ReadOnly | None
@@ -243,9 +244,13 @@ class Customer(TransactionBase):
 				"Customer", self.name, "Customer Group", self.customer_group, ignore_doctypes
 			)
 
-	
-
-	
+	def create_primary_contact(self):
+		if not self.customer_primary_contact and not self.lead_name:
+			if self.mobile_no or self.email_id or self.first_name or self.last_name:
+				contact = make_contact(self)
+				self.db_set("customer_primary_contact", contact.name)
+				self.db_set("mobile_no", self.mobile_no)
+				self.db_set("email_id", self.email_id)
 
 	def create_primary_address(self):
 		from frappe.contacts.doctype.address.address import get_address_display
@@ -691,7 +696,6 @@ def make_contact(args, is_primary_contact=1):
 		contact.add_email(args.get("email_id"), is_primary=True)
 	if args.get("mobile_no"):
 		contact.add_phone(args.get("mobile_no"), is_primary_mobile_no=True)
-	
 	if args.get("first_name"):
 		contact.first_name = args.get("first_name")
 	if args.get("last_name"):
