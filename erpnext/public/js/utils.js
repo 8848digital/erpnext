@@ -422,6 +422,7 @@ $.extend(erpnext.utils, {
 		}
 		const today = frappe.datetime.get_today();
 		if (!date) {
+			date = today;
 		}
 
 		let fiscal_year = "";
