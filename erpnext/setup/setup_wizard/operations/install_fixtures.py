@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 
 import frappe
+from frappe import _
 from frappe.desk.doctype.global_search_settings.global_search_settings import (
 	update_global_search_doctypes,
 )
@@ -15,7 +16,6 @@ from frappe.utils import cstr, getdate
 
 from erpnext.accounts.doctype.account.account import RootNotEditable
 from erpnext.regional.address_template.setup import set_up_address_templates
-from erpnext.setup.utils import identity as _
 
 
 def read_lines(filename: str) -> list[str]:
@@ -522,7 +522,7 @@ def create_bank_account(args, demo=False):
 			return doc
 
 		except RootNotEditable:
-			frappe.throw(frappe._("Bank account cannot be named as {0}").format(args.get("bank_account")))
+			frappe.throw(_("Bank account cannot be named as {0}").format(args.get("bank_account")))
 		except frappe.DuplicateEntryError:
 			# bank account same as a CoA entry
 			pass
