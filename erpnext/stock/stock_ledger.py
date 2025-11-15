@@ -2242,9 +2242,11 @@ def validate_reserved_stock(kwargs):
 		kwargs.ignore_voucher_nos = [kwargs.voucher_no]
 
 	if kwargs.serial_no:
+		kwargs.serial_nos = kwargs.serial_no.split("\n")
 		validate_reserved_serial_nos(kwargs)
 
 	elif kwargs.batch_no:
+		kwargs.batch_nos = [kwargs.batch_no]
 		validate_reserved_batch_nos(kwargs)
 
 	elif kwargs.serial_and_batch_bundle:
