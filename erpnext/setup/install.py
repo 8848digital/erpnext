@@ -7,7 +7,6 @@ import click
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from frappe.desk.page.setup_wizard.setup_wizard import add_all_roles_to
-from frappe.utils import cint
 
 import erpnext
 from erpnext.setup.default_energy_point_rules import get_default_energy_point_rules
