@@ -2315,6 +2315,7 @@ def validate_reserved_batch_nos(kwargs):
 					"posting_date": kwargs.posting_date,
 					"posting_time": kwargs.posting_time,
 					"ignore_voucher_nos": kwargs.ignore_voucher_nos,
+					"ignore_reserved_stock": True,
 				}
 			)
 		)
