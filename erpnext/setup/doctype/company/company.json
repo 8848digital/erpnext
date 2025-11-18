@@ -785,6 +785,40 @@
     "options": "Advance Payment Date\nOldest Of Invoice Or Advance\nReconciliation Date"
      },
   {
+   "fieldname": "exchange_gain__loss_section",
+   "fieldtype": "Section Break",
+   "label": "Exchange Gain / Loss"
+  },
+  {
+   "fieldname": "round_off_section",
+   "fieldtype": "Section Break",
+   "label": "Round Off"
+  },
+  {
+   "fieldname": "deferred_accounting_section",
+   "fieldtype": "Section Break",
+   "label": "Deferred Accounting"
+  },
+  {
+   "fieldname": "column_break_sttp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_jqfo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_dcdl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Oldest Of Invoice Or Advance",
+   "fieldname": "reconciliation_takes_effect_on",
+   "fieldtype": "Select",
+   "label": "Reconciliation Takes Effect On",
+   "options": "Advance Payment Date\nOldest Of Invoice Or Advance\nReconciliation Date"
+  },
+  {
    "fieldname": "default_sales_contact",
    "fieldtype": "Link",
    "label": "Default Sales Contact",
@@ -796,7 +830,7 @@
  "image_field": "company_logo",
  "is_tree": 1,
  "links": [],
- "modified": "2025-01-09 20:12:25.471544",
+ "modified": "2025-11-16 16:51:27.624096",
  "modified_by": "Administrator",
  "module": "Setup",
  "name": "Company",

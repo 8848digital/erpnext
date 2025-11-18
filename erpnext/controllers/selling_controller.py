@@ -165,6 +165,13 @@ class SellingController(StockController):
 				"Company", self.company, "default_sales_contact"
 			)
 
+	def set_company_contact_person(self):
+		"""Set the Company's Default Sales Contact as Company Contact Person."""
+		if self.company and self.meta.has_field("company_contact_person") and not self.company_contact_person:
+			self.company_contact_person = frappe.get_cached_value(
+				"Company", self.company, "default_sales_contact"
+			)
+
 	def remove_shipping_charge(self):
 		if self.shipping_rule:
 			shipping_rule = frappe.get_doc("Shipping Rule", self.shipping_rule)
