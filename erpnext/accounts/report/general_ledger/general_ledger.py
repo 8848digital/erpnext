@@ -569,6 +569,13 @@ def get_accountwise_gle(filters, accounting_dimensions, gl_entries, gle_map, tot
 				if val := gle.get(dimension):
 					gle[dimension] = _(val)
 
+		if filters.get("include_dimensions"):
+			dimensions = [*accounting_dimensions, "cost_center", "project"]
+
+			for dimension in dimensions:
+				if val := gle.get(dimension):
+					gle[dimension] = _(val)
+
 	for value in consolidated_gle.values():
 		update_value_in_dict(totals, "total", value)
 		update_value_in_dict(totals, "closing", value)
