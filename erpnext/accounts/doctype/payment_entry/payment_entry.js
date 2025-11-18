@@ -593,10 +593,6 @@ frappe.ui.form.on("Payment Entry", {
 
 		frm.events.set_company_bank_account(frm);
 
-<<<<<<< HEAD
-		
-=======
->>>>>>> 3d8a344173 (fix: on changes of paid from/to account fetch company bank account)
 		frm.events.set_account_currency_and_balance(
 			frm,
 			frm.doc.paid_from,

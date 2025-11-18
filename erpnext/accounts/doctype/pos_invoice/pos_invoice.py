@@ -191,6 +191,7 @@ class POSInvoice(SalesInvoice):
 	def validate(self):
 		if not self.customer:
 			frappe.throw(_("Please select Customer first"))
+
 		if not cint(self.is_pos):
 			frappe.throw(
 				_("POS Invoice should have the field {0} checked.").format(frappe.bold(_("Include Payment")))
@@ -763,6 +764,7 @@ class POSInvoice(SalesInvoice):
 @frappe.whitelist()
 def get_stock_availability(item_code, warehouse):
 	from erpnext.stock.stock_ledger import is_negative_stock_allowed
+
 	if frappe.db.get_value("Item", item_code, "is_stock_item"):
 		is_stock_item = True
 		bin_qty = get_bin_qty(item_code, warehouse)

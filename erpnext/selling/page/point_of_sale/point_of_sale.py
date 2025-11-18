@@ -197,6 +197,7 @@ def get_items(start, page_length, price_list, item_group, pos_profile, search_te
 	current_date = frappe.utils.today()
 
 	for item in items_data:
+		item.actual_qty, _, is_negative_stock_allowed = get_stock_availability(item.item_code, warehouse)
 
 		item.actual_qty, _, is_negative_stock_allowed = get_stock_availability(item.item_code, warehouse)
 

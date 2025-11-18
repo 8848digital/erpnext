@@ -99,6 +99,10 @@ frappe.ui.form.on("Material Request", {
 		if (!frm.doc.buying_price_list) {
 			frm.doc.buying_price_list = frappe.defaults.get_default("buying_price_list");
 		}
+		erpnext.accounts.dimensions.setup_dimension_filters(frm, frm.doctype);
+		if (!frm.doc.buying_price_list) {
+			frm.doc.buying_price_list = frappe.defaults.get_default("buying_price_list");
+		}
 	},
 
 	company: function (frm) {
