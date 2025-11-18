@@ -1094,17 +1094,9 @@ class StockEntry(StockController):
 						"ignore_serial_nos": already_picked_serial_nos,
 						"qty": row.transfer_qty * -1,
 					}
-<<<<<<< HEAD
-				).update_serial_and_batch_entries()
-			elif not row.serial_and_batch_bundle:
-=======
-				).update_serial_and_batch_entries(
-					serial_nos=serial_nos.get(row.name), batch_nos=batch_nos.get(row.name)
-				)
 			elif not row.serial_and_batch_bundle and frappe.get_single_value(
 				"Stock Settings", "auto_create_serial_and_batch_bundle_for_outward"
 			):
->>>>>>> 3ca1940881 (fix: validate sabb autocreation when disabled)
 				bundle_doc = SerialBatchCreation(
 					{
 						"item_code": row.item_code,
