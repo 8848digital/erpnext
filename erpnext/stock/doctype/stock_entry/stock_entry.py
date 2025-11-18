@@ -1094,6 +1094,7 @@ class StockEntry(StockController):
 						"ignore_serial_nos": already_picked_serial_nos,
 						"qty": row.transfer_qty * -1,
 					}
+				).update_serial_and_batch_entries()
 			elif not row.serial_and_batch_bundle and frappe.get_single_value(
 				"Stock Settings", "auto_create_serial_and_batch_bundle_for_outward"
 			):
