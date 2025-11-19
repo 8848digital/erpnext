@@ -781,13 +781,8 @@ class BOM(WebsiteGenerator):
 						"stock_uom": d.stock_uom,
 						"conversion_factor": d.conversion_factor,
 						"sourced_by_supplier": d.sourced_by_supplier,
-<<<<<<< HEAD
-					}
-=======
-						"is_phantom_item": d.is_phantom_item,
 					},
 					notify=False,
->>>>>>> 074f07694f (fix: redundant message on bom save)
 				)
 
 			d.base_rate = flt(d.rate) * flt(self.conversion_rate)
