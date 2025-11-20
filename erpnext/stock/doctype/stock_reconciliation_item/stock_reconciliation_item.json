@@ -188,12 +188,10 @@
   },
   {
    "default": "0",
-   "depends_on": "allow_zero_valuation_rate",
    "fieldname": "allow_zero_valuation_rate",
    "fieldtype": "Check",
    "label": "Allow Zero Valuation Rate",
-   "print_hide": 1,
-   "read_only": 1
+   "print_hide": 1
   },
   {
    "depends_on": "barcode",
@@ -275,7 +273,11 @@
  ],
  "istable": 1,
  "links": [],
- "modified": "2024-11-19 19:38:56.118942",
+<<<<<<< HEAD
+ "modified": "2025-03-12 16:34:51.326821",
+=======
+ "modified": "2025-11-20 15:27:13.868179",
+>>>>>>> 20e0313a8c (fix: unhide zero val checkbox)
  "modified_by": "Administrator",
  "module": "Stock",
  "name": "Stock Reconciliation Item",
