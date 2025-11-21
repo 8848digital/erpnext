@@ -219,6 +219,12 @@ class Customer(TransactionBase):
 		self.create_primary_contact()
 		self.create_primary_address()
 
+		if self.flags.old_lead != self.lead_name:
+			self.update_lead_status()
+
+		if self.flags.is_new_doc:
+			self.link_address_and_contact()
+			self.copy_communication()
 
 		self.update_customer_groups()
 	
@@ -257,7 +263,49 @@ class Customer(TransactionBase):
 			self.db_set("customer_primary_address", address.name)
 			self.db_set("primary_address", address_display)
 
+	def update_lead_status(self):
+		"""If Customer created from Lead, update lead status to "Converted"
+		update Customer link in Quotation, Opportunity"""
+		if self.lead_name:
+			frappe.db.set_value("Lead", self.lead_name, "status", "Converted")
 
+	def link_address_and_contact(self):
+		linked_documents = {
+			"Lead": self.lead_name,
+			"Opportunity": self.opportunity_name,
+			"Prospect": self.prospect_name,
+		}
+		for doctype, docname in linked_documents.items():
+			# assign lead, opportunity and prospect address and contact to customer (if already not set)
+			if not docname:
+				continue
+
+			linked_contacts_and_addresses = frappe.get_all(
+				"Dynamic Link",
+				filters=[
+					["parenttype", "in", ["Contact", "Address"]],
+					["link_doctype", "=", doctype],
+					["link_name", "=", docname],
+				],
+				fields=["parent as name", "parenttype as doctype"],
+			)
+
+			for row in linked_contacts_and_addresses:
+				linked_doc = frappe.get_doc(row.doctype, row.name)
+				if not linked_doc.has_link("Customer", self.name):
+					linked_doc.append("links", dict(link_doctype="Customer", link_name=self.name))
+					linked_doc.save(ignore_permissions=self.flags.ignore_permissions)
+
+	def copy_communication(self):
+		if not self.lead_name or not frappe.db.get_single_value(
+			"CRM Settings", "carry_forward_communication_and_comments"
+		):
+			return
+
+		from erpnext.crm.utils import copy_comments, link_communications
+
+		copy_comments("Lead", self.lead_name, self)
+		link_communications("Lead", self.lead_name, self)
 
 	def validate_name_with_customer_group(self):
 		if frappe.db.exists("Customer Group", self.name):
