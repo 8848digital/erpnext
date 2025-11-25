@@ -231,7 +231,8 @@ frappe.ui.form.on("Work Order", {
 		if (
 			frm.doc.docstatus === 1 &&
 			["Closed", "Completed"].includes(frm.doc.status) &&
-			frm.doc.produced_qty > 0
+			frm.doc.produced_qty > 0 &&
+			frm.doc.produced_qty > frm.doc.disassembled_qty
 		) {
 			frm.add_custom_button(
 				__("Disassemble Order"),
@@ -402,7 +403,6 @@ frappe.ui.form.on("Work Order", {
 					work_order_id: frm.doc.name,
 					purpose: "Disassemble",
 					qty: data.qty,
-					target_warehouse: data.target_warehouse,
 				});
 			})
 			.then((stock_entry) => {
@@ -853,24 +853,6 @@ erpnext.work_order = {
 				},
 			},
 		];
-
-		if (purpose === "Disassemble") {
-			fields.push({
-				fieldtype: "Link",
-				options: "Warehouse",
-				fieldname: "target_warehouse",
-				label: __("Target Warehouse"),
-				default: frm.doc.source_warehouse || frm.doc.wip_warehouse,
-				get_query() {
-					return {
-						filters: {
-							company: frm.doc.company,
-							is_group: 0,
-						},
-					};
-				},
-			});
-		}
 
 		return new Promise((resolve, reject) => {
 			frm.qty_prompt = frappe.prompt(
