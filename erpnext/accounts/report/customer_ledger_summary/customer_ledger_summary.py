@@ -244,39 +244,6 @@ class PartyLedgerSummaryReport:
 			},
 		]
 
-<<<<<<< HEAD
-		# Hidden columns for handling 'User Permissions'
-		if self.filters.party_type == "Customer":
-			columns += [
-				{
-					"label": _("Territory"),
-					"fieldname": "territory",
-					"fieldtype": "Link",
-					"options": "Territory",
-					"hidden": 1,
-				},
-				{
-					"label": _("Customer Group"),
-					"fieldname": "customer_group",
-					"fieldtype": "Link",
-					"options": "Customer Group",
-					"hidden": 1,
-				},
-			]
-		else:
-			columns += [
-				{
-					"label": _("Supplier Group"),
-					"fieldname": "supplier_group",
-					"fieldtype": "Link",
-					"options": "Supplier Group",
-					"hidden": 1,
-				}
-			]
-
-=======
-		columns.append({"label": _("Dr/Cr"), "fieldname": "dr_or_cr", "fieldtype": "Data", "width": 100})
->>>>>>> 231479a6e2 (fix(ledger-summary-report): show party group and territory)
 		return columns
 
 	def get_data(self):
