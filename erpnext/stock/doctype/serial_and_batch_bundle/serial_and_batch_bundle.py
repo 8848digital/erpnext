@@ -2539,6 +2539,9 @@ def get_voucher_wise_serial_batch_from_bundle(**kwargs) -> dict[str, dict]:
 		child_row = group_by_voucher[key]
 		if row.serial_no:
 			child_row["serial_nos"].append(row.serial_no)
+			child_row["item_row"].qty = len(child_row["serial_nos"]) * (
+				-1 if row.type_of_transaction == "Outward" else 1
+			)
 
 		if row.batch_no:
 			child_row["batch_nos"][row.batch_no] += row.qty
@@ -2659,8 +2662,13 @@ def get_ledgers_from_serial_batch_bundle(**kwargs) -> list[frappe._dict]:
 			serial_batch_table.incoming_rate,
 			bundle_table.voucher_detail_no,
 			bundle_table.voucher_no,
+<<<<<<< HEAD
 			bundle_table.posting_date,
 			bundle_table.posting_time,
+=======
+			bundle_table.posting_datetime,
+			bundle_table.type_of_transaction,
+>>>>>>> 95e6c72539 (fix: inward same serial / batches in disassembly which were used)
 		)
 		.where(
 			(bundle_table.docstatus == 1)
