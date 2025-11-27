@@ -44,25 +44,6 @@ frappe.ui.form.on("Purchase Receipt", {
 				filters: { company: frm.doc.company },
 			};
 		});
-
-		frm.set_query("subcontracting_receipt", function () {
-			return {
-				filters: {
-					docstatus: 1,
-					supplier: frm.doc.supplier,
-				},
-			};
-		});
-
-		var list = frm.fields_dict['items'].grid.get_field('work_breakdown_structure').get_query = function (doc, cdt, cdn) {
-			var child = locals[cdt][cdn];
-			return {
-				filters: {
-					project : child.project,
-					is_group: 0
-				}
-			};
-		};
 	},
 	onload: function (frm) {
 		erpnext.queries.setup_queries(frm, "Warehouse", function () {
@@ -158,24 +139,6 @@ frappe.ui.form.on("Purchase Receipt", {
 	company: function (frm) {
 		frm.trigger("toggle_display_account_head");
 		erpnext.accounts.dimensions.update_dimension(frm, frm.doctype);
-	},
-
-	subcontracting_receipt: (frm) => {
-		if (
-			frm.doc.is_subcontracted === 1 &&
-			frm.doc.is_old_subcontracting_flow === 0 &&
-			frm.doc.subcontracting_receipt
-		) {
-			frm.set_value("items", null);
-
-			erpnext.utils.map_current_doc({
-				method: "erpnext.subcontracting.doctype.subcontracting_receipt.subcontracting_receipt.make_purchase_receipt",
-				source_name: frm.doc.subcontracting_receipt,
-				target_doc: frm,
-				freeze: true,
-				freeze_message: __("Mapping Purchase Receipt ..."),
-			});
-		}
 	},
 
 	toggle_display_account_head: function (frm) {
