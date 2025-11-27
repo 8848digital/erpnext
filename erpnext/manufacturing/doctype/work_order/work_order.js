@@ -211,7 +211,7 @@ frappe.ui.form.on("Work Order", {
 				if (not_completed && not_completed.length) {
 					frm.add_custom_button(__("Create Job Card"), () => {
 						frm.trigger("make_job_card");
-					}).addClass("btn-primary");
+					});
 				}
 			}
 		}
@@ -254,7 +254,7 @@ frappe.ui.form.on("Work Order", {
 			if (non_consumed_items && non_consumed_items.length) {
 				frm.add_custom_button(__("Return Components"), function () {
 					frm.trigger("create_stock_return_entry");
-				}).addClass("btn-primary");
+				});
 			}
 		}
 	},
