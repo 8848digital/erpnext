@@ -1283,6 +1283,7 @@ class TestStockEntry(FrappeTestCase):
 				frappe._dict(item_code="_Test FG Item", qty=4, t_warehouse="_Test Warehouse 1 - _TC"),
 			],
 		)
+		frappe.db.set_value("Company", "_Test Company", "stock_adjustment_account", "Stock Adjustment - _TC")
 		# SE must have atleast one FG
 		self.assertRaises(FinishedGoodError, se.save)
 
@@ -1300,7 +1301,14 @@ class TestStockEntry(FrappeTestCase):
 		self.assertEqual(se.value_difference, 0.0)
 		self.assertEqual(se.total_incoming_value, se.total_outgoing_value)
 
+<<<<<<< HEAD
 	@change_settings("Stock Settings", {"allow_negative_stock": 0})
+=======
+		self.assertEqual(se.items[0].expense_account, "Stock Adjustment - _TC")
+		self.assertEqual(se.items[1].expense_account, "_Test Account Cost for Goods Sold - _TC")
+
+	@IntegrationTestCase.change_settings("Stock Settings", {"allow_negative_stock": 0})
+>>>>>>> ba2411b4ee (test: add test for fg item expense account in direct manufacturing)
 	def test_future_negative_sle(self):
 		# Initialize item, batch, warehouse, opening qty
 		item_code = "_Test Future Neg Item"
