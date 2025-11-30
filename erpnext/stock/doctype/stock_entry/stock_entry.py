@@ -422,6 +422,7 @@ class StockEntry(StockController):
 						"project": self.get("project") if "projects" in frappe.get_installed_apps() else "",
 						"uom": item.uom,
 						"s_warehouse": item.s_warehouse,
+						"is_finished_item": item.is_finished_item,
 					}
 				),
 				for_update=True,
@@ -451,6 +452,15 @@ class StockEntry(StockController):
 					flt(item.qty) * flt(item.conversion_factor), self.precision("transfer_qty", item)
 				)
 
+<<<<<<< HEAD
+=======
+			if self.purpose == "Subcontracting Delivery":
+				item.expense_account = frappe.get_value("Company", self.company, "default_expense_account")
+
+			if self.purpose == "Manufacture":
+				item.set("expense_account", item_details.get("expense_account"))
+
+>>>>>>> ce1312764f (fix(stock entry): use fg item expense account for direct manufacturing entry)
 	def validate_fg_completed_qty(self):
 		item_wise_qty = {}
 		if self.purpose == "Manufacture" and self.work_order:
@@ -1733,7 +1743,9 @@ class StockEntry(StockController):
 		if self.purpose == "Material Issue":
 			ret["expense_account"] = item.get("expense_account") or item_group_defaults.get("expense_account")
 
-		if self.purpose == "Manufacture" or not ret.get("expense_account"):
+		if (self.purpose == "Manufacture" and not args.get("is_finished_item")) or not ret.get(
+			"expense_account"
+		):
 			ret["expense_account"] = frappe.get_cached_value(
 				"Company", self.company, "stock_adjustment_account"
 			)
