@@ -113,6 +113,16 @@ frappe.ui.form.on("Material Request", {
 	refresh: function (frm) {
 		frm.events.make_custom_buttons(frm);
 		frm.toggle_reqd("customer", frm.doc.material_request_type == "Customer Provided");
+<<<<<<< HEAD
+=======
+		prevent_past_schedule_dates(frm);
+		frm.trigger("set_warehouse_label");
+	},
+
+	transaction_date(frm) {
+		prevent_past_schedule_dates(frm);
+		frm.set_value("schedule_date", "");
+>>>>>>> 699e9b4452 (fix: label for warehouse based on material request type)
 	},
 
 	set_from_warehouse: function (frm) {
@@ -510,6 +520,23 @@ frappe.ui.form.on("Material Request", {
 		if (frm.doc.material_request_type !== "Material Transfer" && frm.doc.set_from_warehouse) {
 			frm.set_value("set_from_warehouse", "");
 		}
+
+		frm.trigger("set_warehouse_label");
+	},
+
+	set_warehouse_label(frm) {
+		let warehouse_label =
+			frm.doc.material_request_type === "Material Transfer" ? "Target Warehouse" : "Warehouse";
+		if (frm.doc.material_request_type === "Material Issue") {
+			warehouse_label = "From Warehouse";
+		}
+
+		frm.fields_dict["items"].grid.update_docfield_property("warehouse", "label", __(warehouse_label));
+
+		warehouse_label = "Set " + warehouse_label;
+		frm.set_df_property("set_warehouse", "label", __(warehouse_label));
+
+		refresh_field("items");
 	},
 });
 
