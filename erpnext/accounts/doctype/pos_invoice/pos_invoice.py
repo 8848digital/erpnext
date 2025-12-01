@@ -21,7 +21,11 @@ from erpnext.stock.doctype.serial_no.serial_no import get_serial_nos
 from erpnext.stock.stock_ledger import is_negative_stock_allowed
 
 
+<<<<<<< HEAD
 class PartialPaymentValidationError(frappe.ValidationError):
+=======
+class ProductBundleStockValidationError(frappe.ValidationError):
+>>>>>>> 2612152456 (test(pos): add test for product bundle negative stock validation)
 	pass
 
 
@@ -388,6 +392,7 @@ class POSInvoice(SalesInvoice):
 								"<br>".join(error_msgs),
 							),
 							title=_("Insufficient Stock for Product Bundle Items"),
+							exc=ProductBundleStockValidationError,
 						)
 
 				else:
