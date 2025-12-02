@@ -108,11 +108,7 @@
  "idx": 1,
  "is_tree": 1,
  "links": [],
-<<<<<<< HEAD
- "modified": "2022-12-24 11:16:12.486719",
-=======
  "modified": "2025-12-02 13:57:57.814686",
->>>>>>> e08805128b (fix: exclude is_group records)
  "modified_by": "Administrator",
  "module": "Setup",
  "name": "Supplier Group",
@@ -177,11 +173,6 @@
  "show_name_in_global_search": 1,
  "sort_field": "modified",
  "sort_order": "ASC",
-<<<<<<< HEAD
- "states": []
-}
-=======
  "states": [],
  "translated_doctype": 1
 }
->>>>>>> e08805128b (fix: exclude is_group records)

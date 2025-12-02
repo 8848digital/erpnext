@@ -139,11 +139,7 @@
  "idx": 1,
  "is_tree": 1,
  "links": [],
-<<<<<<< HEAD
- "modified": "2023-06-02 13:40:34.435822",
-=======
  "modified": "2025-12-02 13:58:03.378607",
->>>>>>> e08805128b (fix: exclude is_group records)
  "modified_by": "Administrator",
  "module": "Setup",
  "name": "Customer Group",
@@ -217,11 +213,6 @@
  "show_name_in_global_search": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
-<<<<<<< HEAD
- "states": []
-}
-=======
  "states": [],
  "translated_doctype": 1
 }
->>>>>>> e08805128b (fix: exclude is_group records)
