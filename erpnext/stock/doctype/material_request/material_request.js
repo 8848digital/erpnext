@@ -113,16 +113,7 @@ frappe.ui.form.on("Material Request", {
 	refresh: function (frm) {
 		frm.events.make_custom_buttons(frm);
 		frm.toggle_reqd("customer", frm.doc.material_request_type == "Customer Provided");
-<<<<<<< HEAD
-=======
-		prevent_past_schedule_dates(frm);
 		frm.trigger("set_warehouse_label");
-	},
-
-	transaction_date(frm) {
-		prevent_past_schedule_dates(frm);
-		frm.set_value("schedule_date", "");
->>>>>>> 699e9b4452 (fix: label for warehouse based on material request type)
 	},
 
 	set_from_warehouse: function (frm) {
