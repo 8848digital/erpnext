@@ -21,7 +21,6 @@ from erpnext.stock.doctype.serial_no.serial_no import get_serial_nos
 from erpnext.stock.stock_ledger import is_negative_stock_allowed
 
 
-
 class PartialPaymentValidationError(frappe.ValidationError):
 	pass
 
