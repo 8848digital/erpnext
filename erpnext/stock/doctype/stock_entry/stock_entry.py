@@ -452,15 +452,9 @@ class StockEntry(StockController):
 					flt(item.qty) * flt(item.conversion_factor), self.precision("transfer_qty", item)
 				)
 
-<<<<<<< HEAD
-=======
-			if self.purpose == "Subcontracting Delivery":
-				item.expense_account = frappe.get_value("Company", self.company, "default_expense_account")
-
 			if self.purpose == "Manufacture":
 				item.set("expense_account", item_details.get("expense_account"))
 
->>>>>>> ce1312764f (fix(stock entry): use fg item expense account for direct manufacturing entry)
 	def validate_fg_completed_qty(self):
 		item_wise_qty = {}
 		if self.purpose == "Manufacture" and self.work_order:
