@@ -1286,7 +1286,7 @@ class SerialandBatchBundle(Document):
 					sn_table.purchase_document_no,
 					self.voucher_no if not sn_table.purchase_document_no else self.voucher_no,
 				)
-				.where(sn_table.name.isin(serial_nos))
+				.where((sn_table.name.isin(serial_nos)) & (sn_table.purchase_document_no.isnull()))
 			).run()
 
 	def validate_serial_and_batch_inventory(self):
