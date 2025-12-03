@@ -116,7 +116,14 @@ class DeliveryNote(SellingController):
 		shipping_address: DF.SmallText | None
 		shipping_address_name: DF.Link | None
 		shipping_rule: DF.Link | None
+<<<<<<< HEAD
+		source: DF.Link | None
 		status: DF.Literal["", "Draft", "To Bill", "Completed", "Return Issued", "Cancelled", "Closed"]
+=======
+		status: DF.Literal[
+			"", "Draft", "To Bill", "Completed", "Return", "Return Issued", "Cancelled", "Closed"
+		]
+>>>>>>> dec67eecad (fix: add return status for delivery note)
 		tax_category: DF.Link | None
 		tax_id: DF.Data | None
 		taxes: DF.Table[SalesTaxesandCharges]
