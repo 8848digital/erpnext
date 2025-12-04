@@ -232,6 +232,28 @@
    "label": "Standard Selling Rate"
   },
   {
+   "allow_in_quick_entry": 1,
+   "default": "0",
+   "fieldname": "is_fixed_asset",
+   "fieldtype": "Check",
+   "label": "Is Fixed Asset"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "depends_on": "is_fixed_asset",
+   "fieldname": "asset_category",
+   "fieldtype": "Link",
+   "label": "Asset Category",
+   "mandatory_depends_on": "is_fixed_asset",
+   "options": "Asset Category"
+  },
+  {
+   "depends_on": "is_fixed_asset",
+   "fieldname": "asset_naming_series",
+   "fieldtype": "Select",
+   "label": "Asset Naming Series"
+  },
+  {
    "fieldname": "image",
    "fieldtype": "Attach Image",
    "hidden": 1,
@@ -847,7 +869,7 @@
  "image_field": "image",
  "links": [],
  "make_attachments_public": 1,
- "modified": "2024-04-30 13:46:39.098753",
+ "modified": "2025-12-04 09:11:56.029567",
  "modified_by": "Administrator",
  "module": "Stock",
  "name": "Item",
