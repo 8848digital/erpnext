@@ -149,6 +149,7 @@ class Item(Document):
 	def onload(self):
 		self.set_onload("stock_exists", self.stock_ledger_created())
 		self.set_onload("current_valuation_method", get_valuation_method(self.name))
+		self.set_onload("asset_exists", self.has_submitted_assets())
 
 	def autoname(self):
 		if frappe.db.get_default("item_naming_by") == "Naming Series":
@@ -287,6 +288,29 @@ class Item(Document):
 				)
 
 				stock_entry.add_comment("Comment", _("Opening Stock"))
+
+	def validate_fixed_asset(self):
+		if self.is_fixed_asset:
+			if self.is_stock_item:
+				frappe.throw(_("Fixed Asset Item must be a non-stock item."))
+
+			if not self.asset_category:
+				frappe.throw(_("Asset Category is mandatory for Fixed Asset item"))
+
+			if self.stock_ledger_created():
+				frappe.throw(_("Cannot be a fixed asset item as Stock Ledger is created."))
+
+<<<<<<< HEAD
+		if not self.is_fixed_asset:
+			asset = frappe.db.get_all("Asset", filters={"item_code": self.name, "docstatus": 1}, limit=1)
+			if asset:
+=======
+		if not self.is_fixed_asset and not self.is_new():
+			if self.has_submitted_assets():
+>>>>>>> 70521fb9bf (fix: remove set_only_once from is_fixed_asset)
+				frappe.throw(
+					_('"Is Fixed Asset" cannot be unchecked, as Asset record exists against the item')
+				)
 
 	def validate_retain_sample(self):
 		if self.retain_sample and not frappe.db.get_single_value(
@@ -506,6 +530,9 @@ class Item(Document):
 				)
 			)
 		return self._stock_ledger_created
+
+	def has_submitted_assets(self):
+		return bool(frappe.db.exists("Asset", {"item_code": self.name, "docstatus": 1}))
 
 	def update_item_price(self):
 		frappe.db.sql(
