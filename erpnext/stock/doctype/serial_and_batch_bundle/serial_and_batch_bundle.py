@@ -2662,13 +2662,8 @@ def get_ledgers_from_serial_batch_bundle(**kwargs) -> list[frappe._dict]:
 			serial_batch_table.incoming_rate,
 			bundle_table.voucher_detail_no,
 			bundle_table.voucher_no,
-<<<<<<< HEAD
 			bundle_table.posting_date,
 			bundle_table.posting_time,
-=======
-			bundle_table.posting_datetime,
-			bundle_table.type_of_transaction,
->>>>>>> 95e6c72539 (fix: inward same serial / batches in disassembly which were used)
 		)
 		.where(
 			(bundle_table.docstatus == 1)
