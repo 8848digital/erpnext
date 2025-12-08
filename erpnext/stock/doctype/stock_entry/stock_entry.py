@@ -278,7 +278,8 @@ class StockEntry(StockController):
 				{
 					"item_code": row.item_code,
 					"warehouse": warehouse,
-					"posting_datetime": get_combine_datetime(self.posting_date, self.posting_time),
+					"posting_date": self.posting_date,
+					"posting_time": self.posting_time,
 					"voucher_type": self.doctype,
 					"voucher_no": self.name,
 					"voucher_detail_no": row.name,
