@@ -242,75 +242,9 @@ class StockEntry(StockController):
 		
 		self.validate_same_source_target_warehouse_during_material_transfer()
 
-<<<<<<< HEAD
-	def on_submit(self):
-		self.validate_closed_subcontracting_order()
-=======
-		self.validate_closed_subcontracting_order()
-		self.validate_subcontract_order()
-
-		super().validate_subcontracting_inward()
-
-	def set_serial_batch_for_disassembly(self):
-		if self.purpose != "Disassemble":
-			return
-
-		available_materials = get_available_materials(self.work_order, self)
-		for row in self.items:
-			warehouse = row.s_warehouse or row.t_warehouse
-			materials = available_materials.get((row.item_code, warehouse))
-			if not materials:
-				continue
-
-			batches = defaultdict(float)
-			serial_nos = []
-			qty = row.transfer_qty
-			for batch_no, batch_qty in materials.batch_details.items():
-				if qty <= 0:
-					break
-
-				batch_qty = abs(batch_qty)
-				if batch_qty <= qty:
-					batches[batch_no] = batch_qty
-					qty -= batch_qty
-				else:
-					batches[batch_no] = qty
-					qty = 0
-
-			if materials.serial_nos:
-				serial_nos = materials.serial_nos[: int(row.transfer_qty)]
-
-			if not serial_nos and not batches:
-				continue
-
-			bundle_doc = SerialBatchCreation(
-				{
-					"item_code": row.item_code,
-					"warehouse": warehouse,
-					"posting_datetime": get_combine_datetime(self.posting_date, self.posting_time),
-					"voucher_type": self.doctype,
-					"voucher_no": self.name,
-					"voucher_detail_no": row.name,
-					"qty": row.transfer_qty,
-					"type_of_transaction": "Inward" if row.t_warehouse else "Outward",
-					"company": self.company,
-					"do_not_submit": True,
-				}
-			).make_serial_and_batch_bundle(serial_nos=serial_nos, batch_nos=batches)
-
-			row.serial_and_batch_bundle = bundle_doc.name
-			row.use_serial_batch_fields = 0
-
-			row.db_set(
-				{
-					"serial_and_batch_bundle": bundle_doc.name,
-					"use_serial_batch_fields": 0,
-				}
-			)
-
 	def on_submit(self):
 		self.set_serial_batch_for_disassembly()
->>>>>>> 95e6c72539 (fix: inward same serial / batches in disassembly which were used)
+		self.validate_closed_subcontracting_order()
 		self.make_bundle_using_old_serial_batch_fields()
 		self.update_disassembled_order()
 		self.update_stock_ledger()
