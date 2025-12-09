@@ -6,7 +6,7 @@ import json
 
 import frappe
 from frappe import _, scrub
-from frappe.model.document import Document, bulk_insert
+from frappe.model.document import Document
 from frappe.query_builder import functions
 from frappe.utils import cint, flt, round_based_on_smallest_currency_fraction
 from frappe.utils.deprecations import deprecated
