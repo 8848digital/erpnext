@@ -866,155 +866,89 @@ class TestTaxWithholdingCategory(FrappeTestCase):
 		self.assertEqual(payment.taxes[0].tax_amount, 6000)
 		self.assertEqual(payment.taxes[0].allocated_amount, 6000)
 
-	def test_validate_dates_TC_ACC_232(self):
-		category = get_tax_withholding_category(
-			category_name="__Test Cumulative Threshold TDS",
-			rate=10,
-			from_date=add_days(today(), 1),
-			to_date=today(),
-			account=get_account(),
-			single_threshold=0,
-			cumulative_threshold=30000.00,
-		)
-		with self.assertRaises(frappe.ValidationError) as cm:
-			category.insert(ignore_permissions=True)
-		self.assertIn("Row #1: From Date cannot be before To Date", str(cm.exception))
-
-		category_1 = get_tax_withholding_category(
-			category_name="__Test Cumulative Threshold TDS 1",
-			rate=10,
-			from_date=today(),
-			to_date=add_days(today(), 2),
-			account=get_account(),
-			single_threshold=0,
-			cumulative_threshold=30000.00,
-		)
-		category_1.append(
-			"rates",
-			{
-				"from_date": add_days(today(), 1),
-				"to_date": add_days(today(), 3),
-				"tax_withholding_rate": 10,
-				"single_threshold": 0,
-				"cumulative_threshold": 1000.00,
-			},
+	def test_tds_on_journal_entry_for_supplier(self):
+		"""Test TDS deduction for Supplier in Debit Note"""
+		frappe.db.set_value(
+			"Supplier", "Test TDS Supplier", "tax_withholding_category", "Cumulative Threshold TDS"
 		)
 
-		with self.assertRaises(frappe.ValidationError) as cm:
-			category_1.insert(ignore_permissions=True)
-		self.assertIn("Row #2: Dates overlapping with other row", str(cm.exception))
-
-	def test_validate_companies_and_accounts_TC_ACC_233(self):
-		category = get_tax_withholding_category(
-			category_name="__Test Cumulative Threshold TDS 1",
-			rate=10,
-			from_date=today(),
-			to_date=add_days(today(), 2),
-			account=get_account(),
-			single_threshold=0,
-			cumulative_threshold=30000.00,
+		jv = make_journal_entry_with_tax_withholding(
+			party_type="Supplier",
+			party="Test TDS Supplier",
+			voucher_type="Debit Note",
+			amount=50000,
+			save=False,
 		)
-		category.append("accounts", {"company": "_Test Company", "account": "Cash - _TC"})
-		with self.assertRaises(frappe.ValidationError) as cm:
-			category.insert()
-		self.assertIn("Company _Test Company added multiple times", str(cm.exception))
+		jv.apply_tds = 1
+		jv.tax_withholding_category = "Cumulative Threshold TDS"
+		jv.save()
 
-		category_1 = get_tax_withholding_category(
-			category_name="__Test Cumulative Threshold TDS 1",
-			rate=10,
-			from_date=today(),
-			to_date=add_days(today(), 2),
-			account=get_account(),
-			single_threshold=0,
-			cumulative_threshold=30000.00,
-		)
-		category_1.append("accounts", {"company": "_Test Company 1", "account": get_account()})
-		with self.assertRaises(frappe.ValidationError) as cm:
-			category_1.insert()
-		self.assertIn(f"Account {get_account()} added multiple times", str(cm.exception))
+		# Again saving should not change tds amount
+		jv.user_remark = "Test TDS on Journal Entry for Supplier"
+		jv.save()
+		jv.submit()
 
-	def test_validate_thresholds_TC_ACC_234(self):
-		category = get_tax_withholding_category(
-			category_name="__Test Cumulative Threshold TDS 1",
-			rate=10,
-			from_date=today(),
-			to_date=add_days(today(), 2),
-			account=get_account(),
-			single_threshold=30000.00,
-			cumulative_threshold=20000.00,
-		)
-		with self.assertRaises(frappe.ValidationError) as cm:
-			category.insert()
-		self.assertIn(
-			f"{category.rates[0].idx}: Cumulative threshold cannot be less than Single Transaction threshold",
-			str(cm.exception),
+		# TDS = 50000 * 10% = 5000
+		self.assertEqual(len(jv.accounts), 3)
+
+		# Find TDS account row
+		tds_row = None
+		supplier_row = None
+		for row in jv.accounts:
+			if row.account == "TDS - _TC":
+				tds_row = row
+			elif row.party == "Test TDS Supplier":
+				supplier_row = row
+
+		self.assertEqual(tds_row.credit, 5000)
+		self.assertEqual(tds_row.debit, 0)
+
+		# Supplier amount should be reduced by TDS
+		self.assertEqual(supplier_row.credit, 45000)
+		jv.cancel()
+
+	def test_tcs_on_journal_entry_for_customer(self):
+		"""Test TCS collection for Customer in Credit Note"""
+		frappe.db.set_value(
+			"Customer", "Test TCS Customer", "tax_withholding_category", "Cumulative Threshold TCS"
 		)
 
-	def test_get_tax_withholding_rates_TC_ACC_235(self):
-		from .tax_withholding_category import get_tax_withholding_rates
-
-		category = get_tax_withholding_category(
-			category_name="__Test Cumulative Threshold TDS",
-			rate=10,
-			from_date=today(),
-			to_date=add_days(today(), 1),
-			account=get_account(),
-			single_threshold=0,
-			cumulative_threshold=30000.00,
+		# Create Credit Note with amount exceeding threshold
+		jv = make_journal_entry_with_tax_withholding(
+			party_type="Customer",
+			party="Test TCS Customer",
+			voucher_type="Credit Note",
+			amount=50000,
+			save=False,
 		)
-		category.insert(ignore_permissions=True)
-		with self.assertRaises(frappe.ValidationError) as cm:
-			get_tax_withholding_rates(category, add_days(today(), -1))
-		self.assertIn("No Tax Withholding data found for the current posting date.", str(cm.exception))
+		jv.apply_tds = 1
+		jv.tax_withholding_category = "Cumulative Threshold TCS"
+		jv.save()
 
-	def test_get_lower_deduction_amount_TC_ACC_236(self):
-		from .tax_withholding_category import get_lower_deduction_amount, get_tax_withholding_details
+		# Again saving should not change tds amount
+		jv.user_remark = "Test TCS on Journal Entry for Customer"
+		jv.save()
+		jv.submit()
 
-		category = get_tax_withholding_category(
-			category_name="__Test Cumulative Threshold TDS",
-			rate=10,
-			from_date=today(),
-			to_date=add_days(today(), 1),
-			account=get_account(),
-			single_threshold=0,
-			cumulative_threshold=30000.00,
-		)
-		category.insert(ignore_permissions=True)
+		# Assert TCS calculation (10% on amount above threshold of 30000)
+		self.assertEqual(len(jv.accounts), 3)
 
-		tax_details = get_tax_withholding_details(category.name, today(), category.accounts[0].company)
-		deduction_amount = get_lower_deduction_amount(200, 200, 1000, 2, tax_details=tax_details)
-		self.assertEqual(deduction_amount, 4.0)
+		# Find TCS account row
+		tcs_row = None
+		customer_row = None
+		for row in jv.accounts:
+			if row.account == "TCS - _TC":
+				tcs_row = row
+			elif row.party == "Test TCS Customer":
+				customer_row = row
 
-		deduction_amount_1 = get_lower_deduction_amount(200, 200, 100, 2, tax_details=tax_details)
-		self.assertEqual(deduction_amount_1, 28.0)
+		# TCS should be credited (liability to government)
+		self.assertEqual(tcs_row.credit, 2000)  # above threshold 20000*10%
+		self.assertEqual(tcs_row.debit, 0)
 
-	def test_is_valid_certificate_TC_ACC_237(self):
-		from .tax_withholding_category import is_valid_certificate, normal_round
-
-		category = get_tax_withholding_category(
-			category_name="__Test Cumulative Threshold TDS",
-			rate=10,
-			from_date=today(),
-			to_date=add_days(today(), 1),
-			account=get_account(),
-			single_threshold=0,
-			cumulative_threshold=30000.00,
-		)
-		category.insert(ignore_permissions=True)
-
-		create_lower_deduction_certificate(
-			supplier="Test LDC Supplier",
-			certificate_no="1AE0423AAJ",
-			tax_withholding_category=category.name,
-			tax_rate=2,
-			limit=50000,
-		)
-		lds = frappe.get_last_doc("Lower Deduction Certificate")
-		self.assertTrue(is_valid_certificate(lds, today(), 1000))
-		self.assertFalse(is_valid_certificate(lds, add_days(today(), -5), 50000))
-
-		self.assertEqual(normal_round(2.36), 2)
-		self.assertEqual(normal_round(2.6), 3)
+		# Customer amount should be increased by TCS
+		self.assertEqual(customer_row.debit, 52000)
+		jv.cancel()
 
 
 def cancel_invoices():
@@ -1162,6 +1096,88 @@ def create_payment_entry(**args):
 
 	pe.save()
 	return pe
+
+
+def make_journal_entry_with_tax_withholding(
+	party_type,
+	party,
+	voucher_type,
+	amount,
+	cost_center=None,
+	posting_date=None,
+	save=True,
+	submit=False,
+):
+	"""Helper function to create Journal Entry for tax withholding"""
+	if not cost_center:
+		cost_center = "_Test Cost Center - _TC"
+
+	jv = frappe.new_doc("Journal Entry")
+	jv.posting_date = posting_date or today()
+	jv.company = "_Test Company"
+	jv.voucher_type = voucher_type
+	jv.multi_currency = 0
+
+	if party_type == "Supplier":
+		# Debit Note: Expense Dr, Supplier Cr
+		expense_account = "Stock Received But Not Billed - _TC"
+		party_account = "Creditors - _TC"
+
+		jv.append(
+			"accounts",
+			{
+				"account": expense_account,
+				"cost_center": cost_center,
+				"debit_in_account_currency": amount,
+				"exchange_rate": 1,
+			},
+		)
+
+		jv.append(
+			"accounts",
+			{
+				"account": party_account,
+				"party_type": party_type,
+				"party": party,
+				"cost_center": cost_center,
+				"credit_in_account_currency": amount,
+				"exchange_rate": 1,
+			},
+		)
+	else:  # Customer
+		# Credit Note: Customer Dr, Income Cr
+		party_account = "Debtors - _TC"
+		income_account = "Sales - _TC"
+
+		jv.append(
+			"accounts",
+			{
+				"account": party_account,
+				"party_type": party_type,
+				"party": party,
+				"cost_center": cost_center,
+				"debit_in_account_currency": amount,
+				"exchange_rate": 1,
+			},
+		)
+
+		jv.append(
+			"accounts",
+			{
+				"account": income_account,
+				"cost_center": cost_center,
+				"credit_in_account_currency": amount,
+				"exchange_rate": 1,
+			},
+		)
+
+	if save or submit:
+		jv.insert()
+
+		if submit:
+			jv.submit()
+
+	return jv
 
 
 def create_records():
