@@ -6,12 +6,8 @@ import json
 
 import frappe
 from frappe import _, scrub
-<<<<<<< HEAD
 from frappe.model.document import Document
-=======
-from frappe.model.document import Document, bulk_insert
 from frappe.query_builder import functions
->>>>>>> fab1ef5d76 (fix: include return invoice discount in discount validation)
 from frappe.utils import cint, flt, round_based_on_smallest_currency_fraction
 from frappe.utils.deprecations import deprecated
 import erpnext
