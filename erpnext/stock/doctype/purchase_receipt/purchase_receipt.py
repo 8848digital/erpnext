@@ -20,15 +20,11 @@ from erpnext.buying.utils import check_on_hold_or_closed_status
 from erpnext.controllers.accounts_controller import merge_taxes
 from erpnext.controllers.buying_controller import BuyingController
 from erpnext.stock.doctype.delivery_note.delivery_note import make_inter_company_transaction
-<<<<<<< HEAD
-=======
-from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import StockReservation
 from erpnext.stock.serial_batch_bundle import (
 	SerialBatchCreation,
 	get_batches_from_bundle,
 	get_serial_nos_from_bundle,
 )
->>>>>>> d16c50486a (fix: Serial/Batches not fetching when creating Material Transfer from Purchase Receipt)
 
 form_grid_templates = {"items": "templates/form_grid/item_grid.html"}
 
