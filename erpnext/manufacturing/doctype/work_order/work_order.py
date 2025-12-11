@@ -1519,7 +1519,12 @@ def make_stock_entry(work_order_id, purpose, qty=None, target_warehouse=None):
 		stock_entry.to_warehouse = target_warehouse or work_order.source_warehouse
 
 	stock_entry.set_stock_entry_type()
+<<<<<<< HEAD
 	stock_entry.get_items(qty, work_order.production_item)
+=======
+	stock_entry.is_additional_transfer_entry = is_additional_transfer_entry
+	stock_entry.get_items()
+>>>>>>> 99148a2aba (fix(manufacturing): get items for disassembly order)
 
 	if purpose != "Disassemble":
 		stock_entry.set_serial_no_batch_for_finished_good()

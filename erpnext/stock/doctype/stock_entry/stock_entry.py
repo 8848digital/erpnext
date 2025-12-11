@@ -1864,7 +1864,7 @@ class StockEntry(StockController):
 					},
 				)
 
-	def get_items_for_disassembly(self, disassemble_qty, production_item):
+	def get_items_for_disassembly(self):
 		"""Get items for Disassembly Order"""
 
 		if not self.work_order:
@@ -1877,7 +1877,7 @@ class StockEntry(StockController):
 		items_dict = get_bom_items_as_dict(
 			self.bom_no,
 			self.company,
-			disassemble_qty,
+			self.fg_completed_qty,
 			fetch_exploded=self.use_multi_level_bom,
 			fetch_qty_in_stock_uom=False,
 		)
@@ -1893,8 +1893,8 @@ class StockEntry(StockController):
 				child_row.qty = bom_items.get("qty", child_row.qty)
 				child_row.amount = bom_items.get("amount", child_row.amount)
 
-			if row.item_code == production_item:
-				child_row.qty = disassemble_qty
+			if row.is_finished_item:
+				child_row.qty = self.fg_completed_qty
 
 			child_row.s_warehouse = (self.from_warehouse or s_warehouse) if row.is_finished_item else ""
 			child_row.t_warehouse = row.s_warehouse
@@ -1930,12 +1930,12 @@ class StockEntry(StockController):
 		)
 
 	@frappe.whitelist()
-	def get_items(self, qty=None, production_item=None):
+	def get_items(self):
 		self.set("items", [])
 		self.validate_work_order()
 
-		if self.purpose == "Disassemble" and qty is not None:
-			return self.get_items_for_disassembly(qty, production_item)
+		if self.purpose == "Disassemble":
+			return self.get_items_for_disassembly()
 
 		if not self.posting_date or not self.posting_time:
 			frappe.throw(_("Posting date and posting time is mandatory"))
