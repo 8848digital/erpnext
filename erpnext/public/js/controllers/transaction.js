@@ -1093,6 +1093,10 @@ erpnext.TransactionController = class TransactionController extends erpnext.taxe
 		this.frm.refresh_field("payment_schedule");
 	}
 
+	cost_center(doc, cdt, cdn) {
+		erpnext.utils.copy_value_in_all_rows(doc, cdt, cdn, "items", "cost_center");
+	}
+
 	due_date(doc, cdt, cdn) {
 		// due_date is to be changed, payment terms template and/or payment schedule must
 		// be removed as due_date is automatically changed based on payment terms
