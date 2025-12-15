@@ -171,7 +171,7 @@ class TestProductionPlan(FrappeTestCase):
 				"company": "_Test Company",
 				"posting_date": nowdate(),
 				"get_items_from": "Sales Order",
-				"ignore_existing_ordered_qty": 1,
+				"ignore_existing_ordered_qty": 0,
 			}
 		)
 		pln.append(

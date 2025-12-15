@@ -1334,7 +1334,7 @@ def get_material_request_items(
 	required_qty = 0
 	item_code = row.get("item_code")
 
-	if not ignore_existing_ordered_qty or bin_dict.get("projected_qty", 0) < 0:
+	if ignore_existing_ordered_qty or bin_dict.get("projected_qty", 0) < 0:
 		required_qty = flt(row.get("qty"))
 	else:
 		key = (item_code, warehouse)
