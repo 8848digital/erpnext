@@ -1329,20 +1329,9 @@ def get_material_request_items(
 	include_safety_stock,
 	warehouse,
 	bin_dict,
-<<<<<<< HEAD
-=======
 	consumed_qty,
->>>>>>> d344be32a0 (fix: cascade projected quantity across multiple items in material requests)
 ):
-	total_qty = row["qty"]
-
 	required_qty = 0
-<<<<<<< HEAD
-	if ignore_existing_ordered_qty or bin_dict.get("projected_qty", 0) < 0:
-		required_qty = total_qty
-	elif total_qty > bin_dict.get("projected_qty", 0):
-		required_qty = total_qty - bin_dict.get("projected_qty", 0)
-=======
 	item_code = row.get("item_code")
 
 	if not ignore_existing_ordered_qty or bin_dict.get("projected_qty", 0) < 0:
@@ -1355,7 +1344,6 @@ def get_material_request_items(
 			consumed_qty[key] += min(flt(row.get("qty")), available_qty)
 		else:
 			required_qty = flt(row.get("qty"))
->>>>>>> d344be32a0 (fix: cascade projected quantity across multiple items in material requests)
 
 	if doc.get("consider_minimum_order_qty") and required_qty > 0 and required_qty < row["min_order_qty"]:
 		required_qty = row["min_order_qty"]
@@ -1399,7 +1387,7 @@ def get_material_request_items(
 			"item_name": row.item_name,
 			"quantity": required_qty / conversion_factor,
 			"conversion_factor": conversion_factor,
-			"required_bom_qty": total_qty,
+			"required_bom_qty": row.get("qty"),
 			"stock_uom": row.get("stock_uom"),
 			"warehouse": warehouse
 			or row.get("source_warehouse")
@@ -1698,10 +1686,7 @@ def get_items_for_material_requests(doc, warehouses=None, get_parent_warehouse_d
 	for sales_order in so_item_details:
 		item_dict = so_item_details[sales_order]
 		for details in item_dict.values():
-<<<<<<< HEAD
-=======
 			warehouse = warehouse or details.get("source_warehouse") or details.get("default_warehouse")
->>>>>>> d344be32a0 (fix: cascade projected quantity across multiple items in material requests)
 			bin_dict = get_bin_details(details, doc.company, warehouse)
 			bin_dict = bin_dict[0] if bin_dict else {}
 
@@ -1715,10 +1700,7 @@ def get_items_for_material_requests(doc, warehouses=None, get_parent_warehouse_d
 					include_safety_stock,
 					warehouse,
 					bin_dict,
-<<<<<<< HEAD
-=======
 					consumed_qty,
->>>>>>> d344be32a0 (fix: cascade projected quantity across multiple items in material requests)
 				)
 				if items:
 					mr_items.append(items)
