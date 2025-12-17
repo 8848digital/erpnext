@@ -18,7 +18,11 @@ from frappe.utils import cint, cstr, flt, get_formatted_email, today
 from frappe.utils.deprecations import deprecated
 from frappe.utils.user import get_users_with_role
 
-from erpnext.accounts.party import get_dashboard_info, validate_party_accounts
+from erpnext.accounts.party import (
+	get_dashboard_info,
+	validate_party_accounts,
+	validate_party_currency_before_merging,
+)
 from erpnext.controllers.website_list_for_contact import add_role_for_portal_user
 from erpnext.utilities.transaction_base import TransactionBase
 
@@ -360,6 +364,20 @@ class Customer(TransactionBase):
 						"""New credit limit is less than current outstanding amount for the customer. Credit limit has to be atleast {0}"""
 					).format(outstanding_amt)
 				)
+
+	def on_trash(self):
+		if self.customer_primary_contact:
+			self.db_set("customer_primary_contact", None)
+		if self.customer_primary_address:
+			self.db_set("customer_primary_address", None)
+
+		delete_contact_and_address("Customer", self.name)
+		if self.lead_name:
+			frappe.db.sql("update `tabLead` set status='Interested' where name=%s", self.lead_name)
+
+	def before_rename(self, olddn, newdn, merge=False):
+		if merge:
+			validate_party_currency_before_merging("Customer", olddn, newdn)
 
 	def after_rename(self, olddn, newdn, merge=False):
 		if frappe.defaults.get_global_default("cust_master_name") == "Customer Name":
