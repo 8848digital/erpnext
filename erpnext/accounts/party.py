@@ -295,17 +295,27 @@ def get_regional_address_details(party_details, doctype, company):
 
 
 def complete_contact_details(party_details):
-	if not party_details.contact_person:
-		party_details.update(
-			{
-				"contact_person": None,
-				"contact_display": None,
-				"contact_email": None,
-				"contact_mobile": None,
-				"contact_phone": None,
-				"contact_designation": None,
-				"contact_department": None,
-			}
+	contact_details = frappe._dict()
+
+	if party_details.party_type == "Employee":
+		from erpnext.setup.doctype.employee.employee import get_contact_details as get_employee_contact
+
+		contact_details = get_employee_contact(party_details.party)
+		contact_details.update({"contact_person": None, "contact_phone": None})
+	elif party_details.contact_person:
+		contact_details = frappe.db.get_value(
+			"Contact",
+			party_details.contact_person,
+			[
+				"name as contact_person",
+				"full_name as contact_display",
+				"email_id as contact_email",
+				"mobile_no as contact_mobile",
+				"phone as contact_phone",
+				"designation as contact_designation",
+				"department as contact_department",
+			],
+			as_dict=True,
 		)
 	else:
 		fields = [
