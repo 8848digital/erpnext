@@ -2362,6 +2362,8 @@ class TestWorkOrder(FrappeTestCase):
 		# Disassembly for 4 units
 		disassemble_qty = 4
 		stock_entry = frappe.get_doc(make_stock_entry(wo.name, "Disassemble", disassemble_qty))
+		stock_entry.save()
+		stock_entry.submit()
 
 		item_counts = {}
 		for item in stock_entry.items:
