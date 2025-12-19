@@ -2329,12 +2329,6 @@ def get_auto_batch_nos(kwargs):
 	sre_reserved_batches = frappe._dict()
 	if not kwargs.ignore_reserved_stock:
 		sre_reserved_batches = get_reserved_batches_for_sre(kwargs)
-<<<<<<< HEAD
-=======
-
-	if kwargs.against_sales_order and only_consider_batches:
-		kwargs.batch_no = kwargs.warehouse = None
->>>>>>> b23c6e2687 (fix(stock): ignore reserved stock while calculating batch qty)
 
 	picked_batches = frappe._dict()
 	if kwargs.get("is_pick_list"):
