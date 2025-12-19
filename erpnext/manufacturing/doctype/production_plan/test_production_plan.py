@@ -163,6 +163,7 @@ class TestProductionPlan(FrappeTestCase):
 		# Sales orders
 		so1 = make_sales_order(item_code=fg_item_a, qty=1)
 		so2 = make_sales_order(item_code=fg_item_a, qty=1)
+		so3 = make_sales_order(item_code=fg_item_a, qty=1)
 
 		# Production plan
 		pln = frappe.get_doc(
@@ -192,6 +193,15 @@ class TestProductionPlan(FrappeTestCase):
 				"grand_total": so2.grand_total,
 			},
 		)
+		pln.append(
+			"sales_orders",
+			{
+				"sales_order": so3.name,
+				"sales_order_date": so3.transaction_date,
+				"customer": so3.customer,
+				"grand_total": so3.grand_total,
+			},
+		)
 
 		pln.get_items()
 		pln.insert()
@@ -200,12 +210,13 @@ class TestProductionPlan(FrappeTestCase):
 		quantities = [d["quantity"] for d in mr_items]
 		rm_qty = sum(quantities)
 
-		self.assertEqual(len(mr_items), 2)  # one for each SO
-		self.assertEqual(rm_qty, 1, "Cascading failed: total MR qty should be 1 (2 needed - 1 in stock)")
+		# Only 2 MR item created - the first SO's requirement is fully covered by stock (v15 behaviour)
+		self.assertEqual(len(mr_items), 2)
+		self.assertEqual(rm_qty, 2, "Cascading failed: total MR qty should be 2 (3 needed - 1 in stock)")
 		self.assertEqual(
 			quantities,
-			[0, 1],
-			"Cascading failed: first item should consume stock (qty=0), second should need procurement (qty=1)",
+			[1, 1],
+			"Cascading failed: only second and third SO should need procurement (qty=1) since first SO consumed stock",
 		)
 
 		sr.cancel()
