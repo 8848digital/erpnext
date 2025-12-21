@@ -1996,8 +1996,35 @@ def get_available_serial_nos(kwargs):
 		if kwargs.warehouse:
 			filters["warehouse"] = kwargs.warehouse
 
+<<<<<<< HEAD
 	# Since SLEs are not present against Reserved Stock [POS invoices, SRE], need to ignore reserved serial nos.
 	ignore_serial_nos = get_reserved_serial_nos(kwargs)
+=======
+	reserved_entries = get_reserved_serial_nos_for_sre(kwargs)
+
+	ignore_serial_nos = []
+	if reserved_entries:
+		if kwargs.get("sabb_voucher_type") == "Delivery Note" and kwargs.get("against_sales_order"):
+			reserved_voucher_details = [kwargs.get("against_sales_order")]
+		else:
+			reserved_voucher_details = get_reserved_voucher_details(kwargs)
+
+		# Check if serial nos are reserved for the current voucher then fetch only those serial nos
+		if reserved_serial_nos := get_reserved_serial_nos_for_voucher(
+			kwargs, reserved_entries, reserved_voucher_details
+		):
+			filters["name"] = ("in", reserved_serial_nos)
+			return get_serial_nos_based_on_filters(filters, fields, order_by, kwargs)
+
+		# Check if serial nos are reserved for other vouchers then ignore those serial nos
+		elif ignore_reserved_serial_nos := get_other_doc_reserved_serials(
+			kwargs, reserved_entries, reserved_voucher_details
+		):
+			ignore_serial_nos.extend(ignore_reserved_serial_nos)
+
+	if reserved_for_pos := get_reserved_serial_nos_for_pos(kwargs):
+		ignore_serial_nos.extend(reserved_for_pos)
+>>>>>>> 61c31f0cd0 (fix: same serial number was picked in multiple sales invoices)
 
 	# To ignore serial nos in the same record for the draft state
 	if kwargs.get("ignore_serial_nos"):
@@ -2025,13 +2052,47 @@ def get_available_serial_nos(kwargs):
 
 		filters["batch_no"] = ("in", batches)
 
-	return frappe.get_all(
-		"Serial No",
-		fields=fields,
-		filters=filters,
-		limit=cint(kwargs.qty) or 10000000,
-		order_by=order_by,
-	)
+	return get_serial_nos_based_on_filters(filters, fields, order_by, kwargs)
+
+
+def get_serial_nos_based_on_filters(filters, fields, order_by, kwargs):
+	doctype = frappe.qb.DocType("Serial No")
+
+	order_by_column = getattr(doctype, order_by)
+	query = frappe.qb.from_(doctype).orderby(order_by_column).limit(cint(kwargs.qty) or 10000000).for_update()
+
+	for key, value in filters.items():
+		column = getattr(doctype, key)
+
+		if isinstance(value, tuple):
+			operator = value[0]
+
+			if operator == "between":
+				query = query.where(column.between(value[1], value[2]))
+
+			elif operator == "in":
+				query = query.where(column.isin(value[1]))
+
+			elif operator == "not in":
+				query = query.where(column.notin(value[1]))
+
+			elif operator == "is":
+				if value[1] == "set":
+					query = query.where(column.isnotnull())
+				elif value[1] == "not set":
+					query = query.where(column.isnull())
+		else:
+			query = query.where(column == value)
+
+	for field in fields:
+		if " as " in field.lower():
+			# Split field and alias
+			field_name, alias = field.split(" as ", 1)
+			query = query.select(getattr(doctype, field_name).as_(alias))
+		else:
+			query = query.select(getattr(doctype, field))
+
+	return query.run(as_dict=True)
 
 
 def get_non_expired_batches(batches):
