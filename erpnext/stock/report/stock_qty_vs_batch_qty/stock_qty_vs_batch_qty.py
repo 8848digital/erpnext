@@ -44,7 +44,16 @@ def get_data(filters=None):
 	item = filters.get("item")
 	batch_no = filters.get("batch")
 
-	batch_sle_data = get_batch_qty(item_code=item, batch_no=batch_no) or []
+	batch_sle_data = (
+		get_batch_qty(
+			item_code=item,
+			batch_no=batch_no,
+			for_stock_levels=True,
+			consider_negative_batches=True,
+			ignore_reserved_stock=True,
+		)
+		or []
+	)
 
 	stock_qty_map = {}
 	for row in batch_sle_data:
@@ -95,10 +104,21 @@ def update_batch_qty(batches=None):
 	if not batches:
 		return
 
-	batches = json.loads(batches)
-	for batch in batches:
-		batch_name = batch.get("batch")
-		stock_qty = batch.get("stock_qty")
+	selected_batches = json.loads(selected_batches)
+	for row in selected_batches:
+		batch_name = row.get("batch")
+
+		batches = get_batch_qty(
+			batch_no=batch_name,
+			item_code=row.get("item_code"),
+			for_stock_levels=True,
+			consider_negative_batches=True,
+			ignore_reserved_stock=True,
+		)
+		batch_qty = 0.0
+		if batches:
+			for batch in batches:
+				batch_qty += batch.get("qty")
 
 		frappe.db.set_value("Batch", batch_name, "batch_qty", stock_qty)
 
