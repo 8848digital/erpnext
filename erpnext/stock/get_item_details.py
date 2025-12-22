@@ -203,15 +203,7 @@ def update_stock(ctx, out, doc=None):
 			{
 				"item_code": ctx.item_code,
 				"warehouse": ctx.warehouse,
-<<<<<<< HEAD
 				"based_on": frappe.db.get_single_value("Stock Settings", "pick_serial_and_batch_based_on"),
-=======
-				"based_on": frappe.get_single_value("Stock Settings", "pick_serial_and_batch_based_on"),
-				"sabb_voucher_no": doc.get("name") if doc else None,
-				"sabb_voucher_detail_no": ctx.child_docname,
-				"sabb_voucher_type": ctx.doctype,
-				"pick_reserved_items": True,
->>>>>>> da4b78491d (fix: limit condition to fetch serial nos)
 				"qty": out.stock_qty,
 			}
 		)
