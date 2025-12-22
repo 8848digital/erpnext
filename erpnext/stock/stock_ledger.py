@@ -753,8 +753,10 @@ class update_entries_after:
 
 				self.distinct_item_warehouses[key] = val
 				self.new_items_found = True
-			elif dependant_sle.voucher_type == "Stock Entry" and is_transfer_stock_entry(
-				dependant_sle.voucher_no
+			elif (
+				dependant_sle.actual_qty > 0
+				and dependant_sle.voucher_type == "Stock Entry" 
+				and is_transfer_stock_entry(dependant_sle.voucher_no)
 			):
 				if self.distinct_item_warehouses[key].get("transfer_entry_to_repost"):
 					return
