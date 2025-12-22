@@ -1996,35 +1996,8 @@ def get_available_serial_nos(kwargs):
 		if kwargs.warehouse:
 			filters["warehouse"] = kwargs.warehouse
 
-<<<<<<< HEAD
 	# Since SLEs are not present against Reserved Stock [POS invoices, SRE], need to ignore reserved serial nos.
 	ignore_serial_nos = get_reserved_serial_nos(kwargs)
-=======
-	reserved_entries = get_reserved_serial_nos_for_sre(kwargs)
-
-	ignore_serial_nos = []
-	if reserved_entries:
-		if kwargs.get("sabb_voucher_type") == "Delivery Note" and kwargs.get("against_sales_order"):
-			reserved_voucher_details = [kwargs.get("against_sales_order")]
-		else:
-			reserved_voucher_details = get_reserved_voucher_details(kwargs)
-
-		# Check if serial nos are reserved for the current voucher then fetch only those serial nos
-		if reserved_serial_nos := get_reserved_serial_nos_for_voucher(
-			kwargs, reserved_entries, reserved_voucher_details
-		):
-			filters["name"] = ("in", reserved_serial_nos)
-			return get_serial_nos_based_on_filters(filters, fields, order_by, kwargs)
-
-		# Check if serial nos are reserved for other vouchers then ignore those serial nos
-		elif ignore_reserved_serial_nos := get_other_doc_reserved_serials(
-			kwargs, reserved_entries, reserved_voucher_details
-		):
-			ignore_serial_nos.extend(ignore_reserved_serial_nos)
-
-	if reserved_for_pos := get_reserved_serial_nos_for_pos(kwargs):
-		ignore_serial_nos.extend(reserved_for_pos)
->>>>>>> 61c31f0cd0 (fix: same serial number was picked in multiple sales invoices)
 
 	# To ignore serial nos in the same record for the draft state
 	if kwargs.get("ignore_serial_nos"):
