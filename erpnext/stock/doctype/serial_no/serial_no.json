@@ -251,11 +251,7 @@
  "icon": "fa fa-barcode",
  "idx": 1,
  "links": [],
-<<<<<<< HEAD
- "modified": "2025-07-15 13:40:21.938700",
-=======
  "modified": "2025-12-24 14:30:43.599590",
->>>>>>> 23c70332df (perf: index for warehouse field)
  "modified_by": "Administrator",
  "module": "Stock",
  "name": "Serial No",
