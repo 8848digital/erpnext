@@ -61,6 +61,11 @@ class RequestforQuotation(BuyingController):
 		vendor: DF.Link | None
 	# end: auto-generated types
 
+	def before_validate(self):
+		self.set_has_unit_price_items()
+		self.flags.allow_zero_qty = self.has_unit_price_items
+		self.set_message_for_supplier()
+
 	def validate(self):
 		self.validate_duplicate_supplier()
 		self.validate_supplier_list()
@@ -71,6 +76,24 @@ class RequestforQuotation(BuyingController):
 		if self.docstatus < 1:
 			# after amend and save, status still shows as cancelled, until submit
 			self.db_set("status", "Draft")
+
+	def set_has_unit_price_items(self):
+		"""
+		If permitted in settings and any item has 0 qty, the RFQ has unit price items.
+		"""
+		if not frappe.db.get_single_value("Buying Settings", "allow_zero_qty_in_request_for_quotation"):
+			return
+
+		self.has_unit_price_items = any(
+			not row.qty for row in self.get("items") if (row.item_code and not row.qty)
+		)
+
+	def set_message_for_supplier(self):
+		if self.email_template and not self.message_for_supplier:
+			data = frappe.get_value(
+				"Email Template", self.email_template, ["use_html", "response", "response_html"], as_dict=True
+			)
+			self.message_for_supplier = data.response_html if data.use_html else data.response
 
 	def validate_duplicate_supplier(self):
 		supplier_list = [d.supplier for d in self.suppliers]
