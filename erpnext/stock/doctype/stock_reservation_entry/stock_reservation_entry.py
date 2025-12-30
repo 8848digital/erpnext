@@ -537,6 +537,7 @@ def get_available_qty_to_reserve(
 				& (sre.reserved_qty >= sre.delivered_qty)
 				& (sre.status.notin(["Delivered", "Cancelled"]))
 			)
+			.for_update()
 		)
 
 		if ignore_sre:
