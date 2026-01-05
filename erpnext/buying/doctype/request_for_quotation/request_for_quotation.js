@@ -28,15 +28,10 @@ frappe.ui.form.on("Request for Quotation", {
 				is_group: 0,
 			},
 		}));
-	},
 
-	onload: function (frm) {
-		if (!frm.doc.message_for_supplier) {
-			frm.set_value(
-				"message_for_supplier",
-				__("Please supply the specified items at the best possible rates")
-			);
-		}
+		frm.set_indicator_formatter("item_code", function (doc) {
+			return !doc.qty && frm.doc.has_unit_price_items ? "yellow" : "";
+		});
 	},
 
 	refresh: function (frm, cdt, cdn) {
@@ -248,12 +243,14 @@ frappe.ui.form.on("Request for Quotation", {
 					"use_html",
 					"response",
 					"response_html",
+					"subject",
 				])
 				.then((r) => {
 					frm.set_value(
 						"message_for_supplier",
 						r.message.use_html ? r.message.response_html : r.message.response
 					);
+					frm.set_value("subject", r.message.subject);
 				});
 		}
 	},
