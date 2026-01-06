@@ -406,6 +406,8 @@ erpnext.utils.BarcodeScanner = class BarcodeScanner {
 	async set_barcode(row, barcode) {
 		if (barcode && frappe.meta.has_field(row.doctype, this.barcode_field)) {
 			await frappe.model.set_value(row.doctype, row.name, this.barcode_field, barcode);
+		} else {
+			row.barcode = barcode;
 		}
 	}
 
