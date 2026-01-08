@@ -3710,6 +3710,7 @@ class TestDeliveryNote(FrappeTestCase):
 						serial_batch_map[row.item_code].batch_no_valuation[entry.batch_no],
 					)
 
+<<<<<<< HEAD
 	@change_settings("Stock Settings", {"allow_negative_stock": 0, "enable_stock_reservation": 1})
 	def test_partial_delivery_note_against_reserved_stock(self):
 		from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import (
@@ -3778,6 +3779,24 @@ class TestDeliveryNote(FrappeTestCase):
 			self.assertEqual(sre_details[0].status, "Partially Delivered")
 			self.assertEqual(sre_details[0].reserved_qty, so.items[0].qty)
 			self.assertEqual(sre_details[0].delivered_qty, dn.items[0].qty)
+=======
+	def test_negative_stock_with_higher_precision(self):
+		original_flt_precision = frappe.db.get_default("float_precision")
+		frappe.db.set_single_value("System Settings", "float_precision", 7)
+
+		item_code = make_item(
+			"Test Negative Stock High Precision Item", properties={"is_stock_item": 1, "valuation_rate": 1}
+		).name
+		dn = create_delivery_note(
+			item_code=item_code,
+			qty=0.0000010,
+			do_not_submit=True,
+		)
+
+		self.assertRaises(frappe.ValidationError, dn.submit)
+
+		frappe.db.set_single_value("System Settings", "float_precision", original_flt_precision)
+>>>>>>> 87be020c78 (fix: negative stock issue for higher precision)
 
 
 def create_delivery_note(**args):
