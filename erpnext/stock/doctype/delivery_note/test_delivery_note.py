@@ -3710,158 +3710,7 @@ class TestDeliveryNote(FrappeTestCase):
 						serial_batch_map[row.item_code].batch_no_valuation[entry.batch_no],
 					)
 
-	def test_dn_freeze_tc_sck_152(self):
-		from erpnext.stock.doctype.stock_ledger_entry.stock_ledger_entry import StockFreezeError
-
-		frappe.db.set_single_value("Stock Settings", "stock_frozen_upto", nowdate())
-		dn = create_delivery_note(posting_date="2025-01-01", do_not_submit=True)
-		self.assertRaises(StockFreezeError, dn.submit)
-
-	def setUp(self):
-		from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_company
-		from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
-
-		create_company()
-		create_warehouse(
-			warehouse_name="_Test Warehouse 1 - _TC",
-			properties={"parent_warehouse": "All Warehouses - _TC"},
-			company="_Test Company",
-		)
-		create_warehouse(
-			warehouse_name="_Test Warehouse - _TC",
-			properties={"parent_warehouse": "All Warehouses - _TC"},
-			company="_Test Company",
-		)
-
-	def test_dn_submission_TC_SCK_148(self):
-		# from erpnext_crm.erpnext_crm.doctype.lead.lead import make_customer
-		from erpnext.stock.doctype.delivery_note.test_delivery_note import create_delivery_note
-		from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
-		from erpnext.stock.utils import get_or_create_fiscal_year
-
-		"""Test Purchase Receipt Creation, Submission, and Stock Ledger Update"""
-		from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_company, create_customer
-		if "erpnext_crm" not in frappe.get_installed_apps():
-			return
-		create_company()
-		get_or_create_fiscal_year("_Test Company")
-		create_customer("SS Ltd")
-		item_fields = {
-			"item_name": "Ball point Pen",
-			"is_stock_item": 1,
-			"stock_uom": "Box",
-			"uoms": [{"uom": "Box", "conversion_factor": 1}],
-		}
-
-		dn_fields = {
-			"customer": "SS Ltd",
-			"posting_date": "03-02-2025",
-			"item_code": "Ball point Pen",
-			"qty": 30,
-			"uom": "Pcs",
-			"company": "_Test Company",
-			"set_warehouse": "Stores - PP Ltd",
-		}
-		dn_data = {
-			"company": "_Test Company",
-			"item_code": "Ball point Pen",
-			"warehouse": create_warehouse(
-				"_Test Warehouse",
-				properties={"parent_warehouse": "All Warehouses - _TC"},
-				company=dn_fields["company"],
-			),
-			"customer": "SS Ltd",
-			"schedule_date": "2025-02-03",
-			"qty": 20,
-			# "rate" : 130,
-		}
-		pr_fields = {
-			"supplier": "Test Supplier 1",
-			"posting_date": "03-01-2025",
-			"item_code": "Ball point Pen",
-			"qty": 5,
-			"uom": "Box",
-			"company": "_Test Company",
-			"set_warehouse": "Stores - PP Ltd",
-		}
-		pr_data = {
-			"company": "_Test Company",
-			"item_code": "Ball point Pen",
-			"warehouse": create_warehouse(
-				"_Test Warehouse",
-				properties={"parent_warehouse": "All Warehouses - _TC"},
-				company=pr_fields["company"],
-			),
-			"supplier": "Test Supplier 1",
-			"schedule_date": "2025-02-03",
-			"qty": 5,
-			"uom": "Box",
-			"stock_uom": "Box",
-			"conversion_factor": 1,
-		}
-		cost_center = frappe.db.get_all("Cost Center", {"company": "_Test Company"}, ["name"])
-		target_warehouse = create_warehouse(
-			"_Test Warehouse",
-			properties={"parent_warehouse": "All Warehouses - _TC"},
-			company=pr_fields["company"],
-		)
-		uom = frappe.get_doc("UOM", "Box")
-		uom.must_be_whole_number = 0
-		uom.save()
-		item = make_item("Ball point Pen", item_fields).name
-		create_warehouse(
-			warehouse_name="_Test Warehouse 1 - _TC",
-			properties={"parent_warehouse": "All Warehouses - _TC"},
-			company="_Test Company",
-		)
-
-		create_supplier(
-			supplier_name="Test Supplier 1", supplier_group="All Supplier Groups", supplier_type="Company"
-		)
-
-		doc_pr = make_purchase_receipt(**pr_data)
-
-		doc_pr.submit()
-
-		sle = frappe.get_doc("Stock Ledger Entry", {"voucher_no": doc_pr.name})
-
-		create_customer("_Test Customer Credit")
-		customer = frappe.get_doc("Customer", {"customer_name": "SS Ltd"}).insert()
-		target_warehouse = create_warehouse(
-			"_Test Warehouse",
-			properties={"parent_warehouse": "All Warehouses - _TC"},
-			company=dn_data["company"],
-		)
-		item = make_item("Ball point Pen", item_fields).name
-		dn = create_delivery_note(
-			item_code=item,
-			qty=30,
-			uom="Box",
-			stock_uom="Box",
-			conversion_factor=0.05,
-			company=dn_data["company"],
-			customer=customer,
-			warehouse=target_warehouse,
-			cost_center=cost_center[1].name,
-			do_not_submit=1,
-		)
-
-		dn.items[0].uom = "Box"
-		dn.items[0].conversion_factor = 0.05
-
-		dn.save()
-		dn.submit()
-
-		sle = frappe.get_doc("Stock Ledger Entry", {"voucher_no": dn.name})
-
-		# Verify if stock ledger has the correct stock entry
-
-		self.assertEqual(
-			sle.actual_qty, 1.5, "Stock Ledger did not update correctly!"
-		) if sle.actual_qty > 0 else self.assertEqual(
-			-sle.actual_qty, 1.5, "Stock Ledger did not update correctly!"
-		)
-
+<<<<<<< HEAD
 	@change_settings("Stock Settings", {"allow_negative_stock": 0, "enable_stock_reservation": 1})
 	def test_partial_delivery_note_against_reserved_stock(self):
 		from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import (
@@ -3930,6 +3779,24 @@ class TestDeliveryNote(FrappeTestCase):
 			self.assertEqual(sre_details[0].status, "Partially Delivered")
 			self.assertEqual(sre_details[0].reserved_qty, so.items[0].qty)
 			self.assertEqual(sre_details[0].delivered_qty, dn.items[0].qty)
+=======
+	def test_negative_stock_with_higher_precision(self):
+		original_flt_precision = frappe.db.get_default("float_precision")
+		frappe.db.set_single_value("System Settings", "float_precision", 7)
+
+		item_code = make_item(
+			"Test Negative Stock High Precision Item", properties={"is_stock_item": 1, "valuation_rate": 1}
+		).name
+		dn = create_delivery_note(
+			item_code=item_code,
+			qty=0.0000010,
+			do_not_submit=True,
+		)
+
+		self.assertRaises(frappe.ValidationError, dn.submit)
+
+		frappe.db.set_single_value("System Settings", "float_precision", original_flt_precision)
+>>>>>>> 87be020c78 (fix: negative stock issue for higher precision)
 
 
 def create_delivery_note(**args):
