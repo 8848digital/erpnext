@@ -4,8 +4,8 @@ import frappe
 from frappe import _, bold
 from frappe.model.naming import NamingSeries, make_autoname, parse_naming_series
 from frappe.query_builder import Case
-from frappe.query_builder.functions import Max, Sum
-from frappe.utils import add_days, cint, cstr, flt, get_link_to_form, getdate, now, nowtime, today
+from frappe.query_builder.functions import CombineDatetime, Max, Sum, Timestamp
+from frappe.utils import add_days, cint, cstr, flt, get_link_to_form, now, nowtime, today
 from pypika import Order
 from pypika.terms import ExistsCriterion
 
@@ -634,7 +634,7 @@ class SerialNoValuation(DeprecatedSerialNoValuation):
 				.on(bundle.name == bundle_child.parent)
 				.select(
 					bundle_child.serial_no,
-					Max(bundle.posting_datetime).as_("max_posting_dt"),
+					Max(CombineDatetime(bundle.posting_date, bundle.posting_time)).as_("max_posting_dt"),
 				)
 				.where(
 					(bundle.is_cancelled == 0)
@@ -652,8 +652,13 @@ class SerialNoValuation(DeprecatedSerialNoValuation):
 			if self.sle.voucher_no:
 				latest_posting = latest_posting.where(bundle.voucher_no != self.sle.voucher_no)
 
-			if self.sle.posting_datetime:
-				timestamp_condition = bundle.posting_datetime <= self.sle.posting_datetime
+			if self.sle.posting_date:
+				if self.sle.posting_time is None:
+					self.sle.posting_time = nowtime()
+
+				timestamp_condition = CombineDatetime(
+					bundle.posting_date, bundle.posting_time
+				) <= CombineDatetime(self.sle.posting_date, self.sle.posting_time)
 
 				latest_posting = latest_posting.where(timestamp_condition)
 
@@ -670,7 +675,10 @@ class SerialNoValuation(DeprecatedSerialNoValuation):
 				.join(latest_posting)
 				.on(
 					(latest_posting.serial_no == bundle_child.serial_no)
-					& (latest_posting.max_posting_dt == bundle.posting_datetime)
+					& (
+						latest_posting.max_posting_dt
+						== CombineDatetime(bundle.posting_date, bundle.posting_time)
+					)
 				)
 				.select(
 					bundle_child.serial_no,
