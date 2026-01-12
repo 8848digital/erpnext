@@ -173,6 +173,9 @@ class JournalEntry(AccountsController):
 		else:
 			return self._submit()
 
+	def before_cancel(self):
+		pass
+
 	def cancel(self):
 		if len(self.accounts) > 100:
 			queue_submission(self, "_cancel")
@@ -217,6 +220,8 @@ class JournalEntry(AccountsController):
 			"Advance Payment Ledger Entry",
 		)
 		self.make_gl_entries(1)
+		JournalTaxWithholding(self).on_cancel()
+		self.has_asset_adjustment_entry()
 		self.unlink_advance_entry_reference()
 		self.unlink_inter_company_jv()
 		self.update_invoice_discounting()
@@ -330,7 +335,27 @@ class JournalEntry(AccountsController):
 			)
 			frappe.db.set_value("Journal Entry", self.name, "inter_company_journal_entry_reference", "")
 
+	def has_asset_adjustment_entry(self):
+		if self.flags.get("via_asset_value_adjustment"):
+			return
 
+		asset_value_adjustment = frappe.db.get_value(
+			"Asset Value Adjustment", {"docstatus": 1, "journal_entry": self.name}, "name"
+		)
+		if asset_value_adjustment:
+			frappe.throw(
+				_(
+					"Cannot cancel this document as it is linked with the submitted Asset Value Adjustment <b>{0}</b>. Please cancel the Asset Value Adjustment to continue."
+				).format(frappe.utils.get_link_to_form("Asset Value Adjustment", asset_value_adjustment))
+			)
+
+	def unlink_asset_adjustment_entry(self):
+		AssetValueAdjustment = frappe.qb.DocType("Asset Value Adjustment")
+		(
+			frappe.qb.update(AssetValueAdjustment)
+			.set(AssetValueAdjustment.journal_entry, None)
+			.where(AssetValueAdjustment.journal_entry == self.name)
+		).run()
 
 	def validate_party(self):
 		for d in self.get("accounts"):
