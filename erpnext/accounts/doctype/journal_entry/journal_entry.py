@@ -220,8 +220,6 @@ class JournalEntry(AccountsController):
 			"Advance Payment Ledger Entry",
 		)
 		self.make_gl_entries(1)
-		JournalTaxWithholding(self).on_cancel()
-		self.has_asset_adjustment_entry()
 		self.unlink_advance_entry_reference()
 		self.unlink_inter_company_jv()
 		self.update_invoice_discounting()
