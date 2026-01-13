@@ -174,7 +174,7 @@ class JournalEntry(AccountsController):
 			return self._submit()
 
 	def before_cancel(self):
-		pass
+		self.has_asset_adjustment_entry()
 
 	def cancel(self):
 		if len(self.accounts) > 100:
