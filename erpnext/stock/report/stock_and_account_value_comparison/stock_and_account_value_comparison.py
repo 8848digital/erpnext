@@ -139,15 +139,8 @@ def get_gl_data(report_filters, filters):
 			"name",
 			"voucher_type",
 			"voucher_no",
-<<<<<<< HEAD
 			"sum(debit_in_account_currency) - sum(credit_in_account_currency) as account_value",
-=======
 			"posting_date",
-			{
-				"SUB": [{"SUM": "debit_in_account_currency"}, {"SUM": "credit_in_account_currency"}],
-				"as": "account_value",
-			},
->>>>>>> 1db9ce205f (fix: Show non-SLE vouchers with GL entries in Stock vs Account Value Comparison report)
 		],
 		group_by="name, voucher_type, voucher_no",
 	)
