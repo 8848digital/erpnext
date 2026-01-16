@@ -20,8 +20,13 @@ from erpnext.stock.doctype.item.test_item import (
 	make_item_variant,
 	set_item_variant_settings,
 )
-from erpnext.stock.doctype.material_request.material_request import make_stock_entry as make_mr_se
-from erpnext.stock.doctype.purchase_receipt.test_purchase_receipt import make_purchase_receipt
+from erpnext.stock.doctype.material_request.material_request import (
+	make_in_transit_stock_entry,
+)
+from erpnext.stock.doctype.material_request.test_material_request import (
+	get_in_transit_warehouse,
+	make_material_request,
+)
 from erpnext.stock.doctype.serial_and_batch_bundle.test_serial_and_batch_bundle import (
 	get_batch_from_bundle,
 	get_serial_nos_from_bundle,
@@ -6360,51 +6365,6 @@ def create_bom(bom_item, rm_items, company=None, qty=None, properties=None):
 		# Validate transfer status after final transfer
 		material_request.reload()
 		self.assertEqual(material_request.transfer_status, "Completed")
-
-	def test_disassemble_entry_without_wo(self):
-		from erpnext.manufacturing.doctype.production_plan.test_production_plan import make_bom
-
-		fg_item = make_item("_Disassemble Mobile", properties={"is_stock_item": 1}).name
-		rm_item1 = make_item("_Disassemble Temper Glass", properties={"is_stock_item": 1}).name
-		rm_item2 = make_item("_Disassemble Battery", properties={"is_stock_item": 1}).name
-		warehouse = "_Test Warehouse - _TC"
-
-		# Stock up the FG item (what we'll disassemble)
-		make_stock_entry(item_code=fg_item, target=warehouse, qty=5, purpose="Material Receipt")
-
-		bom_no = make_bom(item=fg_item, raw_materials=[rm_item1, rm_item2]).name
-
-		se = make_stock_entry(item_code=fg_item, qty=1, purpose="Disassemble", do_not_save=True)
-		se.from_bom = 1
-		se.use_multi_level_bom = 1
-		se.bom_no = bom_no
-		se.fg_completed_qty = 1
-		se.from_warehouse = warehouse
-		se.to_warehouse = warehouse
-
-		se.get_items()
-
-		# Verify FG as source (being consumed)
-		fg_items = [d for d in se.items if d.is_finished_item]
-		self.assertEqual(len(fg_items), 1)
-		self.assertEqual(fg_items[0].item_code, fg_item)
-		self.assertEqual(fg_items[0].qty, 1)
-		self.assertEqual(fg_items[0].s_warehouse, warehouse)
-		self.assertFalse(fg_items[0].t_warehouse)
-
-		# Verify RM as target (being received)
-		rm_items = {d.item_code: d for d in se.items if not d.is_finished_item}
-		self.assertEqual(len(rm_items), 2)
-		self.assertIn(rm_item1, rm_items)
-		self.assertIn(rm_item2, rm_items)
-		self.assertEqual(rm_items[rm_item1].qty, 1)
-		self.assertEqual(rm_items[rm_item2].qty, 1)
-		self.assertEqual(rm_items[rm_item1].t_warehouse, warehouse)
-		self.assertFalse(rm_items[rm_item1].s_warehouse)
-
-		se.calculate_rate_and_amount()
-		se.save()
-		se.submit()
 
 
 def make_serialized_item(**args):

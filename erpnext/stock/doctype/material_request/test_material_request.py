@@ -9375,8 +9375,8 @@ def make_material_request(**args):
 	mr = frappe.new_doc("Material Request")
 	mr.material_request_type = args.material_request_type or "Purchase"
 	mr.company = args.company or "_Test Company"
-	mr.customer = args.customer or "_Test Customer"
-	mr.shipping_rule = args.shipping_rule or None
+	if mr.material_request_type == "Customer Provided":
+		mr.customer = args.customer or "_Test Customer"
 	mr.append(
 		"items",
 		{
@@ -9385,6 +9385,7 @@ def make_material_request(**args):
 			"uom": args.uom or "_Test UOM",
 			"conversion_factor": args.conversion_factor or 1,
 			"schedule_date": args.schedule_date or today(),
+			"from_warehouse": args.from_warehouse,
 			"warehouse": args.warehouse or "_Test Warehouse - _TC",
 			"cost_center": args.cost_center or "_Test Cost Center - _TC",
 			"from_warehouse": args.from_warehouse or "",
