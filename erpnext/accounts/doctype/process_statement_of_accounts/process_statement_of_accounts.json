@@ -378,15 +378,7 @@
   }
  ],
  "links": [],
-<<<<<<< HEAD
-<<<<<<< HEAD
- "modified": "2025-08-04 18:21:12.603623",
-=======
- "modified": "2025-10-07 11:17:05.444394",
->>>>>>> dbab718aaa (fix(process statement of accounts): allow renaming)
-=======
  "modified": "2025-10-07 12:19:20.719898",
->>>>>>> d610d1dccd (feat(process statement of accounts): added more frequency options for auto email)
  "modified_by": "Administrator",
  "module": "Accounts",
  "name": "Process Statement Of Accounts",
