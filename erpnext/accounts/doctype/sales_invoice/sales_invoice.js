@@ -107,23 +107,16 @@ erpnext.accounts.SalesInvoiceController = class SalesInvoiceController extends (
 			}
 
 			if (cint(doc.update_stock) != 1) {
-<<<<<<< HEAD
 				// show Make Delivery Note button only if Sales Invoice is not created from Delivery Note
 				var from_delivery_note = false;
 				from_delivery_note = cur_frm.doc.items.some(function (item) {
 					return item.delivery_note ? true : false;
 				});
 
-				if (!from_delivery_note && !is_delivered_by_supplier) {
-					cur_frm.add_custom_button(
-						__("Delivery"),
-						cur_frm.cscript["Make Delivery Note"],
-=======
 				if (!is_delivered_by_supplier) {
 					this.frm.add_custom_button(
 						__("Delivery Note"),
 						this.frm.cscript["Make Delivery Note"],
->>>>>>> b691de0147 (fix: allow creation of DN in SI for items not having DN reference)
 						__("Create")
 					);
 				}
