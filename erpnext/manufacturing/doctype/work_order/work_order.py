@@ -507,6 +507,10 @@ class WorkOrder(Document):
 		self.validate_cancel()
 		self.db_set("status", "Cancelled")
 
+		self.on_close_or_cancel()
+		self.delete_job_card()
+
+	def on_close_or_cancel(self):
 		if self.production_plan and frappe.db.exists(
 			"Production Plan Item Reference", {"parent": self.production_plan}
 		):
@@ -514,7 +518,6 @@ class WorkOrder(Document):
 		else:
 			self.update_work_order_qty_in_so()
 
-		self.delete_job_card()
 		self.update_completed_qty_in_material_request()
 		self.update_planned_qty()
 		self.update_ordered_qty()
