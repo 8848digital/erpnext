@@ -488,6 +488,46 @@ erpnext.sales_common = {
 				}
 			}
 
+			project(doc, cdt, cdn) {
+				var item = frappe.get_doc(cdt, cdn);
+				if (item.project) {
+					$.each(this.frm.doc["items"] || [], function (i, other_item) {
+						if (!other_item.project) {
+							other_item.project = item.project;
+							refresh_field("project", other_item.name, other_item.parentfield);
+						}
+					});
+				}
+				let me = this;
+				if (["Delivery Note", "Sales Invoice", "Sales Order"].includes(this.frm.doc.doctype)) {
+					if (this.frm.doc.project) {
+						frappe.call({
+							method: "erpnext.projects.doctype.project.project.get_cost_center_name",
+							args: { project: this.frm.doc.project },
+							callback: function (r, rt) {
+								if (!r.exc) {
+									if (r.message) {
+										$.each(me.frm.doc["items"] || [], function (i, row) {
+											frappe.model.set_value(
+												row.doctype,
+												row.name,
+												"cost_center",
+												r.message
+											);
+										});
+										frappe.msgprint(
+											__("Cost Center for Item rows has been updated to {0}", [
+												r.message,
+											])
+										);
+									}
+								}
+							},
+						});
+					}
+				}
+			}
+
 			coupon_code() {
 				this.frm.set_value("discount_amount", 0);
 				this.frm.set_value("additional_discount_percentage", 0);
