@@ -2113,13 +2113,7 @@ def make_delivery_note(source_name, target_doc=None):
 					"cost_center": "cost_center",
 				},
 				"postprocess": update_item,
-<<<<<<< HEAD
-				"condition": lambda doc: doc.delivered_by_supplier != 1,
-=======
-				"condition": lambda doc: doc.delivered_by_supplier != 1
-				and not doc.scio_detail
-				and not doc.dn_detail,
->>>>>>> b691de0147 (fix: allow creation of DN in SI for items not having DN reference)
+				"condition": lambda doc: doc.delivered_by_supplier != 1 and not doc.dn_detail,
 			},
 			"Sales Taxes and Charges": {"doctype": "Sales Taxes and Charges", "reset_value": True},
 			"Sales Team": {
