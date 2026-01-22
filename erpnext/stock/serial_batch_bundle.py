@@ -805,14 +805,19 @@ class BatchNoValuation(DeprecatedBatchNoValuation):
 			for ledger in entries:
 				self.stock_value_differece[ledger.batch_no] += flt(ledger.incoming_rate)
 				self.available_qty[ledger.batch_no] += flt(ledger.qty)
+<<<<<<< HEAD
+
 			entries = self.get_batch_wise_total_available_qty()
 			for row in entries:
 				self.total_qty[row.batch_no] += flt(row.total_qty)
+=======
+>>>>>>> d68a04ad16 (fix: negative stock for purchae return)
 
 			self.calculate_avg_rate_from_deprecarated_ledgers()
 			self.calculate_avg_rate_for_non_batchwise_valuation()
 			self.set_stock_value_difference()
 
+<<<<<<< HEAD
 	def get_batch_wise_total_available_qty(self) -> list[dict]:
 		# Get total qty of each batch no from Serial and Batch Bundle without checking time condition
 		if not self.batchwise_valuation_batches:
@@ -852,6 +857,9 @@ class BatchNoValuation(DeprecatedBatchNoValuation):
 		return query.run(as_dict=True)
 
 	def get_batch_no_ledgers(self) -> list[dict]:
+=======
+	def get_batch_stock_before_date(self) -> list[dict]:
+>>>>>>> d68a04ad16 (fix: negative stock for purchae return)
 		# Get batch wise stock value difference from Serial and Batch Bundle considering time condition
 		if not self.batchwise_valuation_batches:
 			return []
