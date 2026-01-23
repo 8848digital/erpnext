@@ -1466,26 +1466,30 @@ class SerialandBatchBundle(Document):
 	def get_available_qty_from_sabb(self):
 		batches = [d.batch_no for d in self.entries if d.batch_no]
 
+		parent = frappe.qb.DocType("Serial and Batch Bundle")
 		child = frappe.qb.DocType("Serial and Batch Entry")
 
 		query = (
-			frappe.qb.from_(child)
+			frappe.qb.from_(parent)
+			.inner_join(child)
+			.on(parent.name == child.parent)
 			.select(
 				child.batch_no,
-				Sum(child.qty).as_("available_qty"),
+				Sum(child.qty).as_("total_qty"),
 			)
 			.where(
-				(child.item_code == self.item_code)
-				& (child.warehouse == self.warehouse)
-				& (child.is_cancelled == 0)
+				(parent.warehouse == self.warehouse)
+				& (parent.item_code == self.item_code)
 				& (child.batch_no.isin(batches))
-				& (child.docstatus == 1)
-				& (child.type_of_transaction.isin(["Inward", "Outward"]))
+				& (parent.docstatus == 1)
+				& (parent.is_cancelled == 0)
+				& (parent.type_of_transaction.isin(["Inward", "Outward"]))
 			)
 			.for_update()
 			.groupby(child.batch_no)
 		)
-		query = query.where(child.voucher_type != "Pick List")
+
+		query = query.where(parent.voucher_type != "Pick List")
 
 		res = query.run(as_list=True)
 
