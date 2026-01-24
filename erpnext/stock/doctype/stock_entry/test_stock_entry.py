@@ -6365,43 +6365,50 @@ def create_bom(bom_item, rm_items, company=None, qty=None, properties=None):
 		material_request.reload()
 		self.assertEqual(material_request.transfer_status, "Completed")
 
+	def test_disassemble_entry_without_wo(self):
+		from erpnext.manufacturing.doctype.production_plan.test_production_plan import make_bom
 
-<<<<<<< HEAD
-def make_serialized_item(**args):
-=======
+		fg_item = make_item("_Disassemble Mobile", properties={"is_stock_item": 1}).name
+		rm_item1 = make_item("_Disassemble Temper Glass", properties={"is_stock_item": 1}).name
+		rm_item2 = make_item("_Disassemble Battery", properties={"is_stock_item": 1}).name
 		warehouse = "_Test Warehouse - _TC"
-		retain_sample_item = make_item(
-			"Retain Sample Item",
-			properties={
-				"is_stock_item": 1,
-				"retain_sample": 1,
-				"sample_quantity": 2,
-				"has_batch_no": 1,
-				"has_serial_no": 1,
-				"create_new_batch": 1,
-				"batch_number_series": "SAMPLE-RET-.#####",
-				"serial_no_series": "SAMPLE-RET-SN-.#####",
-			},
-		)
-		material_receipt = make_stock_entry(
-			item_code=retain_sample_item.item_code, target=warehouse, qty=10, purpose="Material Receipt"
-		)
 
-		source_sabb = frappe.get_doc(
-			"Serial and Batch Bundle", material_receipt.items[0].serial_and_batch_bundle
-		)
-		batch = source_sabb.entries[0].batch_no
-		serial_nos = [entry.serial_no for entry in source_sabb.entries]
+		# Stock up the FG item (what we'll disassemble)
+		make_stock_entry(item_code=fg_item, target=warehouse, qty=5, purpose="Material Receipt")
 
-		sample_entry = frappe.get_doc(
-			move_sample_to_retention_warehouse(material_receipt.company, material_receipt.items)
-		)
-		sample_entry.submit()
-		target_sabb = frappe.get_doc("Serial and Batch Bundle", sample_entry.items[0].serial_and_batch_bundle)
+		bom_no = make_bom(item=fg_item, raw_materials=[rm_item1, rm_item2]).name
 
-		self.assertEqual(sample_entry.items[0].transfer_qty, 2)
-		self.assertEqual(target_sabb.entries[0].batch_no, batch)
-		self.assertEqual([entry.serial_no for entry in target_sabb.entries], serial_nos[:2])
+		se = make_stock_entry(item_code=fg_item, qty=1, purpose="Disassemble", do_not_save=True)
+		se.from_bom = 1
+		se.use_multi_level_bom = 1
+		se.bom_no = bom_no
+		se.fg_completed_qty = 1
+		se.from_warehouse = warehouse
+		se.to_warehouse = warehouse
+
+		se.get_items()
+
+		# Verify FG as source (being consumed)
+		fg_items = [d for d in se.items if d.is_finished_item]
+		self.assertEqual(len(fg_items), 1)
+		self.assertEqual(fg_items[0].item_code, fg_item)
+		self.assertEqual(fg_items[0].qty, 1)
+		self.assertEqual(fg_items[0].s_warehouse, warehouse)
+		self.assertFalse(fg_items[0].t_warehouse)
+
+		# Verify RM as target (being received)
+		rm_items = {d.item_code: d for d in se.items if not d.is_finished_item}
+		self.assertEqual(len(rm_items), 2)
+		self.assertIn(rm_item1, rm_items)
+		self.assertIn(rm_item2, rm_items)
+		self.assertEqual(rm_items[rm_item1].qty, 1)
+		self.assertEqual(rm_items[rm_item2].qty, 1)
+		self.assertEqual(rm_items[rm_item1].t_warehouse, warehouse)
+		self.assertFalse(rm_items[rm_item1].s_warehouse)
+
+		se.calculate_rate_and_amount()
+		se.save()
+		se.submit()
 
 	def test_raw_material_missing_validation(self):
 		original_value = frappe.db.get_single_value("Manufacturing Settings", "material_consumption")
@@ -6426,8 +6433,7 @@ def make_serialized_item(**args):
 		frappe.db.set_single_value("Manufacturing Settings", "material_consumption", original_value)
 
 
-def make_serialized_item(self, **args):
->>>>>>> f003b3c378 (fix: validation to check at-least one raw material for manufacture entry)
+def make_serialized_item(**args):
 	args = frappe._dict(args)
 	se = frappe.copy_doc(test_records[0])
 
