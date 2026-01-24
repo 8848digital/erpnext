@@ -241,14 +241,7 @@ class StockEntry(StockController):
 			self.reset_default_field_value("to_warehouse", "items", "t_warehouse")
 		
 		self.validate_same_source_target_warehouse_during_material_transfer()
-
-<<<<<<< HEAD
-=======
-		self.validate_closed_subcontracting_order()
-		self.validate_subcontract_order()
 		self.validate_raw_materials_exists()
-
-		super().validate_subcontracting_inward()
 
 	def validate_raw_materials_exists(self):
 		if self.purpose not in ["Manufacture", "Repack", "Disassemble"]:
@@ -270,7 +263,6 @@ class StockEntry(StockController):
 				title=_("Raw Materials Missing"),
 			)
 
->>>>>>> f003b3c378 (fix: validation to check at-least one raw material for manufacture entry)
 	def set_serial_batch_for_disassembly(self):
 		if self.purpose != "Disassemble":
 			return
