@@ -220,15 +220,8 @@ class Item(Document):
 
 	def validate_description(self):
 		"""Clean HTML description if set"""
-<<<<<<< HEAD
 		if cint(frappe.db.get_single_value("Stock Settings", "clean_description_html")):
-=======
-		if (
-			cint(frappe.get_single_value("Stock Settings", "clean_description_html"))
-			and self.description != self.item_name  # perf: Avoid cleaning up a fallback
-		):
 			old_desc = self.description
->>>>>>> b49c679a50 (fix: show message if image is removed from item description)
 			self.description = clean_html(self.description)
 
 			if (
