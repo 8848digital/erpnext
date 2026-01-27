@@ -220,8 +220,32 @@ class Item(Document):
 
 	def validate_description(self):
 		"""Clean HTML description if set"""
+<<<<<<< HEAD
 		if cint(frappe.db.get_single_value("Stock Settings", "clean_description_html")):
+=======
+		if (
+			cint(frappe.get_single_value("Stock Settings", "clean_description_html"))
+			and self.description != self.item_name  # perf: Avoid cleaning up a fallback
+		):
+			old_desc = self.description
+>>>>>>> b49c679a50 (fix: show message if image is removed from item description)
 			self.description = clean_html(self.description)
+
+			if (
+				old_desc
+				and self.description
+				and "<img src" in old_desc
+				and "<img src" not in self.description
+			):
+				frappe.msgprint(
+					_(
+						'Image in the description has been removed. To disable this behavior, uncheck "{0}" in {1}.'
+					).format(
+						frappe.get_meta("Stock Settings").get_label("clean_description_html"),
+						get_link_to_form("Stock Settings"),
+					),
+					alert=True,
+				)
 
 	def validate_customer_provided_part(self):
 		if self.is_customer_provided_item:
