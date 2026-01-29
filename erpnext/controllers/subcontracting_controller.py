@@ -316,10 +316,14 @@ class SubcontractingController(StockController):
 		):
 			for row in frappe.get_all(
 				f"{self.subcontract_data.order_doctype} Item",
+<<<<<<< HEAD
 				fields=["item_code", "(qty - received_qty) as qty", "parent", "name"],
+=======
+				fields=["item_code", {"SUB": ["qty", "received_qty"], "as": "qty"}, "parent", "bom"],
+>>>>>>> 0d372a62a1 (fix(subcontracting): include item bom in supplied items grouping key)
 				filters={"docstatus": 1, "parent": ("in", self.subcontract_orders)},
 			):
-				self.qty_to_be_received[(row.item_code, row.parent)] += row.qty
+				self.qty_to_be_received[(row.item_code, row.parent, row.bom)] += row.qty
 
 	def __get_transferred_items(self):
 		se = frappe.qb.DocType("Stock Entry")
@@ -897,13 +901,17 @@ class SubcontractingController(StockController):
 		self.__set_serial_nos(item_row, rm_obj)
 
 	def __get_qty_based_on_material_transfer(self, item_row, transfer_item):
-		key = (item_row.item_code, item_row.get(self.subcontract_data.order_field))
+		key = (
+			item_row.item_code,
+			item_row.get(self.subcontract_data.order_field),
+			item_row.get("bom"),
+		)
 
 		if self.qty_to_be_received == item_row.qty:
 			return transfer_item.qty
 
-		if self.qty_to_be_received:
-			qty = (flt(item_row.qty) * flt(transfer_item.qty)) / flt(self.qty_to_be_received.get(key, 0))
+		if self.qty_to_be_received.get(key):
+			qty = (flt(item_row.qty) * flt(transfer_item.qty)) / flt(self.qty_to_be_received.get(key))
 			transfer_item.item_details.required_qty = transfer_item.qty
 
 			if transfer_item.serial_no or frappe.get_cached_value(
@@ -948,7 +956,11 @@ class SubcontractingController(StockController):
 
 				if self.qty_to_be_received:
 					self.qty_to_be_received[
-						(row.item_code, row.get(self.subcontract_data.order_field))
+						(
+							row.item_code,
+							row.get(self.subcontract_data.order_field),
+							row.get("bom"),
+						)
 					] -= row.qty
 
 	def __set_rate_for_serial_and_batch_bundle(self):
