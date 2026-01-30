@@ -345,10 +345,22 @@ class StatusUpdater(Document):
 		):
 			return
 
+<<<<<<< HEAD
 		if qty_or_amount == "qty":
 			action_msg = _(
 				'To allow over receipt / delivery, update "Over Receipt/Delivery Allowance" in Stock Settings or the Item.'
 			)
+=======
+		if args["source_dt"] != "Pick List Item" and args["target_dt"] != "Quotation Item":
+			if qty_or_amount == "qty":
+				action_msg = _(
+					'To allow over receipt / delivery, update "Over Receipt/Delivery Allowance" in Stock Settings or the Item.'
+				)
+			else:
+				action_msg = _(
+					'To allow over billing, update "Over Billing Allowance" in Accounts Settings or the Item.'
+				)
+>>>>>>> 4cc306d2d8 (fix: validate over ordering of quotation)
 		else:
 			action_msg = _(
 				'To allow over billing, update "Over Billing Allowance" in Accounts Settings or the Item.'
