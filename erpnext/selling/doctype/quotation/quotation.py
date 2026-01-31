@@ -596,15 +596,7 @@ def handle_mandatory_error(e, customer, lead_name):
 def get_ordered_items(quotation: str):
 	return frappe._dict(
 		frappe.get_all(
-<<<<<<< HEAD
-			"Sales Order Item",
-			filters={"prevdoc_docname": quotation, "docstatus": 1},
-			fields=["quotation_item", "sum(qty)"],
-			group_by="quotation_item",
-			as_list=1,
-=======
 			"Quotation Item", {"docstatus": 1, "parent": quotation}, ["name", "ordered_qty"], as_list=True
->>>>>>> 4cc306d2d8 (fix: validate over ordering of quotation)
 		)
 	)
 
