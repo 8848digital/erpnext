@@ -5,7 +5,7 @@ def execute():
 	data = frappe.get_all(
 		"Sales Order Item",
 		filters={"quotation_item": ["is", "set"], "docstatus": 1},
-		fields=["quotation_item", {"SUM": "stock_qty", "as": "ordered_qty"}],
+		fields=["quotation_item", "sum(stock_qty) as ordered_qty"],
 		group_by="quotation_item",
 	)
 	if data:
