@@ -1876,6 +1876,8 @@ class TestQuotation(FrappeTestCase):
 		return payment_entry
 
 	def test_over_order_limit(self):
+		from erpnext.selling.doctype.quotation.quotation import make_sales_order
+
 		quotation = make_quotation(qty=5)
 		so1 = make_sales_order(quotation.name)
 		so2 = make_sales_order(quotation.name)
