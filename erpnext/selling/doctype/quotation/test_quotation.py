@@ -1875,6 +1875,16 @@ class TestQuotation(FrappeTestCase):
 		)
 		return payment_entry
 
+	def test_over_order_limit(self):
+		quotation = make_quotation(qty=5)
+		so1 = make_sales_order(quotation.name)
+		so2 = make_sales_order(quotation.name)
+		so1.delivery_date = nowdate()
+		so2.delivery_date = nowdate()
+
+		so1.submit()
+		self.assertRaises(frappe.ValidationError, so2.submit)
+
 
 test_records = frappe.get_test_records("Quotation")
 
