@@ -366,8 +366,7 @@ class StatusUpdater(Document):
 				frappe.bold(_(self.doctype)),
 				frappe.bold(item.get("item_code")),
 			)
-			+ "<br><br>"
-			+ action_msg,
+			+ ("<br><br>" + action_msg if action_msg else ""),
 			OverAllowanceError,
 			title=_("Limit Crossed"),
 		)
