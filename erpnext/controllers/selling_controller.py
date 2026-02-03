@@ -289,6 +289,7 @@ class SellingController(StockController):
 					bold(ref_rate_field),
 					bold("net rate"),
 					bold(rate),
+					bold(frappe.get_meta("Selling Settings").get_label("validate_selling_price")),
 					get_link_to_form("Selling Settings", "Selling Settings"),
 				),
 				title=_("Invalid Selling Price"),
