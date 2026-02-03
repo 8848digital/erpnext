@@ -316,11 +316,7 @@ class SubcontractingController(StockController):
 		):
 			for row in frappe.get_all(
 				f"{self.subcontract_data.order_doctype} Item",
-<<<<<<< HEAD
-				fields=["item_code", "(qty - received_qty) as qty", "parent", "name"],
-=======
-				fields=["item_code", {"SUB": ["qty", "received_qty"], "as": "qty"}, "parent", "bom"],
->>>>>>> 0d372a62a1 (fix(subcontracting): include item bom in supplied items grouping key)
+				fields=["item_code", "(qty - received_qty) as qty", "parent", "bom"],
 				filters={"docstatus": 1, "parent": ("in", self.subcontract_orders)},
 			):
 				self.qty_to_be_received[(row.item_code, row.parent, row.bom)] += row.qty
