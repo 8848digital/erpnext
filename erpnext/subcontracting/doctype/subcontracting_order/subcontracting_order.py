@@ -8,15 +8,7 @@ from frappe.utils import flt
 
 from erpnext.buying.utils import check_on_hold_or_closed_status
 from erpnext.controllers.subcontracting_controller import SubcontractingController
-<<<<<<< HEAD
-from erpnext.stock.stock_balance import update_bin_qty
-=======
-from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import (
-	StockReservation,
-	has_reserved_stock,
-)
 from erpnext.stock.stock_balance import get_ordered_qty, update_bin_qty
->>>>>>> de8f8ef9f4 (fix(stock): include subcontracting order qty while calculating the bin qty)
 from erpnext.stock.utils import get_bin
 
 
