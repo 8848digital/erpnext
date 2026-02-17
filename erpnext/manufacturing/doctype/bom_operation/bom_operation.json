@@ -132,12 +132,7 @@
    "label": "Batch Size"
   },
   {
-<<<<<<< HEAD
-   "depends_on": "eval:doc.parenttype == \"Routing\"",
-=======
    "depends_on": "eval:doc.parenttype == \"Routing\" || !parent.routing",
-   "description": "If you want to run operations in parallel, keep the same sequence ID for them.",
->>>>>>> 08529964b4 (fix: allow sequence id edit in BOM if routing is not set)
    "fieldname": "sequence_id",
    "fieldtype": "Int",
    "label": "Sequence ID"
