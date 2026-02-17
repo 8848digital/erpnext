@@ -504,8 +504,8 @@ def make_round_off_gle(gl_map, debit_credit_diff, trx_cur_debit_credit_diff, pre
 	)
 	round_off_gle = frappe._dict()
 	round_off_account_exists = False
-
 	has_opening_entry = has_opening_entries(gl_map)
+
 	if has_opening_entry:
 		if not round_off_for_opening:
 			frappe.throw(
@@ -773,23 +773,19 @@ def validate_against_pcv(is_opening, posting_date, company):
 			title=_("Invalid Opening Entry"),
 		)
 
-	# last_pcv_date = frappe.db.get_value(
-	# 	"Period Closing Voucher", {"docstatus": 1, "company": company}, "max(posting_date)"
-	# )
+	# Local import so you don't have to touch file-level imports
+	from frappe.query_builder.functions import Max
 
-	last_pcv_date = frappe.db.sql(
-			"""SELECT period_start_date FROM `tabPeriod Closing Voucher`
-			WHERE `docstatus` = 1 AND `company` = %s
-			ORDER BY period_start_date DESC 
-       		LIMIT 1""",
-			(company,),
-			as_dict=True
-		)
+	pcv = frappe.qb.DocType("Period Closing Voucher")
 
-	last_pcv_date_value = last_pcv_date[0].get('MAX(posting_date)') if last_pcv_date else None
+	last_pcv_date = (
+		frappe.qb.from_(pcv)
+		.select(Max(pcv.period_end_date))
+		.where((pcv.docstatus == 1) & (pcv.company == company))
+	).run(pluck=True)[0]
 
-	if last_pcv_date_value and getdate(posting_date) <= getdate(last_pcv_date):
-		message = _("Books have been closed till the period ending on {0}").format(formatdate(last_pcv_date))
+	if last_pcv_date and getdate(posting_date) <= getdate(last_pcv_date):
+		message = _("Books have been closed till the period ending on {0}.").format(formatdate(last_pcv_date))
 		message += "</br >"
 		message += _("You cannot create/amend any accounting entries till this date.")
 		frappe.throw(message, title=_("Period Closed"))
