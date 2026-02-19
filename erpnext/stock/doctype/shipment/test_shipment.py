@@ -5,11 +5,50 @@ from datetime import date, timedelta
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
+from frappe.utils import add_to_date, flt, get_time, now
 
+from erpnext.accounts.doctype.account.test_account import make_company
+from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_address
 from erpnext.stock.doctype.delivery_note.delivery_note import make_shipment
+from erpnext.stock.doctype.item.test_item import get_hsn
+from erpnext.accounts.utils import get_fiscal_year
+from datetime import date
 
 
 class TestShipment(FrappeTestCase):
+	def setUp(self):
+		self.company = "_Test Indian Registered Company"
+		if not frappe.db.exists("Company", self.company):
+			make_company(self.company)
+
+		self.args1 = {
+			"address_title": "Test Address1",
+			"address_type": "Permanent",
+			"address_line1": "Test Address1",
+			"is_primary_address": 1,
+			"state": "Karnataka",
+			"country": "India",
+			"pincode": "581115",
+			"company": self.company,
+			"is_your_company_address": 1,
+			"doctype": "Company",
+			"docname": self.company,
+		}
+
+		self.args2 = {
+			"address_title": "Test Address2",
+			"address_type": "Permanent",
+			"address_line1": "Test Address1",
+			"is_primary_address": 1,
+			"state": "Karnataka",
+			"country": "India",
+			"pincode": "581115",
+			"company": self.company,
+			"is_your_company_address": 1,
+			"doctype": "Company",
+			"docname": self.company,
+		}
+
 	def test_shipment_from_delivery_note(self):
 		delivery_note = create_test_delivery_note()
 		delivery_note.submit()
@@ -19,6 +58,179 @@ class TestShipment(FrappeTestCase):
 		self.assertEqual(second_shipment.value_of_goods, delivery_note.grand_total)
 		self.assertEqual(len(second_shipment.shipment_delivery_note), 1)
 		self.assertEqual(second_shipment.shipment_delivery_note[0].delivery_note, delivery_note.name)
+
+	def tearDown(self):
+		frappe.db.rollback()
+
+	# codecov
+	def test_validate_weight_TC_SCK_353(self):
+		address1 = create_address(**self.args1)
+
+		address2 = create_address(**self.args2)
+
+		shipment = frappe.get_doc(
+			{
+				"doctype": "Shipment",
+				"pickup_from_type": "Company",
+				"pickup_address_name": address1.name,
+				"pickup_contact_person": "Administrator",
+				"delivery_address_name": address2.name,
+				"description_of_content": "Test Shipment",
+				"value_of_goods": 10,
+				"pickup_date": frappe.utils.now(),
+				"shipment_parcel": [{"length": 10, "width": 12, "height": 20, "weight": 0, "count": 1}],
+			}
+		)
+		msg = "Parcel weight cannot be 0"
+		with self.assertRaises(frappe.ValidationError, msg=msg):
+			shipment.insert()
+
+	# codecov
+	def test_on_submit_TC_SCK_354(self):
+		address1 = create_address(**self.args1)
+		address2 = create_address(**self.args2)
+
+		shipment = frappe.get_doc(
+			{
+				"doctype": "Shipment",
+				"pickup_from_type": "Company",
+				"pickup_address_name": address1.name,
+				"pickup_contact_person": "Administrator",
+				"delivery_address_name": address2.name,
+				"description_of_content": "Test Shipment",
+				"value_of_goods": 0,
+				"pickup_date": frappe.utils.now(),
+				"shipment_parcel": [{"length": 10, "width": 12, "height": 20, "weight": 12, "count": 1}],
+			}
+		)
+		shipment.insert()
+		shipment.reload()
+		msg = "Value of goods cannot be 0"
+		with self.assertRaises(frappe.ValidationError, msg=msg):
+			shipment.submit()
+
+	# codecov
+	def test_on_submit_no_shipment_parcel_TC_SCK_355(self):
+		address1 = create_address(**self.args1)
+		address2 = create_address(**self.args2)
+
+		shipment = frappe.get_doc(
+			{
+				"doctype": "Shipment",
+				"pickup_from_type": "Company",
+				"pickup_address_name": address1.name,
+				"pickup_contact_person": "Administrator",
+				"delivery_address_name": address2.name,
+				"description_of_content": "Test Shipment",
+				"value_of_goods": 0,
+				"pickup_date": frappe.utils.now(),
+			}
+		)
+		shipment.insert()
+		shipment.reload()
+		msg = "Please enter Shipment Parcel information"
+		with self.assertRaises(frappe.ValidationError, msg=msg):
+			shipment.submit()
+		shipment.reload()
+		shipment.cancel()
+
+	# codecov
+	def test_validate_pickup_time_TC_SCK_356(self):
+		address1 = create_address(**self.args1)
+		address2 = create_address(**self.args2)
+
+		shipment = frappe.get_doc(
+			{
+				"doctype": "Shipment",
+				"pickup_from_type": "Company",
+				"pickup_address_name": address1.name,
+				"pickup_contact_person": "Administrator",
+				"delivery_address_name": address2.name,
+				"description_of_content": "Test Shipment",
+				"value_of_goods": 0,
+				"pickup_date": add_to_date(now(), hours=-1),
+				"pickup_from": add_to_date(now(), hours=+1),
+				"pickup_to": frappe.utils.now(),
+				"shipment_parcel": [{"length": 10, "width": 12, "height": 20, "weight": 12, "count": 1}],
+			}
+		)
+		msg = "Pickup To time should be greater than Pickup From time"
+		with self.assertRaises(frappe.ValidationError, msg=msg):
+			shipment.insert()
+
+	# codecov
+	def test_whitelisted_methods_TC_SCK_357(self):
+		from erpnext.stock.doctype.shipment.shipment import (
+			get_address_name,
+			get_company_contact,
+			get_contact_name,
+		)
+
+		address1 = create_address(**self.args1)
+
+		address2 = create_address(**self.args2)
+
+		shipment = frappe.get_doc(
+			{
+				"doctype": "Shipment",
+				"pickup_from_type": "Company",
+				"pickup_address_name": address1.name,
+				"pickup_contact_person": "Administrator",
+				"delivery_address_name": address2.name,
+				"description_of_content": "Test Shipment",
+				"value_of_goods": 0,
+				"pickup_date": add_to_date(now(), hours=+1),
+				"pickup_from": add_to_date(now(), hours=-1),
+				"pickup_to": frappe.utils.now(),
+				"shipment_parcel": [{"length": 10, "width": 12, "height": 20, "weight": 12, "count": 1}],
+			}
+		)
+		shipment.insert()
+		get_address_name("Shipment", shipment.name)
+		get_contact_name("Shipment", shipment.name)
+		self.assertEqual(shipment.pickup_address_name, address1.name)
+
+	# codecov
+	def test_get_company_contact_TC_SCK_392(self):
+		from erpnext.stock.doctype.shipment.shipment import get_company_contact
+
+		# Create test user directly
+		user_email = "testuser@example.com"
+		if frappe.db.exists("User", user_email):
+			frappe.delete_doc("User", user_email, force=1)
+
+		user = frappe.get_doc(
+			{
+				"doctype": "User",
+				"email": user_email,
+				"first_name": "Test",
+				"last_name": "User",
+				"mobile_no": "9876543210",
+				"gender": "Male",
+			}
+		).insert(ignore_permissions=True)
+
+		# Call the function
+		result = get_company_contact(user)
+
+		# Assertions
+		self.assertEqual(result["first_name"], "Test")
+		self.assertEqual(result["last_name"], "User")
+		self.assertEqual(result["email"], "testuser@example.com")
+		self.assertEqual(result["mobile_no"], "9876543210")
+		self.assertEqual(result["phone"], "9876543210")  # fallback works
+		self.assertEqual(result["gender"], "Male")
+
+	def test_get_total_weight(self):
+		shipment = frappe.new_doc("Shipment")
+		shipment.extend(
+			"shipment_parcel",
+			[
+				{"length": 5, "width": 5, "height": 5, "weight": 5, "count": 5},
+				{"length": 5, "width": 5, "height": 5, "weight": 10, "count": 1},
+			],
+		)
+		self.assertEqual(shipment.get_total_weight(), 35)
 
 
 def create_test_delivery_note():
@@ -120,7 +332,20 @@ def get_shipment_company_address(company_name):
 
 
 def get_shipment_company():
-	return frappe.get_doc("Company", "_Test Company")
+	company = "_Test Company" 
+	fiscal_year = get_fiscal_year()["name"]
+
+	exists = frappe.db.exists(
+    "Fiscal Year Company",
+    {"parent": fiscal_year, "company": company}
+	)
+
+	if not exists:
+		fy_doc = frappe.get_doc("Fiscal Year", fiscal_year)
+		fy_doc.append("companies", {"company": company})
+		fy_doc.save()
+
+	return frappe.get_doc("Company",company)
 
 
 def get_shipment_item(company_name):
@@ -201,5 +426,7 @@ def create_shipment_item(item_name, company_name):
 	item.stock_uom = "Nos"
 	item.standard_rate = 50
 	item.append("item_defaults", {"company": company_name, "default_warehouse": "Stores - _TC"})
+	if "india_compliance" in frappe.get_installed_apps():
+		item.gst_hsn_code = get_hsn()
 	item.insert()
 	return item

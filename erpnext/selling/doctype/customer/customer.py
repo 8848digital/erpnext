@@ -29,7 +29,7 @@ class Customer(TransactionBase):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING: # pragma: no cover
 		from erpnext.accounts.doctype.allowed_to_transact_with.allowed_to_transact_with import AllowedToTransactWith
 		from erpnext.accounts.doctype.party_account.party_account import PartyAccount
 		from erpnext.selling.doctype.customer_credit_limit.customer_credit_limit import CustomerCreditLimit
@@ -679,10 +679,10 @@ def make_contact(args, is_primary_contact=1):
 	else:
 		values.update(
 			{
+				"first_name": args.get("name"),
 				"company_name": args.get(party_name_key),
 			}
 		)
-
 	contact = frappe.get_doc(values)
 
 	if args.get("email_id"):

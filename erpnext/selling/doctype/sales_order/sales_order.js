@@ -26,20 +26,6 @@ frappe.ui.form.on("Sales Order", {
 			return doc.stock_qty <= doc.delivered_qty ? "green" : "orange";
 		});
 
-		frm.set_query("company_address", function (doc) {
-			if (!doc.company) {
-				frappe.throw(__("Please set Company"));
-			}
-
-			return {
-				query: "frappe.contacts.doctype.address.address.address_query",
-				filters: {
-					link_doctype: "Company",
-					link_name: doc.company,
-				},
-			};
-		});
-
 		frm.set_query("bom_no", "items", function (doc, cdt, cdn) {
 			var row = locals[cdt][cdn];
 			return {
@@ -57,8 +43,8 @@ frappe.ui.form.on("Sales Order", {
 		if (frm.doc.docstatus === 1) {
 			if (
 				frm.doc.status !== "Closed" &&
-				flt(frm.doc.per_delivered, 2) < 100 &&
-				flt(frm.doc.per_billed, 2) < 100 &&
+				flt(frm.doc.per_delivered) < 100 &&
+				flt(frm.doc.per_billed) < 100 &&
 				frm.has_perm("write")
 			) {
 				frm.add_custom_button(__("Update Items"), () => {
@@ -178,47 +164,30 @@ frappe.ui.form.on("Sales Order", {
 		);
 	},
 
-	// When multiple companies are set up. in case company name is changed set default company address
-	company: function (frm) {
-		if (frm.doc.company) {
-			frappe.call({
-				method: "erpnext.setup.doctype.company.company.get_default_company_address",
-				args: {
-					name: frm.doc.company,
-					existing_address: frm.doc.company_address || "",
-				},
-				debounce: 2000,
-				callback: function (r) {
-					if (r.message) {
-						frm.set_value("company_address", r.message);
-					} else {
-						frm.set_value("company_address", "");
-					}
-				},
-			});
-		}
-	},
-
 	onload: function (frm) {
 		if (!frm.doc.transaction_date) {
 			frm.set_value("transaction_date", frappe.datetime.get_today());
 		}
 		erpnext.queries.setup_queries(frm, "Warehouse", function () {
 			return {
-				filters: {
-					company:frm.doc.company,
-				},
+				filters: [
+					["Warehouse", "company", "in", ["", cstr(frm.doc.company)]],
+					["Warehouse", "is_group", "=", 0],
+				],
 			};
 		});
 
 		frm.set_query("warehouse", "items", function (doc, cdt, cdn) {
 			let row = locals[cdt][cdn];
 			let query = {
-				filters: {company:frm.doc.company},
+				filters: [
+					["Warehouse", "company", "in", ["", cstr(frm.doc.company)]],
+					["Warehouse", "is_group", "=", 0],
+				],
 			};
 			if (row.item_code) {
 				query.query = "erpnext.controllers.queries.warehouse_query";
-				query.filters.item_code =  row.item_code;
+				query.filters.item_code = row.item_code;
 			}
 			return query;
 		});
@@ -231,8 +200,8 @@ frappe.ui.form.on("Sales Order", {
 		frm.set_query("set_warehouse", function () {
 			return {
 				filters: {
-					"company": frm.doc.company,
-					"is_group" : ["!=", 1]
+					company: frm.doc.company,
+					is_group: ["!=", 1],
 				},
 			};
 		});
@@ -615,7 +584,7 @@ erpnext.selling.SalesOrderController = class SalesOrderController extends erpnex
 						__("Status")
 					);
 
-					if (flt(doc.per_delivered, 2) < 100 || flt(doc.per_billed, 2) < 100) {
+					if (flt(doc.per_delivered) < 100 || flt(doc.per_billed) < 100) {
 						// close
 						this.frm.add_custom_button(__("Close"), () => this.close_sales_order(), __("Status"));
 					}
@@ -638,7 +607,7 @@ erpnext.selling.SalesOrderController = class SalesOrderController extends erpnex
 						) && !this.frm.doc.skip_delivery_note;
 
 					if (this.frm.has_perm("submit")) {
-						if (flt(doc.per_delivered, 2) < 100 || flt(doc.per_billed, 2) < 100) {
+						if (flt(doc.per_delivered) < 100 || flt(doc.per_billed) < 100) {
 							// hold
 							this.frm.add_custom_button(
 								__("Hold"),
@@ -656,8 +625,8 @@ erpnext.selling.SalesOrderController = class SalesOrderController extends erpnex
 
 					if (
 						(!doc.__onload || !doc.__onload.has_reserved_stock) &&
-						flt(doc.per_picked, 2) < 100 &&
-						flt(doc.per_delivered, 2) < 100 &&
+						flt(doc.per_picked) < 100 &&
+						flt(doc.per_delivered) < 100 &&
 						frappe.model.can_create("Pick List")
 					) {
 						this.frm.add_custom_button(
@@ -675,7 +644,7 @@ erpnext.selling.SalesOrderController = class SalesOrderController extends erpnex
 
 					// delivery note
 					if (
-						flt(doc.per_delivered, 2) < 100 &&
+						flt(doc.per_delivered) < 100 &&
 						(order_is_a_sale || order_is_a_custom_sale) &&
 						allow_delivery
 					) {
@@ -697,7 +666,7 @@ erpnext.selling.SalesOrderController = class SalesOrderController extends erpnex
 					}
 
 					// sales invoice
-					if (flt(doc.per_billed, 2) < 100 && frappe.model.can_create("Sales Invoice")) {
+					if (flt(doc.per_billed) < 100 && frappe.model.can_create("Sales Invoice")) {
 						this.frm.add_custom_button(
 							__("Sales Invoice"),
 							() => me.make_sales_invoice(),
@@ -708,8 +677,7 @@ erpnext.selling.SalesOrderController = class SalesOrderController extends erpnex
 					// material request
 					if (
 						(!doc.order_type ||
-							((order_is_a_sale || order_is_a_custom_sale) &&
-								flt(doc.per_delivered, 2) < 100)) &&
+							((order_is_a_sale || order_is_a_custom_sale) && flt(doc.per_delivered) < 100)) &&
 						frappe.model.can_create("Material Request")
 					) {
 						this.frm.add_custom_button(
@@ -734,7 +702,7 @@ erpnext.selling.SalesOrderController = class SalesOrderController extends erpnex
 					}
 
 					// maintenance
-					if (flt(doc.per_delivered, 2) < 100 && (order_is_maintenance || order_is_a_custom_sale)) {
+					if (flt(doc.per_delivered) < 100 && (order_is_maintenance || order_is_a_custom_sale)) {
 						if (frappe.model.can_create("Maintenance Visit")) {
 							this.frm.add_custom_button(
 								__("Maintenance Visit"),
@@ -752,7 +720,7 @@ erpnext.selling.SalesOrderController = class SalesOrderController extends erpnex
 					}
 
 					// project
-					if (flt(doc.per_delivered, 2) < 100 && frappe.model.can_create("Project")) {
+					if (flt(doc.per_delivered) < 100 && frappe.model.can_create("Project")) {
 						this.frm.add_custom_button(__("Project"), () => this.make_project(), __("Create"));
 					}
 
@@ -780,10 +748,7 @@ erpnext.selling.SalesOrderController = class SalesOrderController extends erpnex
 					}
 				}
 				// payment request
-				if (
-					flt(doc.per_billed, precision("per_billed", doc)) <
-					100 + frappe.boot.sysdefaults.over_billing_allowance
-				) {
+				if (flt(doc.per_billed) < 100 + frappe.boot.sysdefaults.over_billing_allowance) {
 					this.frm.add_custom_button(
 						__("Payment Request"),
 						() => this.make_payment_request(),
@@ -915,8 +880,8 @@ erpnext.selling.SalesOrderController = class SalesOrderController extends erpnex
 						fields: fields,
 						primary_action: function () {
 							var data = { items: d.fields_dict.items.grid.get_selected_children() };
-							if (!data) {
-								frappe.throw(__("Please select items"));
+							if (!data.items.length) {
+								frappe.throw(__("Please select atleast one item to continue"));
 							}
 							me.frm.call({
 								method: "make_work_orders",
@@ -1066,7 +1031,7 @@ erpnext.selling.SalesOrderController = class SalesOrderController extends erpnex
 						items: data,
 						company: me.frm.doc.company,
 						sales_order: me.frm.docname,
-						project: me.frm.project,
+						project: me.frm.doc.project,
 					},
 					freeze: true,
 					callback: function (r) {

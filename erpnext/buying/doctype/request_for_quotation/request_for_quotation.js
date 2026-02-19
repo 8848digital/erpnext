@@ -148,12 +148,35 @@ frappe.ui.form.on("Request for Quotation", {
 						},
 						__("Download PDF for Supplier"),
 						__("Download")
+					);
 				},
 				__("Tools")
 			);
 
 			frm.page.set_inner_btn_group_as_primary(__("Create"));
+
+			frm.add_custom_button(
+				__("Supplier Quotation Comparison"),
+				function () {
+					frm.trigger("show_supplier_quotation_comparison");
+				},
+				__("View")
+			);
 		}
+	},
+
+	show_supplier_quotation_comparison(frm) {
+		const today = new Date();
+		const oneMonthAgo = new Date(today);
+		oneMonthAgo.setMonth(today.getMonth() - 1);
+
+		frappe.route_options = {
+			company: frm.doc.company,
+			from_date: moment(oneMonthAgo).format("YYYY-MM-DD"),
+			to_date: moment(today).format("YYYY-MM-DD"),
+			request_for_quotation: frm.doc.name,
+		};
+		frappe.set_route("query-report", "Supplier Quotation Comparison");
 	},
 
 	make_supplier_quotation: function (frm) {
@@ -340,7 +363,7 @@ erpnext.buying.RequestforQuotationController = class RequestforQuotationControll
 				__("Opportunity"),
 				function () {
 					erpnext.utils.map_current_doc({
-						method: "crm.crm.doctype.opportunity.opportunity.make_request_for_quotation",
+						method: "erpnext_crm.erpnext_crm.doctype.opportunity.opportunity.make_request_for_quotation",
 						source_doctype: "Opportunity",
 						target: me.frm,
 						setters: {

@@ -7,10 +7,10 @@ import json
 import frappe
 from frappe import _, scrub
 from frappe.custom.doctype.custom_field.custom_field import create_custom_field
+from frappe.database.schema import validate_column_name
 from frappe.model import core_doctypes_list
 from frappe.model.document import Document
 from frappe.utils import cstr
-from frappe.database.schema import validate_column_name
 
 from erpnext.accounts.doctype.repost_accounting_ledger.repost_accounting_ledger import (
 	get_allowed_types_from_settings,
@@ -23,7 +23,7 @@ class AccountingDimension(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING:  # pragma: no cover
 		from frappe.types import DF
 
 		from erpnext.accounts.doctype.accounting_dimension_detail.accounting_dimension_detail import (
@@ -41,6 +41,11 @@ class AccountingDimension(Document):
 		self.set_fieldname_and_label()
 
 	def validate(self):
+		self.validate_doctype()
+		validate_column_name(self.fieldname)
+		self.validate_dimension_defaults()
+
+	def validate_doctype(self):
 		if self.document_type in (
 			*core_doctypes_list,
 			"Accounting Dimension",
@@ -49,6 +54,7 @@ class AccountingDimension(Document):
 			"Accounting Dimension Detail",
 			"Company",
 			"Account",
+			"Finance Book",
 		):
 			msg = _("Not allowed to create accounting dimension for {0}").format(self.document_type)
 			frappe.throw(msg)
@@ -60,9 +66,6 @@ class AccountingDimension(Document):
 
 		if not self.is_new():
 			self.validate_document_type_change()
-
-		validate_column_name(self.fieldname)
-		self.validate_dimension_defaults()
 
 	def validate_document_type_change(self):
 		doctype_before_save = frappe.db.get_value("Accounting Dimension", self.name, "document_type")
@@ -102,6 +105,7 @@ class AccountingDimension(Document):
 
 	def on_update(self):
 		frappe.flags.accounting_dimensions = None
+		frappe.flags.accounting_dimensions_details = None
 
 
 def make_dimension_in_accounting_doctypes(doc, doclist=None):
@@ -302,7 +306,7 @@ def get_checks_for_pl_and_bs_accounts():
 		frappe.flags.accounting_dimensions_details = frappe.db.sql(
 			"""SELECT p.label, p.disabled, p.fieldname, c.default_dimension, c.company, c.mandatory_for_pl, c.mandatory_for_bs
 			FROM `tabAccounting Dimension`p ,`tabAccounting Dimension Detail` c
-			WHERE p.name = c.parent""",
+			WHERE p.name = c.parent AND p.disabled = 0""",
 			as_dict=1,
 		)
 

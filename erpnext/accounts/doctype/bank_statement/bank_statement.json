@@ -1,0 +1,79 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-01-08 14:52:55.060923",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "date",
+  "bank_transaction_id",
+  "description",
+  "deposit",
+  "column_break_ofcr",
+  "withdraw",
+  "reference_no",
+  "unallocated_amount"
+ ],
+ "fields": [
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Date",
+   "options": "Date"
+  },
+  {
+   "fieldname": "bank_transaction_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Bank Transaction ID"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Description"
+  },
+  {
+   "fieldname": "deposit",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Deposit"
+  },
+  {
+   "fieldname": "column_break_ofcr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "withdraw",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Withdraw"
+  },
+  {
+   "fieldname": "reference_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Reference No"
+  },
+  {
+   "fieldname": "unallocated_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Unallocated Amount"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-01-10 10:17:54.674125",
+ "modified_by": "Administrator",
+ "module": "Accounts",
+ "name": "Bank Statement",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

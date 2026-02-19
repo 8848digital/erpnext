@@ -37,7 +37,6 @@
   "ignore_pricing_rule",
   "items_section",
   "scan_barcode",
-  "pick_list",
   "col_break_warehouse",
   "set_warehouse",
   "set_target_warehouse",
@@ -107,8 +106,9 @@
   "dispatch_address",
   "company_address_section",
   "company_address",
-  "column_break_101",
   "company_address_display",
+  "column_break_101",
+  "company_contact_person",
   "terms_tab",
   "tc_name",
   "terms",
@@ -1114,15 +1114,6 @@
    "read_only": 1
   },
   {
-   "fieldname": "pick_list",
-   "fieldtype": "Link",
-   "hidden": 1,
-   "label": "Pick List",
-   "options": "Pick List",
-   "read_only": 1,
-   "search_index": 1
-  },
-  {
    "default": "0",
    "fetch_from": "customer.is_internal_customer",
    "fieldname": "is_internal_customer",
@@ -1281,13 +1272,20 @@
    "fieldname": "named_place",
    "fieldtype": "Data",
    "label": "Named Place"
+  },
+  {
+   "fieldname": "company_contact_person",
+   "fieldtype": "Link",
+   "label": "Company Contact Person",
+   "options": "Contact",
+   "print_hide": 1
   }
  ],
  "icon": "fa fa-truck",
  "idx": 146,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-11-20 21:06:08.222825",
+ "modified": "2024-11-26 12:44:28.258215",
  "modified_by": "Administrator",
  "module": "Stock",
  "name": "Delivery Note",

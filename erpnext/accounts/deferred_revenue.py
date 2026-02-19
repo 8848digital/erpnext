@@ -334,10 +334,10 @@ def book_deferred_income_or_expense(doc, deferred_process, posting_date=None):
 
 		account_currency = get_account_currency(item.expense_account or item.income_account)
 		if doc.doctype == "Sales Invoice":
-			against, project = doc.customer, doc.project
+			against, project = doc.customer, doc.project if "projects" in frappe.get_installed_apps() else None
 			credit_account, debit_account = item.income_account, item.deferred_revenue_account
 		else:
-			against, project = doc.supplier, item.project
+			against, project = doc.supplier, item.project if "projects" in frappe.get_installed_apps() else None
 			credit_account, debit_account = item.deferred_expense_account, item.expense_account
 
 		total_days = date_diff(item.service_end_date, item.service_start_date) + 1

@@ -11,14 +11,13 @@ class JournalEntryAccount(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING: # pragma: no cover
 		from frappe.types import DF
 
 		account: DF.Link
 		account_currency: DF.Link | None
 		account_type: DF.Data | None
 		against_account: DF.Text | None
-		balance: DF.Currency
 		bank_account: DF.Link | None
 		cost_center: DF.Link | None
 		credit: DF.Currency

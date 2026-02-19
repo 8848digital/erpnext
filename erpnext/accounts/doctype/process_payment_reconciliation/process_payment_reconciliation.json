@@ -1,7 +1,6 @@
 {
  "actions": [],
  "autoname": "format:ACC-PPR-{#####}",
- "beta": 1,
  "creation": "2023-03-30 21:28:39.793927",
  "default_view": "List",
  "doctype": "DocType",

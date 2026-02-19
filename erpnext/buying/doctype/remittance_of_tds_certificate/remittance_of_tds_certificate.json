@@ -1,0 +1,128 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2024-12-20 18:43:32.613622",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "email_template",
+  "subject",
+  "column_break_mbcg",
+  "upload_doc",
+  "sender",
+  "sender_email",
+  "section_break_dkdd",
+  "description",
+  "error_logs",
+  "import_log_preview",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "email_template",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Email Template",
+   "options": "Email Template",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "email_template.subject",
+   "fieldname": "subject",
+   "fieldtype": "Data",
+   "label": "Subject"
+  },
+  {
+   "fieldname": "column_break_mbcg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "upload_doc",
+   "fieldtype": "Attach",
+   "in_list_view": 1,
+   "label": "Upload Doc",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "email_template.response",
+   "fieldname": "description",
+   "fieldtype": "Text",
+   "label": " Description",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_dkdd",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "error_logs",
+   "fieldtype": "Table",
+   "hidden": 1,
+   "label": "Error Logs",
+   "options": "logs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "import_log_preview",
+   "fieldtype": "HTML",
+   "label": "Error Log"
+  },
+  {
+   "fieldname": "sender",
+   "fieldtype": "Link",
+   "label": " Sender",
+   "options": "Email Account"
+  },
+  {
+   "fetch_from": "sender.email_id",
+   "fieldname": "sender_email",
+   "fieldtype": "Data",
+   "label": "Sender Email"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Remittance of TDS certificate",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Title",
+   "options": "TDS-.#####"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2024-12-23 13:01:20.256530",
+ "modified_by": "Administrator",
+ "module": "Buying",
+ "name": "Remittance of TDS certificate",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

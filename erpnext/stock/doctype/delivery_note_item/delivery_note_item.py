@@ -11,11 +11,12 @@ class DeliveryNoteItem(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING: # pragma: no cover
 		from frappe.types import DF
 
 		actual_batch_qty: DF.Float
 		actual_qty: DF.Float
+		against_pick_list: DF.Link | None
 		against_sales_invoice: DF.Link | None
 		against_sales_order: DF.Link | None
 		allow_zero_valuation_rate: DF.Check
@@ -30,6 +31,7 @@ class DeliveryNoteItem(Document):
 		batch_no: DF.Link | None
 		billed_amt: DF.Currency
 		brand: DF.Link | None
+		company_total_stock: DF.Float
 		conversion_factor: DF.Float
 		cost_center: DF.Link | None
 		customer_item_code: DF.Data | None

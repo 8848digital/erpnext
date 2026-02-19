@@ -11,11 +11,12 @@ class ItemVariantAttribute(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING: # pragma: no cover
 		from frappe.types import DF
 
 		attribute: DF.Link
 		attribute_value: DF.Data | None
+		disabled: DF.Check
 		from_range: DF.Float
 		increment: DF.Float
 		numeric_values: DF.Check

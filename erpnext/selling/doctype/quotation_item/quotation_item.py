@@ -11,7 +11,7 @@ class QuotationItem(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING: # pragma: no cover
 		from frappe.types import DF
 
 		actual_qty: DF.Float
@@ -27,6 +27,7 @@ class QuotationItem(Document):
 		blanket_order: DF.Link | None
 		blanket_order_rate: DF.Currency
 		brand: DF.Link | None
+		company_total_stock: DF.Float
 		conversion_factor: DF.Float
 		customer_item_code: DF.Data | None
 		description: DF.TextEditor | None

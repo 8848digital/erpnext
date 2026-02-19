@@ -45,7 +45,7 @@ frappe.ui.form.on("Communication", {
 
 	make_lead_from_communication: (frm) => {
 		return frappe.call({
-			method: "crm.crm.doctype.lead.lead.make_lead_from_communication",
+			method: "erpnext_crm.erpnext_crm.doctype.lead.lead.make_lead_from_communication",
 			args: {
 				communication: frm.doc.name,
 			},
@@ -89,7 +89,7 @@ frappe.ui.form.on("Communication", {
 			fields,
 			(data) => {
 				frappe.call({
-					method: "crm.crm.doctype.opportunity.opportunity.make_opportunity_from_communication",
+					method: "erpnext_crm.erpnext_crm.doctype.opportunity.opportunity.make_opportunity_from_communication",
 					args: {
 						communication: frm.doc.name,
 						company: data.company,

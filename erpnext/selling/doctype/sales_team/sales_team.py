@@ -11,7 +11,7 @@ class SalesTeam(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING: # pragma: no cover
 		from frappe.types import DF
 
 		allocated_amount: DF.Currency
@@ -22,7 +22,6 @@ class SalesTeam(Document):
 		parent: DF.Data
 		parentfield: DF.Data
 		parenttype: DF.Data
-		sales_person: DF.Link
 	# end: auto-generated types
 
 	pass

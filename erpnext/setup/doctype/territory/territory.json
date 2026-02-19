@@ -58,17 +58,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "description": "For reference",
-   "fieldname": "territory_manager",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Territory Manager",
-   "oldfieldname": "territory_manager",
-   "oldfieldtype": "Link",
-   "options": "Sales Person",
-   "search_index": 1
-  },
-  {
    "fieldname": "lft",
    "fieldtype": "Int",
    "hidden": 1,

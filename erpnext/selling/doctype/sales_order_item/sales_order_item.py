@@ -12,7 +12,7 @@ class SalesOrderItem(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING: # pragma: no cover
 		from frappe.types import DF
 
 		actual_qty: DF.Float
@@ -30,7 +30,9 @@ class SalesOrderItem(Document):
 		blanket_order_rate: DF.Currency
 		bom_no: DF.Link | None
 		brand: DF.Link | None
+		company_total_stock: DF.Float
 		conversion_factor: DF.Float
+		cost_center: DF.Link | None
 		customer_item_code: DF.Data | None
 		delivered_by_supplier: DF.Check
 		delivered_qty: DF.Float

@@ -11,7 +11,8 @@
   "description",
   "col_break3",
   "amount",
-  "base_amount"
+  "base_amount",
+  "has_corrective_cost"
  ],
  "fields": [
   {
@@ -61,6 +62,13 @@
    "fieldtype": "Currency",
    "label": "Amount (Company Currency)",
    "options": "Company:company:default_currency",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "has_corrective_cost",
+   "fieldtype": "Check",
+   "label": "Has Corrective Cost",
    "read_only": 1
   }
  ],

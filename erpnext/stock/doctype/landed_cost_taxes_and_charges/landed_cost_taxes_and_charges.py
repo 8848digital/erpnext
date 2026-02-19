@@ -11,7 +11,7 @@ class LandedCostTaxesandCharges(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING: # pragma: no cover
 		from frappe.types import DF
 
 		account_currency: DF.Link | None
@@ -20,6 +20,7 @@ class LandedCostTaxesandCharges(Document):
 		description: DF.SmallText
 		exchange_rate: DF.Float
 		expense_account: DF.Link | None
+		has_corrective_cost: DF.Check
 		parent: DF.Data
 		parentfield: DF.Data
 		parenttype: DF.Data

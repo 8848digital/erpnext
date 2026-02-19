@@ -419,6 +419,11 @@ erpnext.SerialBatchPackageSelector = class SerialNoBatchBundleUpdate {
 					fieldname: "batch_no",
 					label: __("Batch No"),
 					in_list_view: 1,
+					get_route_options_for_new_doc: () => {
+						return {
+							item: this.item.item_code,
+						};
+					},
 					change() {
 						let doc = this.doc;
 						if (!doc.qty && me.item.type_of_transaction === "Outward") {
@@ -439,6 +444,8 @@ erpnext.SerialBatchPackageSelector = class SerialNoBatchBundleUpdate {
 							is_inward = true;
 						}
 
+						let include_expired_batches = me.include_expired_batches();
+
 						return {
 							query: "erpnext.controllers.queries.get_batch_no",
 							filters: {
@@ -446,6 +453,7 @@ erpnext.SerialBatchPackageSelector = class SerialNoBatchBundleUpdate {
 								warehouse:
 									this.item.s_warehouse || this.item.t_warehouse || this.item.warehouse,
 								is_inward: is_inward,
+								include_expired_batches: include_expired_batches,
 							},
 						};
 					},
@@ -472,6 +480,14 @@ erpnext.SerialBatchPackageSelector = class SerialNoBatchBundleUpdate {
 		});
 
 		return fields;
+	}
+
+	include_expired_batches() {
+		return (
+			this.frm.doc.doctype === "Stock Reconciliation" ||
+			(this.frm.doc.doctype === "Stock Entry" &&
+				["Material Receipt", "Material Transfer", "Material Issue"].includes(this.frm.doc.purpose))
+		);
 	}
 
 	get_auto_data() {
@@ -506,6 +522,8 @@ erpnext.SerialBatchPackageSelector = class SerialNoBatchBundleUpdate {
 					has_batch_no: this.item.has_batch_no,
 					qty: qty,
 					based_on: based_on,
+					posting_date: this.frm.doc.posting_date,
+ 					posting_time: this.frm.doc.posting_time,
 				},
 				callback: (r) => {
 					if (r.message) {

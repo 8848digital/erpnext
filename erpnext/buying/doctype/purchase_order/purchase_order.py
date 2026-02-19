@@ -42,7 +42,7 @@ class PurchaseOrder(BuyingController):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING:  # pragma: no cover
 		from erpnext.accounts.doctype.payment_schedule.payment_schedule import PaymentSchedule
 		from erpnext.accounts.doctype.pricing_rule_detail.pricing_rule_detail import PricingRuleDetail
 		from erpnext.accounts.doctype.purchase_taxes_and_charges.purchase_taxes_and_charges import PurchaseTaxesandCharges
@@ -87,6 +87,8 @@ class PurchaseOrder(BuyingController):
 		customer_name: DF.Data | None
 		disable_rounded_total: DF.Check
 		discount_amount: DF.Currency
+		dispatch_address: DF.Link | None
+		dispatch_address_display: DF.TextEditor | None
 		from_date: DF.Date | None
 		grand_total: DF.Currency
 		group_same_items: DF.Check
@@ -215,8 +217,12 @@ class PurchaseOrder(BuyingController):
 	
 		
 	def validate_with_previous_doc(self):
-		mri_compare_fields = [["project", "="], ["item_code", "="]]
-		if self.is_subcontracted:
+		is_projects_installed = "projects" in frappe.get_installed_apps()
+		mri_compare_fields = [["item_code", "="]] if not is_projects_installed else [["project", "="], ["item_code", "="]]
+		sqi_compare_fields = [["item_code", "="], ["uom", "="], ["conversion_factor", "="]]
+		if is_projects_installed:
+			sqi_compare_fields.append(["project", "="])
+		if self.is_subcontracted and is_projects_installed:
 			mri_compare_fields = [["project", "="]]
 
 		super().validate_with_previous_doc(
@@ -227,12 +233,7 @@ class PurchaseOrder(BuyingController):
 				},
 				"Supplier Quotation Item": {
 					"ref_dn_field": "supplier_quotation_item",
-					"compare_fields": [
-						["project", "="],
-						["item_code", "="],
-						["uom", "="],
-						["conversion_factor", "="],
-					],
+					"compare_fields": sqi_compare_fields,
 					"is_child_table": True,
 				},
 				"Material Request": {
@@ -778,11 +779,19 @@ def get_mapped_purchase_invoice(source_name, target_doc=None, ignore_permissions
 		target.credit_to = get_party_account("Supplier", source.supplier, source.company)
 
 	def update_item(obj, target, source_parent):
-		target.amount = flt(obj.amount) - flt(obj.billed_amt)
-		target.base_amount = target.amount * flt(source_parent.conversion_rate)
-		target.qty = (
-			target.amount / flt(obj.rate) if (flt(obj.rate) and flt(obj.billed_amt)) else flt(obj.qty)
-		)
+		def get_billed_qty(po_item_name):
+			from frappe.query_builder.functions import Sum
+
+			table = frappe.qb.DocType("Purchase Invoice Item")
+			query = (
+				frappe.qb.from_(table)
+				.select(Sum(table.qty).as_("qty"))
+				.where((table.docstatus == 1) & (table.po_detail == po_item_name))
+			)
+			return query.run(pluck="qty")[0] or 0
+
+		billed_qty = flt(get_billed_qty(obj.name))
+		target.qty = flt(obj.qty) - billed_qty
 
 		item = get_item_defaults(target.item_code, source_parent.company)
 		item_group = get_item_group_defaults(target.item_code, source_parent.company)
@@ -865,27 +874,40 @@ def make_inter_company_sales_order(source_name, target_doc=None):
 
 @frappe.whitelist()
 def make_subcontracting_order(source_name, target_doc=None, save=False, submit=False, notify=False):
-	target_doc = get_mapped_subcontracting_order(source_name, target_doc)
+	if not is_po_fully_subcontracted(source_name):
+		target_doc = get_mapped_subcontracting_order(source_name, target_doc)
+		
+		if (save or submit) and frappe.has_permission(target_doc.doctype, "create"):
+			target_doc.save()
+			
+			if submit and frappe.has_permission(target_doc.doctype, "submit", target_doc):
+				try:
+					target_doc.submit()
+				except Exception as e:
+					target_doc.add_comment("Comment", _("Submit Action Failed") + "<br><br>" + str(e))
+			
+			if notify:
+				frappe.msgprint(
+					_("Subcontracting Order {0} created.").format(
+						get_link_to_form(target_doc.doctype, target_doc.name)
+					),
+					indicator="green",
+					alert=True,
+				)
 
-	if (save or submit) and frappe.has_permission(target_doc.doctype, "create"):
-		target_doc.save()
+		return target_doc
+	else:
+		frappe.throw(_("This PO has been fully subcontracted."))
 
-		if submit and frappe.has_permission(target_doc.doctype, "submit", target_doc):
-			try:
-				target_doc.submit()
-			except Exception as e:
-				target_doc.add_comment("Comment", _("Submit Action Failed") + "<br><br>" + str(e))
 
-		if notify:
-			frappe.msgprint(
-				_("Subcontracting Order {0} created.").format(
-					get_link_to_form(target_doc.doctype, target_doc.name)
-				),
-				indicator="green",
-				alert=True,
-			)
-
-	return target_doc
+def is_po_fully_subcontracted(po_name):
+	table = frappe.qb.DocType("Purchase Order Item")
+	query = (
+		frappe.qb.from_(table)
+		.select(table.name)
+		.where((table.parent == po_name) & (table.qty != table.subcontracted_quantity))
+	)
+	return not query.run(as_dict=True)
 
 
 def get_mapped_subcontracting_order(source_name, target_doc=None):
@@ -928,7 +950,8 @@ def get_mapped_subcontracting_order(source_name, target_doc=None):
 					"material_request": "material_request",
 					"material_request_item": "material_request_item",
 				},
-				"field_no_map": [],
+				"field_no_map": ["qty", "fg_item_qty", "amount"],
+				"condition": lambda item: item.qty != item.subcontracted_quantity,
 			},
 		},
 		target_doc,
@@ -937,14 +960,6 @@ def get_mapped_subcontracting_order(source_name, target_doc=None):
 
 	return target_doc
 
-
-@frappe.whitelist()
-def is_subcontracting_order_created(po_name) -> bool:
-	return (
-		True
-		if frappe.db.exists("Subcontracting Order", {"purchase_order": po_name, "docstatus": ["=", 1]})
-		else False
-	)
 
 def update_committed_overall_budget(self,event):
 	wbs_dict = []

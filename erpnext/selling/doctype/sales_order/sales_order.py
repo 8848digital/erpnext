@@ -14,6 +14,7 @@ from frappe.model.mapper import get_mapped_doc
 from frappe.model.utils import get_fetch_values
 from frappe.query_builder.functions import Sum
 from frappe.utils import add_days, cint, cstr, flt, get_link_to_form, getdate, nowdate, strip_html
+
 from erpnext.accounts.doctype.sales_invoice.sales_invoice import (
 	unlink_inter_company_doc,
 	update_linked_doc,
@@ -50,13 +51,16 @@ class SalesOrder(SellingController):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING:  # pragma: no cover
+		from frappe.types import DF
+
 		from erpnext.accounts.doctype.payment_schedule.payment_schedule import PaymentSchedule
 		from erpnext.accounts.doctype.pricing_rule_detail.pricing_rule_detail import PricingRuleDetail
-		from erpnext.accounts.doctype.sales_taxes_and_charges.sales_taxes_and_charges import SalesTaxesandCharges
+		from erpnext.accounts.doctype.sales_taxes_and_charges.sales_taxes_and_charges import (
+			SalesTaxesandCharges,
+		)
 		from erpnext.selling.doctype.sales_order_item.sales_order_item import SalesOrderItem
 		from erpnext.stock.doctype.packed_item.packed_item import PackedItem
-		from frappe.types import DF
 
 		additional_discount_percentage: DF.Float
 		address_display: DF.SmallText | None
@@ -76,6 +80,7 @@ class SalesOrder(SellingController):
 		company: DF.Link
 		company_address: DF.Link | None
 		company_address_display: DF.SmallText | None
+		company_contact_person: DF.Link | None
 		contact_display: DF.SmallText | None
 		contact_email: DF.Data | None
 		contact_mobile: DF.SmallText | None
@@ -90,7 +95,9 @@ class SalesOrder(SellingController):
 		customer_group: DF.Link | None
 		customer_name: DF.Data | None
 		delivery_date: DF.Date | None
-		delivery_status: DF.Literal["Not Delivered", "Fully Delivered", "Partly Delivered", "Closed", "Not Applicable"]
+		delivery_status: DF.Literal[
+			"Not Delivered", "Fully Delivered", "Partly Delivered", "Closed", "Not Applicable"
+		]
 		disable_rounded_total: DF.Check
 		discount_amount: DF.Currency
 		dispatch_address: DF.SmallText | None
@@ -138,7 +145,17 @@ class SalesOrder(SellingController):
 		shipping_address_name: DF.Link | None
 		shipping_rule: DF.Link | None
 		skip_delivery_note: DF.Check
-		status: DF.Literal["", "Draft", "On Hold", "To Deliver and Bill", "To Bill", "To Deliver", "Completed", "Cancelled", "Closed"]
+		status: DF.Literal[
+			"",
+			"Draft",
+			"On Hold",
+			"To Deliver and Bill",
+			"To Bill",
+			"To Deliver",
+			"Completed",
+			"Cancelled",
+			"Closed",
+		]
 		tax_category: DF.Link | None
 		tax_id: DF.Data | None
 		taxes: DF.Table[SalesTaxesandCharges]
@@ -160,7 +177,7 @@ class SalesOrder(SellingController):
 
 	def onload(self) -> None:
 		super().onload()
-		
+
 		if frappe.db.get_single_value("Stock Settings", "enable_stock_reservation"):
 			if self.has_unreserved_stock():
 				self.set_onload("has_unreserved_stock", True)
@@ -586,6 +603,9 @@ class SalesOrder(SellingController):
 		def _get_delivery_date(ref_doc_delivery_date, red_doc_transaction_date, transaction_date):
 			delivery_date = auto_repeat_doc.get_next_schedule_date(schedule_date=ref_doc_delivery_date)
 
+			if type(transaction_date) == str:
+				transaction_date = getdate(transaction_date)
+
 			if delivery_date <= transaction_date:
 				delivery_date_diff = frappe.utils.date_diff(ref_doc_delivery_date, red_doc_transaction_date)
 				delivery_date = frappe.utils.add_days(transaction_date, delivery_date_diff)
@@ -703,6 +723,14 @@ class SalesOrder(SellingController):
 		cancel_stock_reservation_entries(
 			voucher_type=self.doctype, voucher_no=self.name, sre_list=sre_list, notify=notify
 		)
+	def set_missing_values(self, for_validate=False):
+		super().set_missing_values(for_validate)
+
+		if self.delivery_date:
+			for item in self.items:
+				if not item.delivery_date:
+					item.delivery_date = self.delivery_date
+
 
 
 def get_unreserved_qty(item: object, reserved_qty_details: dict) -> float:
@@ -785,7 +813,8 @@ def make_material_request(source_name, target_doc=None):
 
 	def update_item(source, target, source_parent):
 		# qty is for packed items, because packed items don't have stock_qty field
-		target.project = source_parent.project
+		if "project" in frappe.get_installed_apps():
+			target.project = source_parent.project
 		target.qty = get_remaining_qty(source)
 		target.stock_qty = flt(target.qty) * flt(target.conversion_factor)
 		target.actual_qty = get_bin_details(
@@ -821,7 +850,12 @@ def make_material_request(source_name, target_doc=None):
 			},
 			"Sales Order Item": {
 				"doctype": "Material Request Item",
-				"field_map": {"name": "sales_order_item", "parent": "sales_order"},
+				"field_map": {
+					"name": "sales_order_item",
+					"parent": "sales_order",
+					"delivery_date": "schedule_date",
+					"bom_no": "bom_no",
+				},
 				"condition": lambda item: not frappe.db.exists(
 					"Product Bundle", {"name": item.item_code, "disabled": 0}
 				)
@@ -938,7 +972,8 @@ def make_delivery_note(source_name, target_doc=None, kwargs=None):
 
 		if item:
 			target.cost_center = (
-				frappe.db.get_value("Project", source_parent.project, "cost_center")
+				frappe.db.exists("DocType", "Project")
+				and frappe.db.get_value("Project", source_parent.project, "cost_center")
 				or item.get("buying_cost_center")
 				or item_group.get("buying_cost_center")
 			)
@@ -989,7 +1024,7 @@ def make_delivery_note(source_name, target_doc=None, kwargs=None):
 					ignore_permissions=True,
 				)
 
-				dn_item.qty = flt(sre.reserved_qty) * flt(dn_item.get("conversion_factor", 1))
+				dn_item.qty = flt(sre.reserved_qty) / flt(dn_item.get("conversion_factor", 1))
 
 				if sre.reservation_based_on == "Serial and Batch" and (sre.has_serial_no or sre.has_batch_no):
 					dn_item.serial_and_batch_bundle = get_ssb_bundle_for_voucher(sre)
@@ -1045,7 +1080,7 @@ def make_sales_invoice(source_name, target_doc=None, ignore_permissions=False):
 			else source.qty - source.returned_qty
 		)
 
-		if source_parent.project:
+		if frappe.db.exists("DocType", "Project") and source_parent.project:
 			target.cost_center = frappe.db.get_value("Project", source_parent.project, "cost_center")
 		if target.item_code:
 			item = get_item_defaults(target.item_code, source_parent.company)
@@ -1177,7 +1212,10 @@ def get_events(start, end, filters=None):
 		""",
 		{"start": start, "end": end},
 		as_dict=True,
-		update={"allDay": 0},
+		update={
+			"allDay": 0,
+			"convertToUserTz": 0,
+		},
 	)
 	return data
 
@@ -1241,6 +1279,8 @@ def make_purchase_order_for_default_supplier(source_name, selected_items=None, t
 			target.customer_name = ""
 
 		target.run_method("set_missing_values")
+		if not target.taxes:
+			target.append_taxes_from_item_tax_template()
 		target.run_method("calculate_taxes_and_totals")
 
 	def update_item(source, target, source_parent):
@@ -1248,6 +1288,9 @@ def make_purchase_order_for_default_supplier(source_name, selected_items=None, t
 		target.qty = flt(source.qty) - (flt(source.ordered_qty) / flt(source.conversion_factor))
 		target.stock_qty = flt(source.stock_qty) - flt(source.ordered_qty)
 		target.project = source_parent.project
+
+	def update_item_for_packed_item(source, target, source_parent):
+		target.qty = flt(source.qty) - flt(source.ordered_qty)
 
 	suppliers = [item.get("supplier") for item in selected_items if item.get("supplier")]
 	suppliers = list(dict.fromkeys(suppliers))  # remove duplicates while preserving order
@@ -1266,6 +1309,7 @@ def make_purchase_order_for_default_supplier(source_name, selected_items=None, t
 			{
 				"Sales Order": {
 					"doctype": "Purchase Order",
+					"field_map": {"dispatch_address_name": "dispatch_address"},
 					"field_no_map": [
 						"address_display",
 						"contact_display",
@@ -1300,12 +1344,35 @@ def make_purchase_order_for_default_supplier(source_name, selected_items=None, t
 					"postprocess": update_item,
 					"condition": lambda doc: doc.ordered_qty < doc.stock_qty
 					and doc.supplier == supplier
-					and doc.item_code in items_to_map,
+					and doc.item_code in items_to_map
+					and not is_product_bundle(doc.item_code),
+				},
+				"Packed Item": {
+					"doctype": "Purchase Order Item",
+					"field_map": [
+						["name", "sales_order_packed_item"],
+						["parent", "sales_order"],
+						["uom", "uom"],
+						["conversion_factor", "conversion_factor"],
+						["parent_item", "product_bundle"],
+						["rate", "rate"],
+					],
+					"field_no_map": [
+						"price_list_rate",
+						"item_tax_template",
+						"discount_percentage",
+						"discount_amount",
+						"supplier",
+						"pricing_rules",
+					],
+					"postprocess": update_item_for_packed_item,
+					"condition": lambda doc: doc.parent_item in items_to_map,
 				},
 			},
 			target_doc,
 			set_missing_values,
 		)
+		set_delivery_date(doc.items, source_name)
 
 		doc.insert()
 		frappe.db.commit()
@@ -1322,9 +1389,7 @@ def make_purchase_order(source_name, selected_items=None, target_doc=None):
 	if isinstance(selected_items, str):
 		selected_items = json.loads(selected_items)
 
-	items_to_map = [
-		item.get("item_code") for item in selected_items if item.get("item_code") and item.get("item_code")
-	]
+	items_to_map = [item.get("item_code") for item in selected_items if item.get("item_code")]
 	items_to_map = list(set(items_to_map))
 
 	def is_drop_ship_order(target):
@@ -1349,9 +1414,16 @@ def make_purchase_order(source_name, selected_items=None, target_doc=None):
 		target.payment_schedule = []
 
 		if is_drop_ship_order(target):
-			target.customer = source.customer
-			target.customer_name = source.customer_name
-			target.shipping_address = source.shipping_address_name
+			if source.shipping_address_name:
+				target.shipping_address = source.shipping_address_name
+				target.shipping_address_display = source.shipping_address
+			else:
+				target.shipping_address = source.customer_address
+				target.shipping_address_display = source.address_display
+			target.customer_contact_person = source.contact_person
+			target.customer_contact_display = source.contact_display
+			target.customer_contact_mobile = source.contact_mobile
+			target.customer_contact_email = source.contact_email
 		else:
 			target.customer = target.customer_name = target.shipping_address = None
 
@@ -1374,6 +1446,7 @@ def make_purchase_order(source_name, selected_items=None, target_doc=None):
 		{
 			"Sales Order": {
 				"doctype": "Purchase Order",
+				"field_map": {"dispatch_address_name": "dispatch_address"},
 				"field_no_map": [
 					"address_display",
 					"contact_display",
@@ -1436,6 +1509,7 @@ def make_purchase_order(source_name, selected_items=None, target_doc=None):
 	)
 
 	set_delivery_date(doc.items, source_name)
+	doc.set_onload("load_after_mapping", False)
 
 	return doc
 
@@ -1449,9 +1523,10 @@ def set_delivery_date(items, sales_order):
 	for date in delivery_dates:
 		delivery_by_item[date.item_code] = date.delivery_date
 
-	for item in items:
-		if item.product_bundle:
-			item.schedule_date = delivery_by_item[item.product_bundle]
+	if items:
+		for item in items:
+			if item.product_bundle:
+				item.schedule_date = delivery_by_item[item.product_bundle]
 
 
 def is_product_bundle(item_code):
@@ -1513,6 +1588,11 @@ def make_raw_material_request(items, company, sales_order, project=None):
 
 	items.update({"company": company, "sales_order": sales_order})
 
+	item_wh = {}
+	for item in items.get("items"):
+		if item.get("warehouse"):
+			item_wh[item.get("item_code")] = item.get("warehouse")
+
 	raw_materials = get_items_for_material_requests(items)
 	if not raw_materials:
 		frappe.msgprint(_("Material Request not created, as quantity for Raw Materials already available."))
@@ -1537,7 +1617,7 @@ def make_raw_material_request(items, company, sales_order, project=None):
 				"item_code": item.get("item_code"),
 				"qty": item.get("quantity"),
 				"schedule_date": schedule_date,
-				"warehouse": item.get("warehouse"),
+				"warehouse": item_wh.get(item.get("main_bom_item")) or item.get("warehouse"),
 				"sales_order": sales_order,
 				"project": project,
 			},
@@ -1619,8 +1699,8 @@ def create_pick_list(source_name, target_doc=None):
 				"doctype": "Pick List Item",
 				"field_map": {
 					"parent": "sales_order",
-					"name": "sales_order_item",
-					"parent_detail_docname": "product_bundle_item",
+					"parent_detail_docname": "sales_order_item",
+					"name": "product_bundle_item",
 				},
 				"field_no_map": ["picked_qty"],
 				"postprocess": update_packed_item_qty,

@@ -2,23 +2,41 @@
 # License: GNU General Public License v3. See license.txt
 
 
+import copy
 from collections import deque
 from functools import partial
 
 import frappe
-from frappe.tests.utils import FrappeTestCase, timeout
+from frappe.tests.utils import FrappeTestCase, if_app_installed, timeout
 from frappe.utils import cstr, flt
 
+from erpnext.buying.doctype.purchase_order.purchase_order import (
+	make_purchase_receipt,
+	make_subcontracting_order,
+)
+from erpnext.buying.doctype.purchase_order.test_purchase_order import (
+	create_purchase_order,
+	make_payment_entry,
+)
 from erpnext.controllers.tests.test_subcontracting_controller import (
+	get_rm_items,
+	make_stock_in_entry,
+	make_stock_transfer_entry,
 	set_backflush_based_on,
 )
 from erpnext.manufacturing.doctype.bom.bom import BOMRecursionError, item_query, make_variant_bom
 from erpnext.manufacturing.doctype.bom_update_log.test_bom_update_log import (
 	update_cost_in_all_boms_in_test,
 )
-from erpnext.stock.doctype.item.test_item import make_item
+from erpnext.manufacturing.doctype.production_plan.test_production_plan import make_bom
+from erpnext.stock.doctype.item.test_item import create_item, make_item
+from erpnext.stock.doctype.purchase_receipt.purchase_receipt import make_purchase_invoice
 from erpnext.stock.doctype.stock_reconciliation.test_stock_reconciliation import (
 	create_stock_reconciliation,
+)
+from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
+from erpnext.subcontracting.doctype.subcontracting_order.subcontracting_order import (
+	make_subcontracting_receipt,
 )
 
 test_records = frappe.get_test_records("BOM")
@@ -716,6 +734,7 @@ class TestBOM(FrappeTestCase):
 			else:
 				self.assertEqual(row.is_stock_item, 1)
 
+	@if_app_installed("assets")
 	def test_do_not_include_manufacturing_and_fixed_items(self):
 		from erpnext.manufacturing.doctype.bom.bom import item_query
 
@@ -754,6 +773,156 @@ class TestBOM(FrappeTestCase):
 		self.assertTrue("_Test RM Item 1 Do Not Include In Manufacture" not in items)
 		self.assertTrue("_Test RM Item 2 Fixed Asset Item" not in items)
 		self.assertTrue("_Test RM Item 3 Manufacture Item" in items)
+
+	def test_subcontrcting_supply_raw_material_TC_B_100(self):
+		from erpnext.stock.utils import get_or_create_fiscal_year
+
+		get_or_create_fiscal_year("_Test Company")
+		item_1 = create_item(item_code="Testing Service", is_stock_item=0)
+		item_1.item_group = "Services"
+		item_1.save()
+		item_2 = create_item(item_code="Testing Wooden Plank", valuation_rate=1500)
+		item_2.item_group = "Raw Material"
+		item_2.save()
+		item_3 = create_item(item_code="Testing Nails", valuation_rate=200)
+		item_3.item_group = "Raw Material"
+		item_3.save()
+		item_4 = create_item(item_code="Testing Aluminium Bar", valuation_rate=500)
+		item_4.item_group = "Raw Material"
+		item_4.save()
+		fg_item = create_item(item_code="Testing Cupboard")
+		fg_item.is_sub_contracted_item = 1
+		fg_item.item_group = "Products"
+		fg_item.save()
+		raw_materials = [item_2.item_code, item_3.item_code, item_4.item_code]
+		supplier_warehouse = create_warehouse("Supplier Warehouse PO")
+		bom = make_bom(item=fg_item, raw_materials=raw_materials, do_not_save=True)
+		for item in bom.items:
+			if item.item_code == item_2.item_code:
+				item.qty = 10
+			elif item.item_code == item_3.item_code:
+				item.qty = 5
+			elif item.item_code == item_4.item_code:
+				item.qty = 2
+		bom.insert(ignore_permissions=True)
+		bom.submit()
+		po = create_purchase_order(
+			item_code=item_1.item_code,
+			qty=1,
+			rate=1000,
+			is_subcontracted=1,
+			supplier_warehouse=supplier_warehouse,
+			do_not_save=True,
+		)
+		po.items[0].fg_item = fg_item.item_code
+		po.items[0].fg_item_qty = 1
+		po.save()
+		po.submit()
+		sco = make_subcontracting_order(po.name)
+		sco.supplier_warehouse = supplier_warehouse
+		sco.set_warehouse = create_warehouse("Stores - _TC")
+		sco.save()
+		sco.submit()
+		rm_items = get_rm_items(sco.supplied_items)
+		itemwise_details = make_stock_in_entry(rm_items=rm_items)
+		for item in rm_items:
+			item["sco_rm_detail"] = sco.items[0].name
+
+		make_stock_transfer_entry(
+			sco_no=sco.name,
+			rm_items=rm_items,
+			itemwise_details=copy.deepcopy(itemwise_details),
+		)
+		make_subcontracting_receipt_against_sco(sco.name)
+		pr = make_purchase_receipt(po.name)
+		pr.submit()
+		self.assertEqual(pr.status, "To Bill")
+		pi = make_purchase_invoice(pr.name)
+		pi.is_paid = 1
+		pi.mode_of_payment = "Cash"
+		pi.cash_bank_account = "Cash - _TC"
+		pi.paid_amount = 1000
+		pi.save()
+		pi.submit()
+		self.assertEqual(pi.status, "Paid")
+
+	def test_subcontrcting_supply_raw_material_TC_B_101(self):
+		from erpnext.stock.utils import get_or_create_fiscal_year
+
+		get_or_create_fiscal_year("_Test Company")
+		item_1 = create_item(item_code="Testing Service", is_stock_item=0)
+		item_1.item_group = "Services"
+		item_1.save()
+		item_2 = create_item(item_code="Testing Wooden Plank", valuation_rate=1500)
+		item_2.item_group = "Raw Material"
+		item_2.save()
+		item_3 = create_item(item_code="Testing Nails", valuation_rate=200)
+		item_3.item_group = "Raw Material"
+		item_3.save()
+		item_4 = create_item(item_code="Testing Aluminium Bar", valuation_rate=500)
+		item_4.item_group = "Raw Material"
+		item_4.save()
+		fg_item = create_item(item_code="Testing Cupboard")
+		fg_item.is_sub_contracted_item = 1
+		fg_item.item_group = "Products"
+		fg_item.save()
+		raw_materials = [item_2.item_code, item_3.item_code, item_4.item_code]
+		supplier_warehouse = create_warehouse("Supplier Warehouse PO")
+		bom = make_bom(item=fg_item, raw_materials=raw_materials, do_not_save=True)
+		for item in bom.items:
+			if item.item_code == item_2.item_code:
+				item.qty = 10
+			elif item.item_code == item_3.item_code:
+				item.qty = 5
+			elif item.item_code == item_4.item_code:
+				item.qty = 2
+		bom.insert(ignore_permissions=True)
+		bom.submit()
+		po = create_purchase_order(
+			item_code=item_1.item_code,
+			qty=1,
+			rate=1000,
+			is_subcontracted=1,
+			supplier_warehouse=supplier_warehouse,
+			do_not_save=True,
+		)
+		po.items[0].fg_item = fg_item.item_code
+		po.items[0].fg_item_qty = 1
+		po.save()
+		po.submit()
+		sco = make_subcontracting_order(po.name)
+		sco.supplier_warehouse = supplier_warehouse
+		sco.set_warehouse = create_warehouse("Stores - _TC")
+		sco.save()
+		sco.submit()
+		rm_items = get_rm_items(sco.supplied_items)
+		itemwise_details = make_stock_in_entry(rm_items=rm_items)
+		for item in rm_items:
+			item["sco_rm_detail"] = sco.items[0].name
+
+		make_stock_transfer_entry(
+			sco_no=sco.name,
+			rm_items=rm_items,
+			itemwise_details=copy.deepcopy(itemwise_details),
+		)
+		make_subcontracting_receipt_against_sco(sco.name)
+		pr = make_purchase_receipt(po.name)
+		pr.submit()
+		self.assertEqual(pr.status, "To Bill")
+		pi = make_purchase_invoice(pr.name)
+		pi.save()
+		pi.submit()
+		args = {"mode_of_payment": "Cash", "reference_no": "For Testing"}
+		make_payment_entry(pi.doctype, pi.name, pi.grand_total, args)
+		pi.reload()
+		self.assertEqual(pi.status, "Paid")
+
+
+def make_subcontracting_receipt_against_sco(sco, quantity=1):
+	scr = make_subcontracting_receipt(sco)
+	scr.items[0].qty = quantity
+	scr.insert()
+	scr.submit()
 
 
 def get_default_bom(item_code="_Test FG Item 2"):

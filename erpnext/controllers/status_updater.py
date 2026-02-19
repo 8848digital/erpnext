@@ -5,7 +5,7 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import comma_or, flt, get_link_to_form, getdate, now, nowdate
+from frappe.utils import comma_or, flt, get_link_to_form, getdate, now, nowdate, safe_div
 
 
 class OverAllowanceError(frappe.ValidationError):
@@ -84,8 +84,8 @@ status_map = {
 	"Delivery Note": [
 		["Draft", None],
 		["To Bill", "eval:self.per_billed < 100 and self.docstatus == 1"],
-		["Return Issued", "eval:self.per_returned == 100 and self.docstatus == 1"],
 		["Completed", "eval:self.per_billed == 100 and self.docstatus == 1"],
+		["Return Issued", "eval:self.per_returned == 100 and self.docstatus == 1"],
 		["Cancelled", "eval:self.docstatus==2"],
 		["Closed", "eval:self.status=='Closed' and self.docstatus != 2"],
 	],
@@ -127,8 +127,12 @@ status_map = {
 			"eval:self.status != 'Stopped' and self.per_received > 0 and self.per_received < 100 and self.docstatus == 1 and self.material_request_type == 'Purchase'",
 		],
 		[
+			"Partially Received",
+			"eval:self.status != 'Stopped' and self.per_ordered < 100 and self.per_ordered > 0 and self.docstatus == 1 and self.material_request_type == 'Material Transfer'",
+		],
+		[
 			"Partially Ordered",
-			"eval:self.status != 'Stopped' and self.per_ordered < 100 and self.per_ordered > 0 and self.docstatus == 1",
+			"eval:self.status != 'Stopped' and self.per_ordered < 100 and self.per_ordered > 0 and self.docstatus == 1 and self.material_request_type != 'Material Transfer'",
 		],
 		[
 			"Manufactured",
@@ -151,6 +155,17 @@ status_map = {
 	"Transaction Deletion Record": [
 		["Draft", None],
 		["Completed", "eval:self.docstatus == 1"],
+	],
+	"Pick List": [
+		["Draft", None],
+		["Open", "eval:self.docstatus == 1"],
+		["Completed", "stock_entry_exists"],
+		[
+			"Partly Delivered",
+			"eval:self.purpose == 'Delivery' and self.delivery_status == 'Partly Delivered'",
+		],
+		["Completed", "eval:self.purpose == 'Delivery' and self.delivery_status == 'Fully Delivered'"],
+		["Cancelled", "eval:self.docstatus == 2"],
 	],
 }
 
@@ -539,7 +554,7 @@ class StatusUpdater(Document):
 				)[0][0]
 			)
 
-			per_billed = (min(ref_doc_qty, billed_qty) / ref_doc_qty) * 100
+			per_billed = safe_div(min(ref_doc_qty, billed_qty), ref_doc_qty) * 100
 
 			ref_doc = frappe.get_doc(ref_dt, ref_dn)
 

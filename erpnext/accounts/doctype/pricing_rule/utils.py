@@ -223,11 +223,20 @@ def _get_tree_conditions(args, parenttype, table, allow_blank=True):
 			)
 
 			frappe.flags.tree_conditions[key] = condition
+		elif allow_blank:
+			condition = f"ifnull({table}.{field}, '') = ''"
 	return condition
 
 
 def get_other_conditions(conditions, values, args):
-	for field in ["company", "customer", "supplier", "campaign", "sales_partner"]:
+	fields = ["company", "customer", "supplier"]
+	installed_apps = frappe.get_installed_apps()
+	if "CRM" in installed_apps:
+		fields.append("campaign")
+	if "Sales Commission" in installed_apps:
+		fields.append("sales_partner")
+
+	for field in fields:
 		if args.get(field):
 			conditions += f" and ifnull(`tabPricing Rule`.{field}, '') in (%({field})s, '')"
 			values[field] = args.get(field)
@@ -651,11 +660,20 @@ def get_product_discount_rule(pricing_rule, item_details, args=None, doc=None):
 
 	qty = pricing_rule.free_qty or 1
 	if pricing_rule.is_recursive:
-		transaction_qty = (args.get("qty") if args else doc.total_qty) - pricing_rule.apply_recursion_over
-		if transaction_qty:
+		transaction_qty = sum(
+			[
+				row.qty
+				for row in doc.items
+				if not row.is_free_item
+				and row.item_code == args.item_code
+				and row.pricing_rules == args.pricing_rules
+			]
+		)
+		transaction_qty = transaction_qty - pricing_rule.apply_recursion_over
+		if transaction_qty and transaction_qty > 0:
 			qty = flt(transaction_qty) * qty / pricing_rule.recurse_for
 			if pricing_rule.round_free_qty:
-				qty = math.floor(qty)
+				qty = (flt(transaction_qty) // pricing_rule.recurse_for) * (pricing_rule.free_qty or 1)
 
 	free_item_data_args = {
 		"item_code": free_item,
@@ -701,7 +719,8 @@ def apply_pricing_rule_for_free_items(doc, pricing_rule_args):
 				args.pop((item.item_code, item.pricing_rules))
 
 		for free_item in args.values():
-			doc.append("items", free_item)
+			if frappe.get_value("Pricing Rule", free_item["pricing_rules"], "enforce_free_item_qty"):
+ 				doc.append("items", free_item)
 
 
 def get_pricing_rule_items(pr_doc, other_items=False) -> list:

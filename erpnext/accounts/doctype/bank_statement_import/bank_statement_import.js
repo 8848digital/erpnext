@@ -58,6 +58,15 @@ frappe.ui.form.on("Bank Statement Import", {
 			};
 		});
 
+		frm.set_query("bank_account", function () {
+			return {
+				filters: {
+					company: frm.doc.company,
+					is_company_account: 1,
+				},
+			};
+		});
+
 		frm.get_field("import_file").df.options = {
 			restrictions: {
 				allowed_file_types: [".csv", ".xls", ".xlsx"],

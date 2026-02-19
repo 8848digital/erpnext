@@ -4,7 +4,7 @@ app_publisher = "Frappe Technologies Pvt. Ltd."
 app_description = """ERP made simple"""
 app_icon = "fa fa-th"
 app_color = "#e74c3c"
-app_email = "info@erpnext.com"
+app_email = "hello@frappe.io"
 app_license = "GNU General Public License (v3)"
 source_link = "https://github.com/frappe/erpnext"
 app_logo_url = "/assets/erpnext/images/erpnext-logo.svg"
@@ -57,7 +57,6 @@ setup_wizard_complete = "erpnext.setup.setup_wizard.setup_wizard.setup_demo"
 setup_wizard_test = "erpnext.setup.setup_wizard.test_setup_wizard.run_setup_wizard_test"
 
 before_install = [
-	"erpnext.setup.install.check_setup_wizard_not_completed",
 	"erpnext.setup.install.check_frappe_version",
 ]
 after_install = "erpnext.setup.install.after_install"
@@ -325,11 +324,12 @@ doc_events = {
 		"validate": [
 			"erpnext.support.doctype.service_level_agreement.service_level_agreement.apply",
 			"erpnext.setup.doctype.transaction_deletion_record.transaction_deletion_record.check_for_running_deletion_job",
-			"erpnext.accounts.doctype.gl_closing.gl_closing.validate_account_link_or_child_table",
-
-		
 		],
 	},
+    "Project": {
+		"on_update": "erpnext.public.is_wbs.on_update",
+	
+    },
 	
     # "Material Request": {
     #     "on_submit": "erpnext.public.material_request.on_submit",
@@ -476,7 +476,7 @@ email_brand_image = "assets/erpnext/images/erpnext-logo.jpg"
 default_mail_footer = """
 	<span>
 		Sent via
-		<a class="text-muted" href="https://erpnext.com?source=via_email_footer" target="_blank">
+		<a class="text-muted" href="https://frappe.io/erpnext?source=via_email_footer" target="_blank">
 			ERPNext
 		</a>
 	</span>
@@ -650,14 +650,8 @@ export_python_type_annotations = True
 
 fields_for_group_similar_items = ["qty", "amount"]
 
-after_migrate = "erpnext.accounts.install.after_migrate"
+after_migrate = ["erpnext.accounts.install.after_migrate"]
 
-doc_events = {
-    "Project": {
-		"on_update": "erpnext.public.is_wbs.on_update",
-	
-    }
-}
 
 fixtures =[
     {"dt":"Custom Field","filters":[

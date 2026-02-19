@@ -19,7 +19,7 @@ class POSClosingEntry(StatusUpdater):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING: # pragma: no cover
 		from frappe.types import DF
 
 		from erpnext.accounts.doctype.pos_closing_entry_detail.pos_closing_entry_detail import (
@@ -124,6 +124,11 @@ class POSClosingEntry(StatusUpdater):
 
 	def on_submit(self):
 		consolidate_pos_invoices(closing_entry=self)
+		frappe.publish_realtime(
+			f"poe_{self.pos_opening_entry}_closed",
+			self,
+			docname=f"POS Opening Entry/{self.pos_opening_entry}",
+		)
 
 	def on_cancel(self):
 		unconsolidate_pos_invoices(closing_entry=self)

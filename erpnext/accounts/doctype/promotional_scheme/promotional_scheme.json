@@ -31,7 +31,6 @@
   "customer",
   "customer_group",
   "territory",
-  "campaign",
   "supplier",
   "supplier_group",
   "period_settings_section",
@@ -166,7 +165,7 @@
    "fieldname": "applicable_for",
    "fieldtype": "Select",
    "label": "Applicable For",
-   "options": "\nCustomer\nCustomer Group\nTerritory\nSales Partner\nCampaign\nSupplier\nSupplier Group"
+   "options": "\nCustomer\nCustomer Group\nTerritory\nSupplier\nSupplier Group"
   },
   {
    "depends_on": "eval:doc.applicable_for=='Customer'",
@@ -188,13 +187,6 @@
    "fieldtype": "Table MultiSelect",
    "label": "Territory",
    "options": "Territory Item"
-  },
-  {
-   "depends_on": "eval:doc.applicable_for==\"Campaign\"",
-   "fieldname": "campaign",
-   "fieldtype": "Table MultiSelect",
-   "label": "Campaign",
-   "options": "Campaign Item"
   },
   {
    "depends_on": "eval:doc.applicable_for=='Supplier'",
@@ -270,10 +262,11 @@
   }
  ],
  "links": [],
- "modified": "2024-12-03 15:34:43.287222",
+ "modified": "2025-02-07 16:06:19.746224",
  "modified_by": "Administrator",
  "module": "Accounts",
  "name": "Promotional Scheme",
+ "naming_rule": "Set by user",
  "owner": "Administrator",
  "permissions": [
   {

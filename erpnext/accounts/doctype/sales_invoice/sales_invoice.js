@@ -61,9 +61,10 @@ erpnext.accounts.SalesInvoiceController = class SalesInvoiceController extends (
 	refresh(doc, dt, dn) {
 		const me = this;
 		super.refresh();
-		if (cur_frm.msgbox && cur_frm.msgbox.$wrapper.is(":visible")) {
+		
+		if (this.frm?.msgbox && this.frm.msgbox.$wrapper.is(":visible")) {
 			// hide new msgbox
-			cur_frm.msgbox.hide();
+			this.frm.msgbox.hide();
 		}
 
 		this.frm.toggle_reqd("due_date", !this.frm.doc.is_return);
@@ -562,7 +563,6 @@ cur_frm.fields_dict.cash_bank_account.get_query = function (doc) {
 		],
 	};
 };
-
 cur_frm.fields_dict.write_off_account.get_query = function (doc) {
 	return {
 		filters: {
@@ -704,19 +704,6 @@ frappe.ui.form.on("Sales Invoice", {
 			};
 		};
 
-		frm.set_query("company_address", function (doc) {
-			if (!doc.company) {
-				frappe.throw(__("Please set Company"));
-			}
-
-			return {
-				query: "frappe.contacts.doctype.address.address.address_query",
-				filters: {
-					link_doctype: "Company",
-					link_name: doc.company,
-				},
-			};
-		});
 
 		frm.set_query("pos_profile", function (doc) {
 			if (!doc.company) {
@@ -750,23 +737,6 @@ frappe.ui.form.on("Sales Invoice", {
 				},
 			};
 		};
-	},
-	// When multiple companies are set up. in case company name is changed set default company address
-	company: function (frm) {
-		if (frm.doc.company) {
-			frappe.call({
-				method: "erpnext.setup.doctype.company.company.get_default_company_address",
-				args: { name: frm.doc.company, existing_address: frm.doc.company_address || "" },
-				debounce: 2000,
-				callback: function (r) {
-					if (r.message) {
-						frm.set_value("company_address", r.message);
-					} else {
-						frm.set_value("company_address", "");
-					}
-				},
-			});
-		}
 	},
 
 	onload: function (frm) {
@@ -939,3 +909,15 @@ frappe.ui.form.on("Discount Terms", {
 		frm.refresh_field("payment_discount_terms")
 	}
 })
+
+frappe.ui.form.on("Sales Invoice Payment", {
+	mode_of_payment: function (frm) {
+		frappe.call({
+			doc: frm.doc,
+			method: "set_account_for_mode_of_payment",
+			callback: function (r) {
+				refresh_field("payments");
+			},
+		});
+	},
+});

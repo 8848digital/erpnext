@@ -11,7 +11,7 @@ class SubcontractingOrderServiceItem(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING: # pragma: no cover
 		from frappe.types import DF
 
 		amount: DF.Currency
@@ -19,6 +19,8 @@ class SubcontractingOrderServiceItem(Document):
 		fg_item_qty: DF.Float
 		item_code: DF.Link
 		item_name: DF.Data
+		material_request: DF.Link | None
+		material_request_item: DF.Data | None
 		parent: DF.Data
 		parentfield: DF.Data
 		parenttype: DF.Data

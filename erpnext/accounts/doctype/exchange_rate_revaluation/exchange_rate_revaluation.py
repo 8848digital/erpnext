@@ -16,13 +16,13 @@ from erpnext.accounts.utils import get_currency_precision
 from erpnext.setup.utils import get_exchange_rate
 
 
-class ExchangeRateRevaluation(Document):
+class ExchangeRateRevaluation(Document): 
 	# begin: auto-generated types
 	# This code is auto-generated. Do not modify anything in this block.
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING: # pragma: no cover
 		from frappe.types import DF
 
 		from erpnext.accounts.doctype.exchange_rate_revaluation_account.exchange_rate_revaluation_account import (
@@ -73,6 +73,18 @@ class ExchangeRateRevaluation(Document):
 	def validate_mandatory(self):
 		if not (self.company and self.posting_date):
 			frappe.throw(_("Please select Company and Posting Date to getting entries"))
+
+	def before_submit(self):
+		self.remove_accounts_without_gain_loss()
+	def remove_accounts_without_gain_loss(self):
+		self.accounts = [account for account in self.accounts if account.gain_loss]
+		if not self.accounts:
+			frappe.throw(_("At least one account with exchange gain or loss is required"))
+		frappe.msgprint(
+			_("Removing rows without exchange gain or loss"),
+			alert=True,
+			indicator="yellow",
+		)
 
 	def on_cancel(self):
 		self.ignore_linked_doctypes = "GL Entry"
@@ -250,23 +262,22 @@ class ExchangeRateRevaluation(Document):
 				new_exchange_rate = get_exchange_rate(d.account_currency, company_currency, posting_date)
 				new_balance_in_base_currency = flt(d.balance_in_account_currency * new_exchange_rate)
 				gain_loss = flt(new_balance_in_base_currency, precision) - flt(d.balance, precision)
-				if gain_loss:
-					accounts.append(
-						{
-							"account": d.account,
-							"party_type": d.party_type,
-							"party": d.party,
-							"account_currency": d.account_currency,
-							"balance_in_base_currency": d.balance,
-							"balance_in_account_currency": d.balance_in_account_currency,
-							"zero_balance": d.zero_balance,
-							"current_exchange_rate": current_exchange_rate,
-							"new_exchange_rate": new_exchange_rate,
-							"new_balance_in_base_currency": new_balance_in_base_currency,
-							"new_balance_in_account_currency": d.balance_in_account_currency,
-							"gain_loss": gain_loss,
-						}
-					)
+				accounts.append(
+					{
+						"account": d.account,
+						"party_type": d.party_type,
+						"party": d.party,
+						"account_currency": d.account_currency,
+						"balance_in_base_currency": d.balance,
+						"balance_in_account_currency": d.balance_in_account_currency,
+						"zero_balance": d.zero_balance,
+						"current_exchange_rate": current_exchange_rate,
+						"new_exchange_rate": new_exchange_rate,
+						"new_balance_in_base_currency": new_balance_in_base_currency,
+						"new_balance_in_account_currency": d.balance_in_account_currency,
+						"gain_loss": gain_loss,
+					}
+				)
 
 			# Handle Accounts with '0' balance in Account/Base Currency
 			for d in [x for x in account_details if x.zero_balance]:
@@ -290,23 +301,22 @@ class ExchangeRateRevaluation(Document):
 						current_exchange_rate * d.balance_in_account_currency
 					)
 
-				if gain_loss:
-					accounts.append(
-						{
-							"account": d.account,
-							"party_type": d.party_type,
-							"party": d.party,
-							"account_currency": d.account_currency,
-							"balance_in_base_currency": d.balance,
-							"balance_in_account_currency": d.balance_in_account_currency,
-							"zero_balance": d.zero_balance,
-							"current_exchange_rate": current_exchange_rate,
-							"new_exchange_rate": new_exchange_rate,
-							"new_balance_in_base_currency": new_balance_in_base_currency,
-							"new_balance_in_account_currency": new_balance_in_account_currency,
-							"gain_loss": gain_loss,
-						}
-					)
+				accounts.append(
+					{
+						"account": d.account,
+						"party_type": d.party_type,
+						"party": d.party,
+						"account_currency": d.account_currency,
+						"balance_in_base_currency": d.balance,
+						"balance_in_account_currency": d.balance_in_account_currency,
+						"zero_balance": d.zero_balance,
+						"current_exchange_rate": current_exchange_rate,
+						"new_exchange_rate": new_exchange_rate,
+						"new_balance_in_base_currency": new_balance_in_base_currency,
+						"new_balance_in_account_currency": new_balance_in_account_currency,
+						"gain_loss": gain_loss,
+					}
+				)
 
 		return accounts
 

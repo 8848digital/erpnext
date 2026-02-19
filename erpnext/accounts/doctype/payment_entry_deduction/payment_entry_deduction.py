@@ -11,13 +11,14 @@ class PaymentEntryDeduction(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING: # pragma: no cover
 		from frappe.types import DF
 
 		account: DF.Link
 		amount: DF.Currency
 		cost_center: DF.Link
 		description: DF.SmallText | None
+		is_exchange_gain_loss: DF.Check
 		parent: DF.Data
 		parentfield: DF.Data
 		parenttype: DF.Data

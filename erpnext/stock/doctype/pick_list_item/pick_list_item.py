@@ -12,11 +12,12 @@ class PickListItem(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING: # pragma: no cover
 		from frappe.types import DF
 
 		batch_no: DF.Link | None
 		conversion_factor: DF.Float
+		delivered_qty: DF.Float
 		description: DF.Text | None
 		item_code: DF.Link
 		item_group: DF.Data | None

@@ -11,7 +11,7 @@ class PaymentEntryReference(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING: # pragma: no cover
 		from frappe.types import DF
 
 		account: DF.Link | None
@@ -30,6 +30,7 @@ class PaymentEntryReference(Document):
 		payment_term: DF.Link | None
 		payment_term_outstanding: DF.Float
 		payment_type: DF.Data | None
+		reconcile_effect_on: DF.Date | None
 		reference_doctype: DF.Link
 		reference_name: DF.DynamicLink
 		total_amount: DF.Float

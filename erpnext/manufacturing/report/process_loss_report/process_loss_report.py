@@ -45,7 +45,7 @@ def get_data(filters: Filters) -> Data:
 			& (se.purpose == "Manufacture")
 			& (se.posting_date.between(filters.from_date, filters.to_date))
 		)
-		.groupby(se.work_order)
+		.groupby(wo.name)
 	)
 
 	if "item" in filters:

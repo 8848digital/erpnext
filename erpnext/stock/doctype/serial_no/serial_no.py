@@ -31,13 +31,14 @@ class SerialNo(StockController):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING: # pragma: no cover
 		from frappe.types import DF
 
 		amc_expiry_date: DF.Date | None
 		batch_no: DF.Link | None
 		brand: DF.Link | None
 		company: DF.Link
+		customer: DF.Link | None
 		description: DF.Text | None
 		employee: DF.Link | None
 		item_code: DF.Link
@@ -167,21 +168,6 @@ def update_maintenance_status():
 		frappe.db.set_value("Serial No", doc.name, "maintenance_status", doc.maintenance_status)
 
 
-def get_delivery_note_serial_no(item_code, qty, delivery_note):
-	serial_nos = ""
-	dn_serial_nos = frappe.db.sql_list(
-		f""" select name from `tabSerial No`
-		where item_code = %(item_code)s and delivery_document_no = %(delivery_note)s
-		and sales_invoice is null limit {cint(qty)}""",
-		{"item_code": item_code, "delivery_note": delivery_note},
-	)
-
-	if dn_serial_nos and len(dn_serial_nos) > 0:
-		serial_nos = "\n".join(dn_serial_nos)
-
-	return serial_nos
-
-
 @frappe.whitelist()
 def auto_fetch_serial_number(
 	qty: int,
@@ -243,15 +229,17 @@ def get_pos_reserved_serial_nos(filters):
 
 	pos_transacted_sr_nos = query.run(as_dict=True)
 
-	reserved_sr_nos = set()
-	returned_sr_nos = set()
+	reserved_sr_nos = list()
+	returned_sr_nos = list()
 	for d in pos_transacted_sr_nos:
 		if d.is_return == 0:
-			[reserved_sr_nos.add(x) for x in get_serial_nos(d.serial_no)]
+			[reserved_sr_nos.append(x) for x in get_serial_nos(d.serial_no)]
 		elif d.is_return == 1:
-			[returned_sr_nos.add(x) for x in get_serial_nos(d.serial_no)]
+			[returned_sr_nos.append(x) for x in get_serial_nos(d.serial_no)]
 
-	reserved_sr_nos = list(reserved_sr_nos - returned_sr_nos)
+	for x in returned_sr_nos:
+		if x in reserved_sr_nos:
+			reserved_sr_nos.remove(x)
 
 	return reserved_sr_nos
 
@@ -267,12 +255,7 @@ def fetch_serial_numbers(filters, qty, do_not_include=None):
 	query = (
 		frappe.qb.from_(serial_no)
 		.select(serial_no.name)
-		.where(
-			(serial_no.item_code == filters["item_code"])
-			& (serial_no.warehouse == filters["warehouse"])
-			& (Coalesce(serial_no.sales_invoice, "") == "")
-			& (Coalesce(serial_no.delivery_document_no, "") == "")
-		)
+		.where((serial_no.item_code == filters["item_code"]) & (serial_no.warehouse == filters["warehouse"]))
 		.orderby(serial_no.creation)
 		.limit(qty or 1)
 	)
@@ -306,3 +289,16 @@ def get_serial_nos_for_outward(kwargs):
 		return []
 
 	return [d.serial_no for d in serial_nos]
+
+
+def get_serial_nos_from_sle_list(bundles):
+	if not bundles:
+		return {}
+	table = frappe.qb.DocType("Serial and Batch Entry")
+	query = frappe.qb.from_(table).select(table.parent, table.serial_no).where(table.parent.isin(bundles))
+	data = query.run(as_dict=True)
+
+	result = {}
+	for d in data:
+		result.setdefault(d.parent, []).append(d.serial_no)
+	return result

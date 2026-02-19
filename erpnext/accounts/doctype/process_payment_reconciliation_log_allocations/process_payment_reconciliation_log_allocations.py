@@ -11,7 +11,7 @@ class ProcessPaymentReconciliationLogAllocations(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING:  # pragma: no cover
 		from frappe.types import DF
 
 		allocated_amount: DF.Currency
@@ -20,6 +20,7 @@ class ProcessPaymentReconciliationLogAllocations(Document):
 		difference_account: DF.Link | None
 		difference_amount: DF.Currency
 		exchange_rate: DF.Float
+		gain_loss_posting_date: DF.Date | None
 		invoice_number: DF.DynamicLink
 		invoice_type: DF.Link
 		is_advance: DF.Data | None

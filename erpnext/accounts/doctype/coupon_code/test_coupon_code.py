@@ -27,6 +27,7 @@ def test_create_test_data():
 				"item_code": "_Test Tesla Car",
 				"item_group": "_Test Item Group",
 				"item_name": "_Test Tesla Car",
+				"gst_hsn_code" : "01011010" ,
 				"apply_warehouse_wise_reorder_level": 0,
 				"warehouse": "Stores - _TC",
 				"valuation_rate": 5000,
@@ -81,16 +82,17 @@ def test_create_test_data():
 		)
 		item_pricing_rule.insert()
 	# create test item sales partner
-	if not frappe.db.exists("Sales Partner", "_Test Coupon Partner"):
-		sales_partner = frappe.get_doc(
-			{
-				"doctype": "Sales Partner",
-				"partner_name": "_Test Coupon Partner",
-				"commission_rate": 2,
-				"referral_code": "COPART",
-			}
-		)
-		sales_partner.insert()
+	if "Sales Commission" in frappe.get_installed_apps():
+		if not frappe.db.exists("Sales Partner", "_Test Coupon Partner"):
+			sales_partner = frappe.get_doc(
+				{
+					"doctype": "Sales Partner",
+					"partner_name": "_Test Coupon Partner",
+					"commission_rate": 2,
+					"referral_code": "COPART",
+				}
+			)
+			sales_partner.insert()
 	# create test item coupon code
 	if not frappe.db.exists("Coupon Code", "SAVE30"):
 		pricing_rule = frappe.db.get_value(
@@ -129,6 +131,7 @@ class TestCouponCode(unittest.TestCase):
 			rate=5000,
 			qty=1,
 			do_not_submit=True,
+			do_not_save=True,
 		)
 
 		self.assertEqual(so.items[0].rate, 5000)
@@ -142,3 +145,38 @@ class TestCouponCode(unittest.TestCase):
 
 		so.submit()
 		self.assertEqual(frappe.db.get_value("Coupon Code", "SAVE30", "used"), 1)
+
+	def test_autoname_TC_ACC_296(self):
+		# Coupon Code
+		doc = frappe.new_doc("Coupon Code")
+		doc.coupon_name = "Promo1234Test"
+		doc.coupon_type = "Promotional"
+		doc.pricing_rule = "_Test Pricing Rule"
+		doc.maximum_use = 5
+		doc.autoname()
+		self.assertEqual(doc.name, "Promo1234Test")
+		expected_code = "PROMOTES"
+		self.assertEqual(doc.coupon_code, expected_code)
+
+		# Gift Card
+		doc = frappe.new_doc("Coupon Code")
+		doc.coupon_name = "GiftCard987"
+		doc.coupon_type = "Gift Card"
+		doc.pricing_rule = "_Test Pricing Rule"
+		doc.customer = "_Test Customer"
+
+		doc.autoname()
+		self.assertEqual(doc.name, "GiftCard987")
+		self.assertTrue(doc.coupon_code)
+		self.assertEqual(len(doc.coupon_code), 10)
+		self.assertTrue(doc.coupon_code.isupper())
+
+	def test_validate_TC_ACC_297(self):
+		doc = frappe.new_doc("Coupon Code")
+		doc.coupon_name = "GC123"
+		doc.coupon_type = "Gift Card"
+		doc.pricing_rule = "_Test Pricing Rule"
+
+		with self.assertRaises(frappe.ValidationError) as context:
+			doc.validate()
+		self.assertIn("Please select the customer", str(context.exception))

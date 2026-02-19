@@ -15,7 +15,7 @@ class MaintenanceVisit(TransactionBase):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING:  # pragma: no cover
 		from frappe.types import DF
 
 		from erpnext.maintenance.doctype.maintenance_visit_purpose.maintenance_visit_purpose import (
@@ -135,7 +135,9 @@ class MaintenanceVisit(TransactionBase):
 				if d.prevdoc_docname and d.prevdoc_doctype == "Warranty Claim":
 					if flag == 1:
 						mntc_date = self.mntc_date
-						service_person = d.service_person
+						service_person = (
+							d.service_person if "sales_commission" in frappe.get_installed_apps() else None
+						)
 						work_done = d.work_done
 						status = "Open"
 						if self.completion_status == "Fully Completed":
@@ -143,9 +145,13 @@ class MaintenanceVisit(TransactionBase):
 						elif self.completion_status == "Partially Completed":
 							status = "Work In Progress"
 					else:
+						if "sales_commission" in frappe.get_installed_apps():
+							service_person_field = "t2.service_person"  # Keep original field
+						else:
+							service_person_field = "NULL"
 						nm = frappe.db.sql(
-							"select t1.name, t1.mntc_date, t2.service_person, t2.work_done from `tabMaintenance Visit` t1, `tabMaintenance Visit Purpose` t2 where t2.parent = t1.name and t1.completion_status = 'Partially Completed' and t2.prevdoc_docname = %s and t1.name!=%s and t1.docstatus = 1 order by t1.name desc limit 1",
-							(d.prevdoc_docname, self.name),
+							"select t1.name, t1.mntc_date, %s, t2.work_done from `tabMaintenance Visit` t1, `tabMaintenance Visit Purpose` t2 where t2.parent = t1.name and t1.completion_status = 'Partially Completed' and t2.prevdoc_docname = %s and t1.name!=%s and t1.docstatus = 1 order by t1.name desc limit 1",
+							(service_person_field, d.prevdoc_docname, self.name),
 						)
 
 						if nm:

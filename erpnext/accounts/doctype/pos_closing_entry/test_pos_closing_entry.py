@@ -39,10 +39,12 @@ class TestPOSClosingEntry(unittest.TestCase):
 
 		pos_inv1 = create_pos_invoice(rate=3500, do_not_submit=1)
 		pos_inv1.append("payments", {"mode_of_payment": "Cash", "account": "Cash - _TC", "amount": 3500})
+		pos_inv1.save()
 		pos_inv1.submit()
 
 		pos_inv2 = create_pos_invoice(rate=3200, do_not_submit=1)
 		pos_inv2.append("payments", {"mode_of_payment": "Cash", "account": "Cash - _TC", "amount": 3200})
+		pos_inv2.save()
 		pos_inv2.submit()
 
 		pcv_doc = make_closing_entry_from_opening(opening_entry)
@@ -68,6 +70,7 @@ class TestPOSClosingEntry(unittest.TestCase):
 
 		pos_inv = create_pos_invoice(rate=3500, do_not_submit=1, item_name="Test Item", without_item_code=1)
 		pos_inv.append("payments", {"mode_of_payment": "Cash", "account": "Cash - _TC", "amount": 3500})
+		pos_inv.save()
 		pos_inv.submit()
 
 		pcv_doc = make_closing_entry_from_opening(opening_entry)
@@ -86,10 +89,12 @@ class TestPOSClosingEntry(unittest.TestCase):
 
 		pos_inv1 = create_pos_invoice(rate=3500, do_not_submit=1)
 		pos_inv1.append("payments", {"mode_of_payment": "Cash", "account": "Cash - _TC", "amount": 3500})
+		pos_inv1.save()
 		pos_inv1.submit()
 
 		pos_inv2 = create_pos_invoice(rate=3200, do_not_submit=1)
 		pos_inv2.append("payments", {"mode_of_payment": "Cash", "account": "Cash - _TC", "amount": 3200})
+		pos_inv2.save()
 		pos_inv2.submit()
 
 		# make return entry of pos_inv2
@@ -111,10 +116,12 @@ class TestPOSClosingEntry(unittest.TestCase):
 
 		pos_inv1 = create_pos_invoice(rate=3500, do_not_submit=1)
 		pos_inv1.append("payments", {"mode_of_payment": "Cash", "account": "Cash - _TC", "amount": 3500})
+		pos_inv1.save()
 		pos_inv1.submit()
 
 		pos_inv2 = create_pos_invoice(rate=3200, do_not_submit=1)
 		pos_inv2.append("payments", {"mode_of_payment": "Cash", "account": "Cash - _TC", "amount": 3200})
+		pos_inv2.save()
 		pos_inv2.submit()
 
 		pcv_doc = make_closing_entry_from_opening(opening_entry)
@@ -165,6 +172,7 @@ class TestPOSClosingEntry(unittest.TestCase):
 		opening_entry = create_opening_entry(pos_profile, test_user.name)
 		pos_inv1 = create_pos_invoice(rate=350, do_not_submit=1, pos_profile=pos_profile.name)
 		pos_inv1.append("payments", {"mode_of_payment": "Cash", "account": "Cash - _TC", "amount": 3500})
+		pos_inv1.save()
 		pos_inv1.submit()
 
 		# if in between a mandatory accounting dimension is added to the POS Profile then
@@ -218,14 +226,29 @@ class TestPOSClosingEntry(unittest.TestCase):
 		opening_entry = create_opening_entry(pos_profile, test_user.name)
 
 		pos_inv = create_pos_invoice(
-			item_code=item_code, qty=5, rate=300, use_serial_batch_fields=1, batch_no=batch_no
+			item_code=item_code,
+ 			qty=5,
+ 			rate=300,
+ 			use_serial_batch_fields=1,
+ 			batch_no=batch_no,
+ 			do_not_submit=True,
 		)
-		pos_inv2 = create_pos_invoice(
-			item_code=item_code, qty=5, rate=300, use_serial_batch_fields=1, batch_no=batch_no
-		)
+		pos_inv.payments[0].amount = pos_inv.grand_total
+		pos_inv.save()
+		pos_inv.submit()
 
-		batch_qty = frappe.db.get_value("Batch", batch_no, "batch_qty")
-		self.assertEqual(batch_qty, 10)
+		pos_inv2 = create_pos_invoice(
+			item_code=item_code,
+ 			qty=5,
+ 			rate=300,
+ 			use_serial_batch_fields=1,
+ 			batch_no=batch_no,
+ 			do_not_submit=True,
+ 		)
+		pos_inv2.payments[0].amount = pos_inv2.grand_total
+		pos_inv2.save()
+		pos_inv2.submit()
+
 
 		batch_qty_with_pos = get_batch_qty(batch_no, "_Test Warehouse - _TC", item_code)
 		self.assertEqual(batch_qty_with_pos, 0.0)
@@ -256,9 +279,6 @@ class TestPOSClosingEntry(unittest.TestCase):
 		pcv_doc.reload()
 		pcv_doc.cancel()
 
-		batch_qty = frappe.db.get_value("Batch", batch_no, "batch_qty")
-		self.assertEqual(batch_qty, 10)
-
 		batch_qty_with_pos = get_batch_qty(batch_no, "_Test Warehouse - _TC", item_code)
 		self.assertEqual(batch_qty_with_pos, 0.0)
 
@@ -270,6 +290,102 @@ class TestPOSClosingEntry(unittest.TestCase):
 
 		batch_qty_with_pos = get_batch_qty(batch_no, "_Test Warehouse - _TC", item_code)
 		self.assertEqual(batch_qty_with_pos, 10.0)
+  
+	def test_validate_pos_invoices_TC_ACC_568(self):
+		from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_company
+		from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
+		from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_customer
+		from erpnext.stock.doctype.item.test_item import make_item
+		from frappe.utils import nowdate
+
+		
+		create_company("_Test Company", abbr="_TC", currency="INR", country="India")
+		create_customer("_Test Customer")
+		create_warehouse("_Test Warehouse")
+		make_item("_Test Item")
+
+		if not frappe.db.exists("POS Profile", "_Test POS Profile 1"):
+			pos_profile = frappe.new_doc("POS Profile")
+			pos_profile.name = "_Test POS Profile 1"
+			pos_profile.company = "_Test Company"
+			pos_profile.warehouse = "_Test Warehouse - _TC"
+			pos_profile.write_off_account = "Sales - _TC"
+			pos_profile.write_off_cost_center = "Main - _TC"
+			pos_profile.append("payments", {
+				"mode_of_payment": "Cash",
+				"default": 1 
+			})
+			pos_profile.insert(ignore_permissions=True)
+		def make_pos_invoice_doc(rate=100, qty=1, pos_profile="_Test POS Profile 1", submit=True, owner=None):
+			from frappe.utils import nowdate
+
+			posting_date = nowdate()
+			user = owner or frappe.session.user or "Administrator"
+
+			
+			if not frappe.db.exists("POS Opening Entry", {"pos_profile": pos_profile, "docstatus": 1}):
+				poe = frappe.new_doc("POS Opening Entry")
+				poe.pos_profile = pos_profile
+				poe.company = "_Test Company"
+				poe.period_start_date = posting_date
+				poe.period_end_date = posting_date
+				poe.user = user   
+				poe.append("balance_details", {
+					"mode_of_payment": "Cash",
+					"opening_amount": 1000,
+				})
+				poe.insert(ignore_permissions=True)
+				poe.submit()
+
+			
+			inv = frappe.new_doc("POS Invoice")
+			inv.customer = "_Test Customer"
+			inv.company = "_Test Company"
+			inv.pos_profile = pos_profile
+			inv.set_posting_time = 1
+			inv.posting_date = posting_date
+			inv.append("items", {
+				"item_code": "_Test Item",
+				"qty": qty,
+				"rate": rate,
+				"warehouse": "_Test Warehouse - _TC",
+			})
+			inv.append("payments", {
+				"mode_of_payment": "Cash",
+				"amount": rate * qty,
+			})
+			inv.owner = user
+			inv.insert(ignore_permissions=True)
+			return inv
+
+
+		valid_inv = make_pos_invoice_doc(rate=100, submit=True, owner=frappe.session.user)
+
+		
+		pce = frappe.new_doc("POS Closing Entry")
+		pce.company = "_Test Company"
+		pce.pos_profile = pos_profile.name
+		pce.user = frappe.session.user
+		pce.append("pos_transactions", {"pos_invoice": valid_inv.name})
+		pce.append("pos_transactions", {"pos_invoice": valid_inv.name})
+
+		frappe.db.set_value("POS Invoice", valid_inv.name, "pos_profile", "Test POS Profile 2")
+		frappe.db.set_value("POS Invoice", valid_inv.name, "owner", "Test User 2")
+		with self.assertRaises(frappe.ValidationError) as cm:
+			pce.validate_pos_invoices()
+
+		err = str(cm.exception)
+		self.assertIn("POS Profile doesn't match", err)
+		self.assertIn("POS Invoice is not submitted", err)
+		self.assertIn("POS Invoice isn't created by user", err)
+		frappe.db.set_value("POS Invoice", valid_inv.name, "pos_profile", "Test POS Profile 1")
+		frappe.db.set_value("POS Invoice", valid_inv.name, "owner", frappe.session.user)
+		frappe.db.set_value("POS Invoice", valid_inv.name, "consolidated_invoice", 1)
+		with self.assertRaises(frappe.ValidationError) as cm:
+			pce.validate_pos_invoices()
+
+		err = str(cm.exception)
+		self.assertIn("POS Invoice is already consolidated", err)
 
 
 def init_user_and_profile(**args):

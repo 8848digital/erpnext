@@ -4,6 +4,7 @@
 
 import unittest
 
+from frappe.test_runner import make_test_records_for_doctype
 import frappe
 from frappe.utils.nestedset import (
 	NestedSetChildExistsError,
@@ -16,13 +17,17 @@ from frappe.utils.nestedset import (
 
 test_records = frappe.get_test_records("Item Group")
 
-
 class TestItem(unittest.TestCase):
+	def setUp(self):
+		super().setUp()
+		make_test_records_for_doctype("Item Group", force=True)
+
 	def test_basic_tree(self, records=None):
 		min_lft = 1
 		max_rgt = frappe.db.sql("select max(rgt) from `tabItem Group`")[0][0]
 
 		if not records:
+			test_records = frappe.get_test_records("Item Group")	
 			records = test_records[2:]
 
 		for item_group in records:
@@ -92,8 +97,8 @@ class TestItem(unittest.TestCase):
 		# before move
 		old_lft, old_rgt = frappe.db.get_value("Item Group", "_Test Item Group C", ["lft", "rgt"])
 
-		# put B under C
-		group_b = frappe.get_doc("Item Group", "_Test Item Group B")
+		# put sequential item group under C
+		group_b = frappe.get_doc("Item Group", "_Test Item Group Tax Child Override")
 		lft, rgt = group_b.lft, group_b.rgt
 
 		group_b.parent_item_group = "_Test Item Group C"

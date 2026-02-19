@@ -240,8 +240,8 @@ def get_actual_details(name, filters):
 	if filters.get("budget_against") == "Cost Center":
 		cc_lft, cc_rgt = frappe.db.get_value("Cost Center", name, ["lft", "rgt"])
 		cond = f"""
-				and lft >= "{cc_lft}"
-				and rgt <= "{cc_rgt}"
+				and lft >= {cc_lft}
+				and rgt <= {cc_rgt}
 			"""
 
 	ac_details = frappe.db.sql(
@@ -251,8 +251,8 @@ def get_actual_details(name, filters):
 				gl.debit,
 				gl.credit,
 				gl.fiscal_year,
-				MONTHNAME(gl.posting_date) as month_name,
-				b.{budget_against} as budget_against
+				TO_CHAR(gl.posting_date, 'Month') AS month_name,
+				(ARRAY_AGG(b.{budget_against}))[1] as budget_against
 			from
 				`tabGL Entry` gl,
 				`tabBudget Account` ba,
@@ -263,6 +263,7 @@ def get_actual_details(name, filters):
 				and ba.account=gl.account
 				and b.{budget_against} = gl.{budget_against}
 				and gl.fiscal_year between %s and %s
+				and gl.is_cancelled = 0
 				and b.{budget_against} = %s
 				and exists(
 					select

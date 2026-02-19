@@ -378,7 +378,7 @@ def create_purchase_invoice(supplier_name, file_name, args, name):
 
 	try:
 		pi.set_missing_values()
-		pi.insert(ignore_mandatory=True)
+		pi.insert(ignore_permissions=True)(ignore_mandatory=True)
 
 		# if discount exists in file, apply any discount on grand total
 		if args.total_discount > 0:

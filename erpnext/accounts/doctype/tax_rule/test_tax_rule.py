@@ -4,10 +4,11 @@
 import unittest
 
 import frappe
+from frappe.tests.utils import FrappeTestCase, change_settings, if_app_installed
 
+from erpnext.accounts.doctype.purchase_invoice.test_purchase_invoice import make_purchase_invoice
+from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_sales_invoice
 from erpnext.accounts.doctype.tax_rule.tax_rule import ConflictingTaxRule, get_tax_template
-from crm.crm.doctype.opportunity.opportunity import make_quotation
-from crm.crm.doctype.opportunity.test_opportunity import make_opportunity
 
 test_records = frappe.get_test_records("Tax Rule")
 
@@ -269,7 +270,11 @@ class TestTaxRule(unittest.TestCase):
 			"_Test Sales Taxes and Charges Template 1 - _TC",
 		)
 
+	@if_app_installed("erpnext_crm")
 	def test_taxes_fetch_via_tax_rule(self):
+		from erpnext_crm.erpnext_crm.doctype.opportunity.opportunity import make_quotation
+		from erpnext_crm.erpnext_crm.doctype.opportunity.test_opportunity import make_opportunity
+
 		make_tax_rule(
 			customer="_Test Customer",
 			billing_city="_Test City",
@@ -288,6 +293,97 @@ class TestTaxRule(unittest.TestCase):
 
 		# Check if accounts heads and rate fetched are also fetched from tax template or not
 		self.assertTrue(len(quotation.taxes) > 0)
+
+	def test_create_tax_rule_and_apply_to_sales_invoice_TC_ACC_101(self):
+		from erpnext.stock.utils import get_or_create_fiscal_year
+
+		get_or_create_fiscal_year("_Test Company")
+		# Step 1: Create a tax rule for a customer with a sales tax template
+		make_tax_rule(
+			customer="_Test Customer",
+			sales_tax_template="_Test Sales Taxes and Charges Template - _TC",
+			save=1,
+		)
+
+		# Step 3: Create a sales invoice for the customer
+		sales_invoice = create_sales_invoice(
+			customer="_Test Customer",
+			save=1,
+		)
+
+		# Step 4: Fetch the sales tax based on the created tax rule and check the tax rate applied
+		applied_tax_template = sales_invoice.taxes_and_charges
+
+		# Step 5: Assert that the correct tax template is applied based on the customer's tax rule
+		self.assertEqual(
+			applied_tax_template,
+			"_Test Sales Taxes and Charges Template - _TC",
+		)
+
+	def test_create_tax_rule_and_apply_to_purchase_invoice_TC_ACC_102(self):
+		company = "_Test Company"
+		company_doc = frappe.get_doc("Company", company)
+		if not company_doc.stock_received_but_not_billed:
+			company_doc.stock_received_but_not_billed = "Stock Received But Not Billed - _TC"
+			company_doc.save()
+		# Step 1: Create a tax rule for a supplier with a sales tax template
+		from erpnext.stock.utils import get_or_create_fiscal_year
+
+		get_or_create_fiscal_year("_Test Company")
+		if frappe.db.exists("Purchase Taxes and Charges Template", "GST 1 - _TC"):
+			existing_templates = "GST 1 - _TC"
+		else:
+			purchase_tax_template = frappe.new_doc("Purchase Taxes and Charges Template")
+			purchase_tax_template.company = "_Test Company"
+			purchase_tax_template.title = "GST 1"
+			purchase_tax_template.tax_category = "_Test Tax Category 1"
+			purchase_tax_template.append(
+				"taxes",
+				{
+					"category": "Total",
+					"add_deduct_tax": "Add",
+					"charge_type": "On Net Total",
+					"account_head": "Stock In Hand - _TC",
+					"rate": 100,
+					"description": "GST",
+				},
+			)
+			purchase_tax_template.flags.ignore_permissions = True
+			purchase_tax_template.save()
+			existing_templates = purchase_tax_template.name
+
+		make_tax_rule(
+			tax_type="Purchase",
+			supplier="_Test Supplier",
+			purchase_tax_template=existing_templates,
+			save=1,
+		)
+
+		# Step 2: Create a purchase invoice for the supplier
+		purchase_invoice = frappe.new_doc("Purchase Invoice")
+		purchase_invoice.supplier = "_Test Supplier"
+		purchase_invoice.company = "_Test Company"
+		purchase_invoice.append(
+			"items",
+			{
+				"item_code": "_Test Item",
+				"qty": 1,
+				"rate": 100,
+			},
+		)
+		purchase_invoice.credit_to = "Creditors - _TC"
+		purchase_invoice.currency = "INR"
+		purchase_invoice.save()
+		purchase_invoice.submit()
+
+		# Step 3: Fetch the sales tax based on the created tax rule and check the tax rate applied
+		applied_tax_template = purchase_invoice.taxes_and_charges
+
+		# Step 4: Assert that the correct tax template is applied based on the supplier's tax rule
+		self.assertEqual(
+			applied_tax_template,
+			existing_templates,
+		)
 
 
 def make_tax_rule(**args):

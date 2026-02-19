@@ -1,14 +1,26 @@
 # Import necessary modules
 import frappe
 from frappe.tests.utils import FrappeTestCase
-
+from erpnext.accounts.utils import get_fiscal_year
+from frappe.utils import today, add_months
 class TestAccountClosingBalance(FrappeTestCase):
     def setUp(self):
+        fiscal_year, fiscal_year_start_date, fiscal_year_end_date = get_fiscal_year(date=today(), company="_Test Company")
+        self.period_closing_voucher = frappe.get_doc({
+            "doctype": "Period Closing Voucher",
+            "transaction_date": today(),
+            "company": "_Test Company",
+            "fiscal_year": fiscal_year,
+            "period_start_date": fiscal_year_start_date,
+            "period_end_date": fiscal_year_end_date,
+            "closing_account_head": "Opening Balance Equity - _TC",
+            "remarks": "Test Period Closing Voucher",
+        }).insert(ignore_permissions=True)
         # This runs before each test to set up data
         self.account_closing_balance = frappe.get_doc({
             "doctype": "Account Closing Balance",
-            "closing_date": "2023-02-21",
-            "account": "_Test Account CST - TCP1",
+            "closing_date": add_months(today(), 1),
+            "account": "Opening Balance Equity - _TC",
             "cost_center": "_Test Company - _TC",
             "debit": 1000.0,
             "credit": 500.0,
@@ -17,7 +29,7 @@ class TestAccountClosingBalance(FrappeTestCase):
             "credit_in_account_currency": 500.0,
             "project": "_T-Project-00001",
             "company": "_Test Company",
-            "period_closing_voucher": "ACC-PCV-2024-00002",
+            "period_closing_voucher": self.period_closing_voucher.name,
             "is_period_closing_voucher_entry": 1
         })
 

@@ -33,6 +33,7 @@ from erpnext.controllers.item_variant import (
 	validate_item_variant_attributes,
 )
 from erpnext.stock.doctype.item_default.item_default import ItemDefault
+from erpnext.stock.utils import get_valuation_method
 
 
 class DuplicateReorderRows(frappe.ValidationError):
@@ -57,7 +58,7 @@ class Item(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING: # pragma: no cover
 		from frappe.types import DF
 
 		from erpnext.stock.doctype.item_barcode.item_barcode import ItemBarcode
@@ -147,6 +148,7 @@ class Item(Document):
 
 	def onload(self):
 		self.set_onload("stock_exists", self.stock_ledger_created())
+		self.set_onload("current_valuation_method", get_valuation_method(self.name))
 
 	def autoname(self):
 		if frappe.db.get_default("item_naming_by") == "Naming Series":
@@ -246,7 +248,7 @@ class Item(Document):
 					"price_list_rate": self.standard_rate,
 				}
 			)
-			item_price.insert()
+			item_price.insert(ignore_permissions=True)
 
 	def set_opening_stock(self):
 		"""set opening stock"""
@@ -377,13 +379,19 @@ class Item(Document):
 	def validate_naming_series(self):
 		for field in ["serial_no_series", "batch_number_series"]:
 			series = self.get(field)
-			if series and "#" in series and "." not in series:
-				frappe.throw(
-					_("Invalid naming series (. missing) for {0}").format(
-						frappe.bold(self.meta.get_field(field).label)
+			if series and "#" in series:
+				if "." not in series:
+					frappe.throw(
+						_("Invalid naming series (. missing) for {0}").format(
+							frappe.bold(self.meta.get_field(field).label)
+						)
 					)
-				)
-
+				if ". #" in series:
+					frappe.throw(
+						_("Invalid naming series (avoid spaces between '.' and '#') for {0}.").format(
+							frappe.bold(self.meta.get_field(field).label)
+						)
+					)
 	def check_for_active_boms(self):
 		if self.default_bom:
 			bom_item = frappe.db.get_value("BOM", self.default_bom, "item")
@@ -609,7 +617,7 @@ class Item(Document):
 
 		if new_properties != [cstr(self.get(field)) for field in field_list]:
 			msg = _("To merge, following properties must be same for both items")
-			msg += ": \n" + ", ".join([self.meta.get_label(fld) for fld in field_list])
+			msg += ": \n" + ", ".join([_(self.meta.get_label(fld)) for fld in field_list])
 			frappe.throw(msg, title=_("Cannot Merge"), exc=DataValidationError)
 
 	def validate_duplicate_product_bundles_before_merge(self, old_name, new_name):
@@ -947,11 +955,16 @@ class Item(Document):
 		changed_fields = [
 			field for field in restricted_fields if cstr(self.get(field)) != cstr(values.get(field))
 		]
+
+		# Allow to change valuation method from FIFO to Moving Average not vice versa
+		if self.valuation_method == "Moving Average" and "valuation_method" in changed_fields:
+			changed_fields.remove("valuation_method")
+
 		if not changed_fields:
 			return
 
 		if linked_doc := self._get_linked_submitted_documents(changed_fields):
-			changed_field_labels = [frappe.bold(self.meta.get_label(f)) for f in changed_fields]
+			changed_field_labels = [frappe.bold(_(self.meta.get_label(f))) for f in changed_fields]
 			msg = _(
 				"As there are existing submitted transactions against item {0}, you can not change the value of {1}."
 			).format(self.name, ", ".join(changed_field_labels))
@@ -1180,7 +1193,7 @@ def get_last_purchase_details(item_code, doc_name=None, conversion_rate=1.0):
 
 	return out
 
-def get_purchase_voucher_details(doctype, item_code, document_name):
+def get_purchase_voucher_details(doctype, item_code, document_name=None):
 	parent_doc = frappe.qb.DocType(doctype)
 	child_doc = frappe.qb.DocType(doctype + " Item")
 	query = (
@@ -1198,8 +1211,11 @@ def get_purchase_voucher_details(doctype, item_code, document_name):
 		)
 		.where(parent_doc.docstatus == 1)
 		.where(child_doc.item_code == item_code)
-		.where(parent_doc.name != document_name)
 	)
+
+	if document_name:
+		query = query.where(parent_doc.name != document_name)
+
 	if doctype in ("Purchase Receipt", "Purchase Invoice"):
 		query = query.select(parent_doc.posting_date, parent_doc.posting_time)
 		query = query.orderby(

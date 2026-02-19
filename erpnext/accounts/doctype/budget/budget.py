@@ -27,7 +27,7 @@ class Budget(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING:  # pragma: no cover
 		from frappe.types import DF
 
 		from erpnext.accounts.doctype.budget_account.budget_account import BudgetAccount
@@ -48,7 +48,7 @@ class Budget(Document):
 		cost_center: DF.Link | None
 		fiscal_year: DF.Link
 		monthly_distribution: DF.Link | None
-		naming_series: DF.Data | None
+		naming_series: DF.Literal["BUDGET-.YYYY.-"]
 		project: DF.Link | None
 	# end: auto-generated types
 
@@ -135,9 +135,6 @@ class Budget(Document):
 			or self.applicable_on_booking_actual_expenses
 		):
 			self.applicable_on_booking_actual_expenses = 1
-
-	def before_naming(self):
-		self.naming_series = f"{{{frappe.scrub(self.budget_against)}}}./.{self.fiscal_year}/.###"
 
 
 def validate_expense_against_budget(args, expense_amount=0):
@@ -496,13 +493,18 @@ def get_actual_expense(args):
 def get_accumulated_monthly_budget(monthly_distribution, posting_date, fiscal_year, annual_budget):
 	distribution = {}
 	if monthly_distribution:
-		for d in frappe.db.sql(
-			"""select mdp.month, mdp.percentage_allocation
-			from `tabMonthly Distribution Percentage` mdp, `tabMonthly Distribution` md
-			where mdp.parent=md.name and md.fiscal_year=%s""",
-			fiscal_year,
-			as_dict=1,
-		):
+		mdp = frappe.qb.DocType("Monthly Distribution Percentage")
+		md = frappe.qb.DocType("Monthly Distribution")
+		res = (
+			frappe.qb.from_(mdp)
+			.join(md)
+			.on(mdp.parent == md.name)
+			.select(mdp.month, mdp.percentage_allocation)
+			.where(md.fiscal_year == fiscal_year)
+			.where(md.name == monthly_distribution)
+			.run(as_dict=True)
+		)
+		for d in res:
 			distribution.setdefault(d.month, d.percentage_allocation)
 
 	dt = frappe.get_cached_value("Fiscal Year", fiscal_year, "year_start_date")

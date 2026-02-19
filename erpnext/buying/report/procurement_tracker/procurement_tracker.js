@@ -15,12 +15,28 @@ frappe.query_reports["Procurement Tracker"] = {
 			label: __("Cost Center"),
 			fieldtype: "Link",
 			options: "Cost Center",
+			get_query: () => {
+				var company = frappe.query_report.get_filter_value("company");
+				return {
+					filters: {
+						company: company,
+					},
+				};
+			},
 		},
 		{
 			fieldname: "project",
 			label: __("Project"),
 			fieldtype: "Link",
 			options: "Project",
+			get_query: () => {
+				var company = frappe.query_report.get_filter_value("company");
+				return {
+					filters: {
+						company: company,
+					},
+				};
+			},
 		},
 		{
 			fieldname: "from_date",

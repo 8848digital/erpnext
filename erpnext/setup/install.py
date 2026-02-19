@@ -1,10 +1,12 @@
 # Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
 # License: GNU General Public License v3. See license.txt
 
-
+import os
+import json
 import click
 import frappe
 from frappe import _
+from frappe.custom.doctype.custom_field.custom_field import create_custom_fields as make_custom_fields
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from frappe.desk.page.setup_wizard.setup_wizard import add_all_roles_to
 from frappe.utils import cint
@@ -16,7 +18,7 @@ from erpnext.setup.doctype.incoterm.incoterm import create_incoterms
 from .default_success_action import get_default_success_action
 
 default_mail_footer = """<div style="padding: 7px; text-align: right; color: #888"><small>Sent via
-	<a style="color: #888" href="http://erpnext.org">ERPNext</a></div>"""
+	<a style="color: #888" href="http://frappe.io/erpnext">ERPNext</a></div>"""
 
 
 def after_install():
@@ -36,14 +38,6 @@ def after_install():
 	hide_workspaces()
 	update_roles()
 	frappe.db.commit()
-
-
-def check_setup_wizard_not_completed():
-	if cint(frappe.db.get_single_value("System Settings", "setup_complete") or 0):
-		message = """ERPNext can only be installed on a fresh site where the setup wizard is not completed.
-You can reinstall this site (after saving your data) using: bench --site [sitename] reinstall"""
-		frappe.throw(message)  # nosemgrep
-
 
 def check_frappe_version():
 	def major_version(v: str) -> str:
@@ -188,7 +182,7 @@ def add_standard_navbar_items():
 		{
 			"item_label": "Frappe School",
 			"item_type": "Route",
-			"route": "https://frappe.school?utm_source=in_app",
+			"route": "https://frappe.io/school?utm_source=in_app",
 			"is_standard": 1,
 		},
 		{
@@ -246,6 +240,16 @@ def create_default_role_profiles():
 			role_profile.append("roles", {"role": role})
 
 		role_profile.insert(ignore_permissions=True)
+
+
+# def generate_custom_fields():
+# 	CUSTOM_FIELDS = {}
+# 	print("Creating/Updating Custom Fields For Erpnext....")
+# 	path = os.path.join(os.path.dirname(__file__), "../buying/custom_fields")
+# 	for file in os.listdir(path):
+# 		with open(os.path.join(path, file), "r") as f:
+# 			CUSTOM_FIELDS.update(json.load(f))
+# 	make_custom_fields(CUSTOM_FIELDS)
 
 
 DEFAULT_ROLE_PROFILES = {

@@ -18,7 +18,7 @@ class StockReservationEntry(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING:  # pragma: no cover
 		from frappe.types import DF
 
 		from erpnext.stock.doctype.serial_and_batch_entry.serial_and_batch_entry import (
@@ -115,7 +115,7 @@ class StockReservationEntry(Document):
 		]
 		for d in mandatory:
 			if not self.get(d):
-				msg = _("{0} is required").format(self.meta.get_label(d))
+				msg = _("{0} is required").format(_(self.meta.get_label(d)))
 				frappe.throw(msg)
 
 	def validate_group_warehouse(self) -> None:
@@ -131,7 +131,7 @@ class StockReservationEntry(Document):
 		if cint(frappe.db.get_value("UOM", self.stock_uom, "must_be_whole_number", cache=True)):
 			if cint(self.reserved_qty) != flt(self.reserved_qty, self.precision("reserved_qty")):
 				msg = _(
-					"Reserved Qty ({0}) cannot be a fraction. To allow this, disable '{1}' in UOM {3}."
+					"Reserved Qty ({0}) cannot be a fraction. To allow this, disable '{1}' in UOM {2}."
 				).format(
 					flt(self.reserved_qty, self.precision("reserved_qty")),
 					frappe.bold(_("Must be Whole Number")),
@@ -445,6 +445,7 @@ class StockReservationEntry(Document):
 			voucher_delivered_qty = flt(delivered_qty) * flt(conversion_factor)
 
 		allowed_qty = min(self.available_qty, (self.voucher_qty - voucher_delivered_qty - total_reserved_qty))
+		qty_to_be_reserved = flt(qty_to_be_reserved, self.precision("reserved_qty"))
 
 		if self.get("_action") != "submit" and self.voucher_type == "Sales Order" and allowed_qty <= 0:
 			msg = _("Item {0} is already reserved/delivered against Sales Order {1}.").format(
@@ -717,7 +718,6 @@ def get_sre_reserved_qty_for_voucher_detail_no(
 	query = (
 		frappe.qb.from_(sre)
 		.select(
-			
 			(Sum(sre.reserved_qty) - Sum(sre.delivered_qty)),
 		)
 		.where(
@@ -787,7 +787,7 @@ def get_sre_reserved_batch_nos_details(item_code: str, warehouse: str, batch_nos
 			& (sre.status.notin(["Delivered", "Cancelled"]))
 			& (sre.reservation_based_on == "Serial and Batch")
 		)
-		.groupby(sb_entry.batch_no)
+		.groupby(sb_entry.batch_no, sb_entry.creation)
 		.orderby(sb_entry.creation)
 	)
 

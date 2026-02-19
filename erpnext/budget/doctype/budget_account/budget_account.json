@@ -16,7 +16,7 @@
    "in_list_view": 1,
    "label": "Child WBS",
    "options": "Work Breakdown Structure",
-   "reqd": 1
+   "reqd": 0
   },
   {
    "fieldname": "account",

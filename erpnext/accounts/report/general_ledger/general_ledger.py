@@ -35,9 +35,6 @@ def execute(filters=None):
 	if filters.get("party"):
 		filters.party = frappe.parse_json(filters.get("party"))
 
-	if filters.get("voucher_no") and not filters.get("group_by"):
-		filters.group_by = "Group by Voucher (Consolidated)"
-
 	validate_filters(filters, account_details)
 
 	validate_party(filters)
@@ -66,13 +63,17 @@ def validate_filters(filters, account_details):
 			if not account_details.get(account):
 				frappe.throw(_("Account {0} does not exists").format(account))
 
-	if filters.get("account") and filters.get("group_by") == "Group by Account":
+	if not filters.get("categorize_by") and filters.get("group_by"):
+		filters["categorize_by"] = filters["group_by"]
+		filters["categorize_by"] = filters["categorize_by"].replace("Group by", "Categorize by")
+
+	if filters.get("account") and filters.get("categorize_by") == "Categorize by Account":
 		filters.account = frappe.parse_json(filters.get("account"))
 		for account in filters.account:
 			if account_details[account].is_group == 0:
 				frappe.throw(_("Can not filter based on Child Account, if grouped by Account"))
 
-	if filters.get("voucher_no") and filters.get("group_by") in ["Group by Voucher"]:
+	if filters.get("voucher_no") and filters.get("categorize_by") in ["Categorize by Voucher"]:
 		frappe.throw(_("Can not filter based on Voucher No, if grouped by Voucher"))
 
 	if filters.from_date > filters.to_date:
@@ -166,9 +167,9 @@ def get_gl_entries(filters, accounting_dimensions):
 	if filters.get("include_dimensions"):
 		order_by_statement = "order by posting_date, creation"
 
-	if filters.get("group_by") == "Group by Voucher":
+	if filters.get("categorize_by") == "Categorize by Voucher":
 		order_by_statement = "order by posting_date, voucher_type, voucher_no"
-	if filters.get("group_by") == "Group by Account":
+	if filters.get("categorize_by") == "Categorize by Account":
 		order_by_statement = "order by account, posting_date, creation"
 
 	if filters.get("include_default_book_entries"):
@@ -210,6 +211,10 @@ def get_gl_entries(filters, accounting_dimensions):
 
 def get_conditions(filters):
 	conditions = []
+
+	ignore_is_opening = frappe.db.get_single_value(
+		"Accounts Settings", "ignore_is_opening_check_for_reporting"
+	)
 
 	if filters.get("account"):
 		filters.account = get_accounts_with_children(filters.account)
@@ -259,7 +264,7 @@ def get_conditions(filters):
 	if filters.get("voucher_no_not_in"):
 		conditions.append("voucher_no not in %(voucher_no_not_in)s")
 
-	if filters.get("group_by") == "Group by Party" and not filters.get("party_type"):
+	if filters.get("categorize_by") == "Categorize by Party" and not filters.get("party_type"):
 		conditions.append("party_type in ('Customer', 'Supplier')")
 
 	if filters.get("party_type"):
@@ -271,11 +276,17 @@ def get_conditions(filters):
 	if not (
 		filters.get("account")
 		or filters.get("party")
-		or filters.get("group_by") in ["Group by Account", "Group by Party"]
+		or filters.get("categorize_by") in ["Categorize by Account", "Categorize by Party"]
 	):
-		conditions.append("(posting_date >=%(from_date)s or is_opening = 'Yes')")
+		if not ignore_is_opening:
+			conditions.append("(posting_date >=%(from_date)s or is_opening = 'Yes')")
+		else:
+			conditions.append("posting_date >=%(from_date)s")
 
-	conditions.append("(posting_date <=%(to_date)s or is_opening = 'Yes')")
+	if not ignore_is_opening:
+		conditions.append("(posting_date <=%(to_date)s or is_opening = 'Yes')")
+	else:
+		conditions.append("posting_date <=%(to_date)s")
 
 	if filters.get("project"):
 		conditions.append("project in %(project)s")
@@ -347,6 +358,7 @@ def get_accounts_with_children(accounts):
 
 	return frappe.qb.from_(doctype).select(doctype.name).where(Criterion.any(conditions)).run(pluck=True)
 
+
 def set_bill_no(gl_entries):
 	inv_details = get_supplier_invoice_details()
 	for gl in gl_entries:
@@ -365,22 +377,27 @@ def get_data_with_opening_closing(filters, account_details, accounting_dimension
 	# Opening for filtered account
 	data.append(totals.opening)
 
-	if filters.get("group_by") != "Group by Voucher (Consolidated)":
+	if filters.get("categorize_by") != "Categorize by Voucher (Consolidated)":
 		for _acc, acc_dict in gle_map.items():
 			# acc
 			if acc_dict.entries:
 				# opening
 				data.append({"debit_in_transaction_currency": None, "credit_in_transaction_currency": None})
-				if filters.get("group_by") != "Group by Voucher":
+				if (not filters.get("categorize_by") and not filters.get("voucher_no")) or (
+					filters.get("categorize_by") and filters.get("categorize_by") != "Categorize by Voucher"
+				):
 					data.append(acc_dict.totals.opening)
 
 				data += acc_dict.entries
 
 				# totals
-				data.append(acc_dict.totals.total)
+				if filters.get("categorize_by") or not filters.voucher_no:
+					data.append(acc_dict.totals.total)
 
 				# closing
-				if filters.get("group_by") != "Group by Voucher":
+				if (not filters.get("categorize_by") and not filters.get("voucher_no")) or (
+					filters.get("categorize_by") and filters.get("categorize_by") != "Categorize by Voucher"
+				):
 					data.append(acc_dict.totals.closing)
 
 		data.append({"debit_in_transaction_currency": None, "credit_in_transaction_currency": None})
@@ -416,9 +433,9 @@ def get_totals_dict():
 
 
 def group_by_field(group_by):
-	if group_by == "Group by Party":
+	if group_by == "Categorize by Party":
 		return "party"
-	elif group_by in ["Group by Voucher (Consolidated)", "Group by Account"]:
+	elif group_by in ["Categorize by Voucher (Consolidated)", "Categorize by Account"]:
 		return "account"
 	else:
 		return "voucher_no"
@@ -426,7 +443,7 @@ def group_by_field(group_by):
 
 def initialize_gle_map(gl_entries, filters, totals_dict):
 	gle_map = OrderedDict()
-	group_by = group_by_field(filters.get("group_by"))
+	group_by = group_by_field(filters.get("categorize_by"))
 
 	for gle in gl_entries:
 		gle_map.setdefault(gle.get(group_by), _dict(totals=copy.deepcopy(totals_dict), entries=[]))
@@ -436,8 +453,8 @@ def initialize_gle_map(gl_entries, filters, totals_dict):
 def get_accountwise_gle(filters, accounting_dimensions, gl_entries, gle_map, totals):
 	entries = []
 	consolidated_gle = OrderedDict()
-	group_by = group_by_field(filters.get("group_by"))
-	group_by_voucher_consolidated = filters.get("group_by") == "Group by Voucher (Consolidated)"
+	group_by = group_by_field(filters.get("categorize_by"))
+	group_by_voucher_consolidated = filters.get("categorize_by") == "Categorize by Voucher (Consolidated)"
 
 	if filters.get("show_net_values_in_party_account"):
 		account_type_map = get_account_type_map(filters.get("company"))
@@ -476,8 +493,8 @@ def get_accountwise_gle(filters, accounting_dimensions, gl_entries, gle_map, tot
 			data[key][rev_dr_or_cr] = 0
 			data[key][rev_dr_or_cr + "_in_account_currency"] = 0
 
-		if data[key].against_voucher and gle.against_voucher:
-			data[key].against_voucher += ", " + gle.against_voucher
+			if data[key].against_voucher and gle.against_voucher:
+				data[key].against_voucher += ", " + gle.against_voucher
 
 	from_date, to_date = getdate(filters.from_date), getdate(filters.to_date)
 	show_opening_entries = filters.get("show_opening_entries")
@@ -520,6 +537,7 @@ def get_accountwise_gle(filters, accounting_dimensions, gl_entries, gle_map, tot
 					for dim in accounting_dimensions:
 						keylist.append(gle.get(dim))
 					keylist.append(gle.get("cost_center"))
+					keylist.append(gle.get("project"))
 
 				key = tuple(keylist)
 				if key not in consolidated_gle:
@@ -665,10 +683,11 @@ def get_columns(filters):
 		{"label": _("Against Account"), "fieldname": "against", "width": 120},
 		{"label": _("Party Type"), "fieldname": "party_type", "width": 100},
 		{"label": _("Party"), "fieldname": "party", "width": 100},
-		{"label": _("Project"), "options": "Project", "fieldname": "project", "width": 100},
 	]
 
 	if filters.get("include_dimensions"):
+		columns.append({"label": _("Project"), "options": "Project", "fieldname": "project", "width": 100})
+
 		for dim in get_accounting_dimensions(as_list=False):
 			columns.append(
 				{"label": _(dim.label), "options": dim.label, "fieldname": dim.fieldname, "width": 100}

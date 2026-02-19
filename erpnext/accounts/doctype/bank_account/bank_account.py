@@ -12,7 +12,7 @@ from frappe.model.document import Document
 from frappe.utils import comma_and, get_link_to_form
 
 
-class BankAccount(Document):
+class BankAccount(Document):  # pragma: no cover
 	# begin: auto-generated types
 	# This code is auto-generated. Do not modify anything in this block.
 
@@ -36,6 +36,8 @@ class BankAccount(Document):
 		is_default: DF.Check
 		last_integration_date: DF.Date | None
 		mask: DF.Data | None
+		opening_balance_as_per_bank_statement: DF.Currency
+		opening_balance_date: DF.Date | None
 		party: DF.DynamicLink | None
 		party_type: DF.Link | None
 	# end: auto-generated types
@@ -48,7 +50,7 @@ class BankAccount(Document):
 		self.name = self.account_name + " - " + self.bank
 
 	def on_trash(self):
-		delete_contact_and_address("BankAccount", self.name)
+		delete_contact_and_address("Bank Account", self.name)
 
 	def validate(self):
 		self.validate_company()

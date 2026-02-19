@@ -11,7 +11,7 @@ class SalesInvoiceItem(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING:  # pragma: no cover
 		from frappe.types import DF
 
 		actual_batch_qty: DF.Float
@@ -27,6 +27,7 @@ class SalesInvoiceItem(Document):
 		base_rate_with_margin: DF.Currency
 		batch_no: DF.Link | None
 		brand: DF.Data | None
+		company_total_stock: DF.Float
 		conversion_factor: DF.Float
 		cost_center: DF.Link
 		customer_item_code: DF.Data | None
@@ -60,6 +61,8 @@ class SalesInvoiceItem(Document):
 		parent: DF.Data
 		parentfield: DF.Data
 		parenttype: DF.Data
+		pos_invoice: DF.Link | None
+		pos_invoice_item: DF.Data | None
 		price_list_rate: DF.Currency
 		pricing_rules: DF.SmallText | None
 		project: DF.Link | None

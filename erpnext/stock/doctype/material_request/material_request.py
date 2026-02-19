@@ -9,6 +9,7 @@ import json
 
 from erpnext.budget.doctype.work_breakdown_structure.work_breakdown_structure import check_available_budget
 import frappe
+import frappe.defaults
 from frappe import _, msgprint
 from frappe.model.mapper import get_mapped_doc
 from frappe.query_builder.functions import Sum
@@ -30,11 +31,13 @@ class MaterialRequest(BuyingController):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
-		from erpnext.stock.doctype.material_request_item.material_request_item import MaterialRequestItem
+	if TYPE_CHECKING: # pragma: no cover
 		from frappe.types import DF
 
+		from erpnext.stock.doctype.material_request_item.material_request_item import MaterialRequestItem
+
 		amended_from: DF.Link | None
+		buying_price_list: DF.Link | None
 		company: DF.Link
 		customer: DF.Link | None
 		items: DF.Table[MaterialRequestItem]
@@ -44,6 +47,7 @@ class MaterialRequest(BuyingController):
 		naming_series: DF.Literal["MAT-MR-.YYYY.-"]
 		per_ordered: DF.Percent
 		per_received: DF.Percent
+		price_list: DF.Link | None
 		scan_barcode: DF.Data | None
 		schedule_date: DF.Date | None
 		select_print_heading: DF.Link | None
@@ -138,6 +142,10 @@ class MaterialRequest(BuyingController):
 
 		self.reset_default_field_value("set_warehouse", "items", "warehouse")
 		self.reset_default_field_value("set_from_warehouse", "items", "from_warehouse")
+
+
+		if not self.buying_price_list:
+			self.buying_price_list = frappe.defaults.get_defaults().buying_price_list
 
 	def before_update_after_submit(self):
 		self.validate_schedule_date()
@@ -478,7 +486,7 @@ def make_request_for_quotation(source_name, target_doc=None):
 				"field_map": [
 					["name", "material_request_item"],
 					["parent", "material_request"],
-					["uom", "uom"],
+					["project", "project_name"],
 				],
 			},
 		},
@@ -552,7 +560,8 @@ def get_material_requests_based_on_supplier(doctype, txt, searchfield, start, pa
 
 	if filters.get("transaction_date"):
 		date = filters.get("transaction_date")[1]
-		conditions += f"and mr.transaction_date between '{date[0]}' and '{date[1]}' "
+		if date and len(date) > 1:
+			conditions += f"and mr.transaction_date between '{date[0]}' and '{date[1]}' "
 
 	supplier = filters.get("supplier")
 	supplier_items = get_items_based_on_default_supplier(supplier)
@@ -561,18 +570,26 @@ def get_material_requests_based_on_supplier(doctype, txt, searchfield, start, pa
 		frappe.throw(_("{0} is not the default supplier for any items.").format(supplier))
 
 	material_requests = frappe.db.sql(
-		"""select distinct mr.name, transaction_date,company
-		from `tabMaterial Request` mr, `tabMaterial Request Item` mr_item
-		where mr.name = mr_item.parent
-			and mr_item.item_code in ({})
-			and mr.material_request_type = 'Purchase'
-			and mr.per_ordered < 99.99
-			and mr.docstatus = 1
-			and mr.status != 'Stopped'
-			and mr.company = %s
+		"""
+		SELECT DISTINCT ON (mr.name)
+			mr.name,
+			mr.transaction_date,
+			mr.company,
+			mr_item.item_code
+		FROM "tabMaterial Request" AS mr
+		INNER JOIN "tabMaterial Request Item" AS mr_item
+		ON mr.name = mr_item.parent
+		WHERE mr_item.item_code = ANY(ARRAY[{}])
+			AND mr.material_request_type = 'Purchase'
+			AND mr.per_ordered < 99.99
+			AND mr.docstatus = 1
+			AND mr.status != 'Stopped'
+			AND mr.company = %s
 			{}
-		order by mr_item.item_code ASC
-		limit {} offset {} """.format(
+		ORDER BY mr.name, mr_item.item_code ASC
+		LIMIT {} OFFSET {}
+		"""
+		.format(
 			", ".join(["%s"] * len(supplier_items)), conditions, cint(page_len), cint(start)
 		),
 		(*tuple(supplier_items), filters.get("company")),
@@ -638,7 +655,7 @@ def make_supplier_quotation(source_name, target_doc=None):
 		target_doc,
 		postprocess,
 	)
-
+	doclist.set_onload("load_after_mapping", False)
 	return doclist
 
 
@@ -717,6 +734,7 @@ def make_stock_entry(source_name, target_doc=None):
 					"uom": "stock_uom",
 					"job_card_item": "job_card_item",
 				},
+				"field_no_map": ["expense_account"],
 				"postprocess": update_item,
 				"condition": lambda doc: (
 					flt(doc.ordered_qty, doc.precision("ordered_qty"))
@@ -761,7 +779,8 @@ def raise_work_orders(material_request):
 					}
 				)
 
-				wo_order.set_work_order_operations()
+				wo_order.get_items_and_operations_from_bom()
+				wo_order.flags.ignore_validate = True
 				wo_order.flags.ignore_mandatory = True
 				wo_order.save()
 
@@ -808,7 +827,7 @@ def create_pick_list(source_name, target_doc=None):
 			},
 			"Material Request Item": {
 				"doctype": "Pick List Item",
-				"field_map": {"name": "material_request_item", "qty": "stock_qty"},
+				"field_map": {"name": "material_request_item", "stock_qty": "stock_qty"},
 			},
 		},
 		target_doc,

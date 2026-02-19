@@ -151,6 +151,7 @@ def get_all_wbs(wbs):
 def get_data(filters):
 	grand_total_qty = 0
 	grand_total_amount = 0
+	grand_total_rate = 0
 	rows = []
 	conditions = get_conditions(filters)
 	conditions_mr = get_conditions_for_mr(filters)
@@ -238,10 +239,12 @@ def get_data(filters):
 		all_data = mr_data + po_data
 		total_qty = sum(x.get("qty") for x in all_data if x.get("wbs")==i.get("name") and x.get("qty")>0)
 		total_amount = sum(x.get("amount") for x in all_data if x.get("wbs")==i.get("name") and x.get("qty")>0)
+		total_rate = sum(x.get("rate") for x in all_data if x.get("wbs")==i.get("name") and x.get("qty")>0)
 		grand_total_qty += total_qty
 		grand_total_amount += total_amount
+		grand_total_rate += total_rate
 		if total_qty >0 :
-			rows.append({"wbs":i.get("name"),"wbs_name":i.get("wbs_name"),"qty":total_qty,"amount":total_amount})
+			rows.append({"wbs":i.get("name"),"wbs_name":i.get("wbs_name"),"qty":total_qty,"amount":total_amount, "rate": total_rate})
 		
 		for j in all_data:
 			if i.get("name") == j.get("wbs"):
@@ -267,5 +270,5 @@ def get_data(filters):
 						"indent":1
 					})
 
-	rows.append({"wbs":"Grand Total","qty":grand_total_qty,"amount":grand_total_amount})
+	rows.append({"wbs":"Grand Total","qty":grand_total_qty,"amount":grand_total_amount, "rate": grand_total_rate})
 	return rows

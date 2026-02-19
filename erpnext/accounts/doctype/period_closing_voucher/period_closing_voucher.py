@@ -58,7 +58,6 @@ class PeriodClosingVoucher(AccountsController):
 		valid_start_date = (
 			add_days(prev_closed_period_end_date, 1) if prev_closed_period_end_date else self.fy_start_date
 		)
-
 		if getdate(self.period_start_date) != getdate(valid_start_date):
 			frappe.throw(_("Period Start Date must be {0}").format(formatdate(valid_start_date)))
 
@@ -133,13 +132,19 @@ class PeriodClosingVoucher(AccountsController):
 		self.make_gl_entries()
 
 	def on_cancel(self):
-		self.ignore_linked_doctypes = ("GL Entry", "Stock Ledger Entry", "Payment Ledger Entry")
+		self.ignore_linked_doctypes = (
+			"GL Entry",
+			"Stock Ledger Entry",
+			"Payment Ledger Entry",
+			"Account Closing Balance",
+		)
 		self.block_if_future_closing_voucher_exists()
 		self.db_set("gle_processing_status", "In Progress")
 		self.cancel_gl_entries()
 
 	def make_gl_entries(self):
-		if self.get_gle_count_in_selected_period() > 5000:
+		count = frappe.db.count("GL Entry")
+		if count > 100_000:
 			frappe.enqueue(
 				process_gl_and_closing_entries,
 				doc=self,
@@ -154,15 +159,6 @@ class PeriodClosingVoucher(AccountsController):
 		else:
 			process_gl_and_closing_entries(self)
 
-	def get_gle_count_in_selected_period(self):
-		return frappe.db.count(
-			"GL Entry",
-			{
-				"posting_date": ["between", [self.period_start_date, self.period_end_date]],
-				"company": self.company,
-				"is_cancelled": 0,
-			},
-		)
 
 	def get_pcv_gl_entries(self):
 		self.pl_accounts_reverse_gle = []
@@ -171,9 +167,7 @@ class PeriodClosingVoucher(AccountsController):
 		pl_account_balances = self.get_account_balances_based_on_dimensions(report_type="Profit and Loss")
 		for dimensions, account_balances in pl_account_balances.items():
 			for acc, balances in account_balances.items():
-				balance_in_company_currency = flt(balances.debit_in_account_currency) - flt(
-					balances.credit_in_account_currency
-				)
+				balance_in_company_currency = flt(balances.debit) - flt(balances.credit)
 				if balance_in_company_currency and acc != "balances":
 					self.pl_accounts_reverse_gle.append(
 						self.get_gle_for_pl_account(acc, balances, dimensions)
@@ -217,8 +211,9 @@ class PeriodClosingVoucher(AccountsController):
 		return gl_entry
 
 	def get_gle_for_closing_account(self, dimension_balance, dimensions):
-		balance_in_account_currency = flt(dimension_balance.balance_in_account_currency)
 		balance_in_company_currency = flt(dimension_balance.balance_in_company_currency)
+		debit = balance_in_company_currency if balance_in_company_currency > 0 else 0
+		credit = abs(balance_in_company_currency) if balance_in_company_currency < 0 else 0
 		gl_entry = frappe._dict(
 			{
 				"company": self.company,
@@ -227,14 +222,10 @@ class PeriodClosingVoucher(AccountsController):
 				"account_currency": frappe.db.get_value(
 					"Account", self.closing_account_head, "account_currency"
 				),
-				"debit_in_account_currency": balance_in_account_currency
-				if balance_in_account_currency > 0
-				else 0,
-				"debit": balance_in_company_currency if balance_in_company_currency > 0 else 0,
-				"credit_in_account_currency": abs(balance_in_account_currency)
-				if balance_in_account_currency < 0
-				else 0,
-				"credit": abs(balance_in_company_currency) if balance_in_company_currency < 0 else 0,
+				"debit_in_account_currency": debit,
+				"debit": debit,
+				"credit_in_account_currency": credit,
+				"credit": credit,
 				"is_period_closing_voucher_entry": 1,
 				"voucher_type": "Period Closing Voucher",
 				"voucher_no": self.name,
@@ -251,25 +242,25 @@ class PeriodClosingVoucher(AccountsController):
 			gl_entry[dimension] = dimensions[i]
 
 	def get_account_balances_based_on_dimensions(self, report_type):
-		"""Get balance for dimension-wise pl accounts"""
+		"""Get balance for dimension-wise PL accounts"""
 		self.get_accounting_dimension_fields()
 		acc_bal_dict = frappe._dict()
-		gl_entries = []
 
-		with frappe.db.unbuffered_cursor():
-			gl_entries = self.get_gl_entries_for_current_period(report_type, as_iterator=True)
-			for gle in gl_entries:
-				acc_bal_dict = self.set_account_balance_dict(gle, acc_bal_dict)
-
+		gl_entries = self.get_gl_entries_for_current_period(report_type, as_iterator=True)
+		for gle in gl_entries:
+			acc_bal_dict = self.set_account_balance_dict(gle, acc_bal_dict)
 		if report_type == "Balance Sheet" and self.is_first_period_closing_voucher():
-			opening_entries = self.get_gl_entries_for_current_period(report_type, only_opening_entries=True)
+			opening_entries = self.get_gl_entries_for_current_period(report_type, only_opening_entries=True, as_iterator=True)
 			for gle in opening_entries:
 				acc_bal_dict = self.set_account_balance_dict(gle, acc_bal_dict)
 
 		return acc_bal_dict
 
 	def get_accounting_dimension_fields(self):
-		default_dimensions = ["cost_center", "finance_book", "project"]
+		if "projects" in frappe.get_installed_apps():
+			default_dimensions = ["cost_center", "finance_book", "project"]
+		else:
+			default_dimensions = ["cost_center", "finance_book"]
 		self.accounting_dimension_fields = default_dimensions + get_accounting_dimensions()
 
 	def get_gl_entries_for_current_period(self, report_type, only_opening_entries=False, as_iterator=False):

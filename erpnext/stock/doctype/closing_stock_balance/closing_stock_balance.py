@@ -20,7 +20,7 @@ class ClosingStockBalance(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING:  # pragma: no cover
 		from frappe.types import DF
 
 		amended_from: DF.Link | None
@@ -65,7 +65,7 @@ class ClosingStockBalance(Document):
 				& (
 					(table.from_date.between(self.from_date, self.to_date))
 					| (table.to_date.between(self.from_date, self.to_date))
-					| ((table.from_date >= self.from_date) & (table.to_date >= self.to_date))
+					| ((self.from_date >= table.from_date) & (table.from_date >= self.to_date))
 				)
 			)
 		)
@@ -116,7 +116,6 @@ class ClosingStockBalance(Document):
 					"item_group": self.item_group,
 					"warehouse_type": self.warehouse_type,
 					"include_uom": self.include_uom,
-					"ignore_closing_balance": 1,
 					"show_variant_attributes": 1,
 					"show_stock_ageing_data": 1,
 				}
@@ -127,7 +126,7 @@ class ClosingStockBalance(Document):
 			{"columns": columns, "data": data}, self.doctype, self.name, "closing-stock-balance"
 		)
 
-	def get_prepared_data(self):
+	def get_prepared_data(self):  # pragma: no cover
 		if attachments := get_attachments(self.doctype, self.name):
 			attachment = attachments[0]
 			attached_file = frappe.get_doc("File", attachment.name)

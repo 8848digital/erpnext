@@ -12,7 +12,7 @@
   "posting_date",
   "company",
   "account",
-  "group_by",
+  "categorize_by",
   "cost_center",
   "territory",
   "ignore_exchange_rate_revaluation_journals",
@@ -22,7 +22,6 @@
   "finance_book",
   "currency",
   "payment_terms_template",
-  "sales_person",
   "show_remarks",
   "based_on_payment_terms",
   "section_break_3",
@@ -122,7 +121,7 @@
    "fieldname": "customer_collection",
    "fieldtype": "Select",
    "label": "Select Customers By",
-   "options": "\nCustomer Group\nTerritory\nSales Partner\nSales Person"
+   "options": "\nCustomer Group\nTerritory"
   },
   {
    "depends_on": "eval: doc.customer_collection !== ''",
@@ -164,14 +163,6 @@
    "fieldname": "start_date",
    "fieldtype": "Date",
    "label": "Start Date"
-  },
-  {
-   "default": "Group by Voucher (Consolidated)",
-   "depends_on": "eval:(doc.report == 'General Ledger');",
-   "fieldname": "group_by",
-   "fieldtype": "Select",
-   "label": "Group By",
-   "options": "\nGroup by Voucher\nGroup by Voucher (Consolidated)"
   },
   {
    "depends_on": "eval: (doc.report == 'General Ledger');",
@@ -235,9 +226,9 @@
   },
   {
    "fieldname": "cc_to",
-   "fieldtype": "Link",
+   "fieldtype": "Table MultiSelect",
    "label": "CC To",
-   "options": "User"
+   "options": "Process Statement Of Accounts CC"
   },
   {
    "default": "1",
@@ -340,13 +331,6 @@
   },
   {
    "depends_on": "eval: (doc.report == 'Accounts Receivable');",
-   "fieldname": "sales_person",
-   "fieldtype": "Link",
-   "label": "Sales Person",
-   "options": "Sales Person"
-  },
-  {
-   "depends_on": "eval: (doc.report == 'Accounts Receivable');",
    "fieldname": "territory",
    "fieldtype": "Link",
    "label": "Territory",
@@ -368,7 +352,7 @@
    "default": "0",
    "fieldname": "ignore_exchange_rate_revaluation_journals",
    "fieldtype": "Check",
-   "label": "Ignore Exchange Rate Revaluation Journals"
+   "label": "Ignore Exchange Rate Revaluation and Gain / Loss Journals"
   },
   {
    "default": "0",
@@ -381,10 +365,18 @@
    "fieldname": "show_remarks",
    "fieldtype": "Check",
    "label": "Show Remarks"
+  },
+  {
+   "default": "Categorize by Voucher (Consolidated)",
+   "depends_on": "eval:(doc.report == 'General Ledger');",
+   "fieldname": "categorize_by",
+   "fieldtype": "Select",
+   "label": "Categorize By",
+   "options": "\nCategorize by Voucher\nCategorize by Voucher (Consolidated)"
   }
  ],
  "links": [],
- "modified": "2024-10-18 17:51:39.108481",
+ "modified": "2025-04-30 14:43:23.643006",
  "modified_by": "Administrator",
  "module": "Accounts",
  "name": "Process Statement Of Accounts",

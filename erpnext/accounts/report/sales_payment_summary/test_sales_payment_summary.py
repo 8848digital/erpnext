@@ -49,7 +49,7 @@ class TestSalesPaymentSummary(unittest.TestCase):
 			pe.reference_no = "_Test"
 			pe.reference_date = today()
 			pe.mode_of_payment = mode_of_payment
-			pe.insert()
+			pe.insert(ignore_permissions=True)
 			pe.submit()
 
 		mop = get_mode_of_payments(filters)
@@ -89,7 +89,7 @@ class TestSalesPaymentSummary(unittest.TestCase):
 			pe.reference_no = "_Test"
 			pe.reference_date = today()
 			pe.mode_of_payment = mode_of_payment
-			pe.insert()
+			pe.insert(ignore_permissions=True)
 			pe.submit()
 
 		mopd = get_mode_of_payment_details(filters)

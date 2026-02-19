@@ -11,7 +11,7 @@ class PurchaseReceiptItem(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING: # pragma: no cover
 		from frappe.types import DF
 
 		allow_zero_valuation_rate: DF.Check
@@ -75,7 +75,6 @@ class PurchaseReceiptItem(Document):
 		qty: DF.Float
 		quality_inspection: DF.Link | None
 		rate: DF.Currency
-		rate_difference_with_purchase_invoice: DF.Currency
 		rate_with_margin: DF.Currency
 		received_qty: DF.Float
 		received_stock_qty: DF.Float

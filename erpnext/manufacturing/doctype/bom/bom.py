@@ -7,7 +7,7 @@ from collections import deque
 from operator import itemgetter
 
 import frappe
-from frappe import _
+from frappe import _, bold
 from frappe.core.doctype.version.version import get_diff
 from frappe.model.mapper import get_mapped_doc
 from frappe.utils import cint, cstr, flt, today
@@ -176,8 +176,13 @@ class BOM(WebsiteGenerator):
 
 		search_key = f"{self.doctype}-{self.item}%"
 		existing_boms = frappe.get_all(
-			"BOM", filters={"name": ("like", search_key), "amended_from": ["is", "not set"]}, pluck="name"
+			"BOM", filters={"name": search_key, "amended_from": ["is", "not set"]}, pluck="name"
 		)
+
+		if not existing_boms:
+			existing_boms = frappe.get_all(
+				"BOM", filters={"name": ("like", search_key), "amended_from": ["is", "not set"]}, pluck="name"
+			)
 
 		if existing_boms:
 			index = self.get_next_version_index(existing_boms)
@@ -200,20 +205,34 @@ class BOM(WebsiteGenerator):
 			name = f"{prefix}-{truncated_item_name}-{suffix}"
 
 		if frappe.db.exists("BOM", name):
-			conflicting_bom = frappe.get_doc("BOM", name)
+			existing_boms = frappe.get_all(
+				"BOM", filters={"name": ("like", search_key), "amended_from": ["is", "not set"]}, pluck="name"
+			)
 
-			if conflicting_bom.item != self.item:
-				msg = _("A BOM with name {0} already exists for item {1}.").format(
-					frappe.bold(name), frappe.bold(conflicting_bom.item)
-				)
-
-				frappe.throw(
-					_("{0}{1} Did you rename the item? Please contact Administrator / Tech support").format(
-						msg, "<br>"
-					)
-				)
+			index = self.get_index_for_bom(existing_boms)
+			suffix = "%.3i" % index
+			name = f"{prefix}-{self.item}-{suffix}"
 
 		self.name = name
+	
+	def get_index_for_bom(self, existing_boms):
+		index = 1
+		if existing_boms:
+			index = self.get_next_version_index(existing_boms)
+		return index
+	
+	def onload(self):
+		super().onload()
+		self.set_onload_for_muulti_level_bom()
+	def set_onload_for_muulti_level_bom(self):
+		use_multi_level_bom = frappe.db.get_value(
+			"Property Setter",
+			{"field_name": "use_multi_level_bom", "doc_type": "Work Order", "property": "default"},
+			"value",
+		)
+		if use_multi_level_bom is None:
+			use_multi_level_bom = 1
+		self.set_onload("use_multi_level_bom", cint(use_multi_level_bom))
 
 	@staticmethod
 	def get_next_version_index(existing_boms: list[str]) -> int:
@@ -406,8 +425,8 @@ class BOM(WebsiteGenerator):
 			"description": item and args["description"] or "",
 			"image": item and args["image"] or "",
 			"stock_uom": item and args["stock_uom"] or "",
-			"uom": item and args["stock_uom"] or "",
-			"conversion_factor": 1,
+			"uom": args["uom"] if args.get("uom") else item and args["stock_uom"] or "",
+			"conversion_factor": args["conversion_factor"] if args.get("conversion_factor") else 1,
 			"bom_no": args["bom_no"],
 			"rate": rate,
 			"qty": args.get("qty") or args.get("stock_qty") or 1,
@@ -621,9 +640,16 @@ class BOM(WebsiteGenerator):
 	def check_recursion(self, bom_list=None):
 		"""Check whether recursion occurs in any bom"""
 
-		def _throw_error(bom_name):
+		def _throw_error(bom_name, production_item=None):
+			msg = _("BOM recursion: {1} cannot be parent or child of {0}").format(self.name, bom_name)
+			if production_item and bom_name != self.name:
+				msg += "<br><br>"
+				msg += _(
+					"Note: If you want to use the finished good {0} as a raw material, then enable the 'Do Not Explode' checkbox in the Items table against the same raw material."
+				).format(bold(production_item))
+
 			frappe.throw(
-				_("BOM recursion: {1} cannot be parent or child of {0}").format(self.name, bom_name),
+				msg,
 				exc=BOMRecursionError,
 			)
 
@@ -640,7 +666,7 @@ class BOM(WebsiteGenerator):
 			if self.item == item.item_code and item.bom_no:
 				# Same item but with different BOM should not be allowed.
 				# Same item can appear recursively once as long as it doesn't have BOM.
-				_throw_error(item.bom_no)
+				_throw_error(item.bom_no, self.item)
 
 		if self.name in {d.bom_no for d in self.items}:
 			_throw_error(self.name)
@@ -742,11 +768,8 @@ class BOM(WebsiteGenerator):
 		base_total_rm_cost = 0
 
 		for d in self.get("items"):
-			if not d.is_stock_item and self.rm_cost_as_per == "Valuation Rate":
-				continue
-
 			old_rate = d.rate
-			if not self.bom_creator:
+			if not self.bom_creator and d.is_stock_item:
 				d.rate = self.get_rm_rate(
 					{
 						"company": self.company,
@@ -949,7 +972,7 @@ class BOM(WebsiteGenerator):
 			self.transfer_material_against = "Work Order"
 		if not self.transfer_material_against and not self.is_new():
 			frappe.throw(
-				_("Setting {} is required").format(self.meta.get_label("transfer_material_against")),
+				_("Setting {0} is required").format(_(self.meta.get_label("transfer_material_against"))),
 				title=_("Missing value"),
 			)
 
@@ -1102,61 +1125,68 @@ def get_bom_items_as_dict(
 ):
 	item_dict = {}
 
-	# Did not use qty_consumed_per_unit in the query, as it leads to rounding loss
+	# Add project column if "projects" app is installed
+	project_column = ", bom.project" if "projects" in frappe.get_installed_apps() else ""
+	project_group_by = "bom.project," if project_column else ""
+
+	# Base SQL Query
+	
 	query = """select
 				bom_item.item_code,
 				bom_item.idx,
 				item.item_name,
-				sum(bom_item.{qty_field}/ifnull(bom.quantity, 1)) * %(qty)s as qty,
-				item.image,
-				bom.project,
+				SUM(bom_item.{qty_field} / COALESCE(bom.quantity, 1)) * %(qty)s AS qty,
+				item.image
+				{project_column},
 				bom_item.rate,
-				sum(bom_item.{qty_field}/ifnull(bom.quantity, 1)) * bom_item.rate * %(qty)s as amount,
+				SUM(bom_item.{qty_field} / COALESCE(bom.quantity, 1)) * bom_item.rate * %(qty)s AS amount,
 				item.stock_uom,
 				item.item_group,
 				item.allow_alternative_item,
 				item_default.default_warehouse,
-				item_default.expense_account as expense_account,
-				item_default.buying_cost_center as cost_center
+				item_default.expense_account AS expense_account,
+				item_default.buying_cost_center AS cost_center
 				{select_columns}
-			from
-				`tab{table}` bom_item
-				JOIN `tabBOM` bom ON bom_item.parent = bom.name
-				JOIN `tabItem` item ON item.name = bom_item.item_code
-				LEFT JOIN `tabItem Default` item_default
-					ON item_default.parent = item.name and item_default.company = %(company)s
-			where
+			FROM `tab{table}` bom_item
+			JOIN `tabBOM` bom ON bom_item.parent = bom.name
+			JOIN `tabItem` item ON item.name = bom_item.item_code
+			LEFT JOIN `tabItem Default` item_default
+				ON item_default.parent = item.name AND item_default.company = %(company)s
+			WHERE
 				bom_item.docstatus < 2
-				and bom.name = %(bom)s
-				and item.is_stock_item in (1, {is_stock_item})
+				AND bom.name = %(bom)s
+				AND item.is_stock_item IN (1, {is_stock_item})
 				{where_conditions}
-				group by bom_item.item_code,
+			GROUP BY bom_item.item_code,
 				bom_item.idx,
-                item.item_name,
-                item.image,
-                bom.project,
-                bom_item.rate,
-                item.stock_uom,
-                item.item_group,
-                item.allow_alternative_item,
-                item_default.default_warehouse,
-                item_default.expense_account,
-                item_default.buying_cost_center,
+				item.item_name,
+				item.image,
+				{project_group_by}
+				bom_item.rate,
+				item.stock_uom,
+				item.item_group,
+				item.allow_alternative_item,
+				item_default.default_warehouse,
+				item_default.expense_account,
+				item_default.buying_cost_center
 				{group_by_fields}
-				order by bom_item.idx"""
+			ORDER BY bom_item.idx"""
 
 	is_stock_item = 0 if include_non_stock_items else 1
+
 	if cint(fetch_exploded):
 		query = query.format(
 			table="BOM Explosion Item",
-			group_by_fields = """bom_item.source_warehouse, bom_item.operation, bom_item.include_item_in_manufacturing, bom_item.description,
-                bom_item.sourced_by_supplier""",
+			group_by_fields=", bom_item.source_warehouse, bom_item.operation, bom_item.include_item_in_manufacturing, bom_item.description, bom_item.sourced_by_supplier",
 			where_conditions="",
 			is_stock_item=is_stock_item,
 			qty_field="stock_qty",
-			select_columns=""", bom_item.source_warehouse, bom_item.operation,
+			project_column=project_column,
+			project_group_by=project_group_by,  # FIXED: Explicitly passing this value
+			select_columns=""",
+				bom_item.source_warehouse, bom_item.operation,
 				bom_item.include_item_in_manufacturing, bom_item.description, bom_item.rate, bom_item.sourced_by_supplier,
-				(Select idx from `tabBOM Item` where item_code = bom_item.item_code and parent = %(parent)s limit 1) bom_itm_idx""",
+				(SELECT idx FROM `tabBOM Item` WHERE item_code = bom_item.item_code AND parent = %(parent)s LIMIT 1) AS bom_itm_idx""",
 		)
 
 		items = frappe.db.sql(
@@ -1165,27 +1195,31 @@ def get_bom_items_as_dict(
 	elif fetch_scrap_items:
 		query = query.format(
 			table="BOM Scrap Item",
-			group_by_fields = """item.description""",
+			group_by_fields=", item.description",
 			where_conditions="",
 			select_columns=", item.description",
 			is_stock_item=is_stock_item,
 			qty_field="stock_qty",
+			project_column=project_column,
+			project_group_by=project_group_by,  # FIXED: Explicitly passing this value
 		)
 
 		items = frappe.db.sql(query, {"qty": qty, "bom": bom, "company": company}, as_dict=True)
 	else:
 		query = query.format(
 			table="BOM Item",
-			group_by_fields = """bom_item.source_warehouse, bom_item.operation, bom_item.include_item_in_manufacturing, bom_item.uom, bom_item.conversion_factor, bom_item.description,
-                bom_item.sourced_by_supplier, bom_item.base_rate""",
+			group_by_fields=", bom_item.source_warehouse, bom_item.operation, bom_item.include_item_in_manufacturing, bom_item.uom, bom_item.conversion_factor, bom_item.description, bom_item.sourced_by_supplier, bom_item.base_rate",
 			where_conditions="",
 			is_stock_item=is_stock_item,
 			qty_field="stock_qty" if fetch_qty_in_stock_uom else "qty",
-			select_columns=""", bom_item.uom, bom_item.conversion_factor, bom_item.source_warehouse,
+			project_column=project_column,
+			project_group_by=project_group_by,  # FIXED: Explicitly passing this value
+			select_columns=""",
+				bom_item.uom, bom_item.conversion_factor, bom_item.source_warehouse,
 				bom_item.operation, bom_item.include_item_in_manufacturing, bom_item.sourced_by_supplier,
-				bom_item.description, bom_item.base_rate as bom_rate""",
+				bom_item.description, bom_item.base_rate AS bom_rate""",
 		)
-		
+
 		items = frappe.db.sql(query, {"qty": qty, "bom": bom, "company": company}, as_dict=True)
 
 	for item in items:
@@ -1255,7 +1289,7 @@ def get_children(parent=None, is_root=False, **filters):
 
 		bom_items = frappe.get_all(
 			"BOM Item",
-			fields=["item_code", "bom_no as value", "stock_qty"],
+			fields=["item_code", "bom_no as value", "stock_qty", "qty"],
 			filters=[["parent", "=", frappe.form_dict.parent]],
 			order_by="idx",
 		)
@@ -1359,6 +1393,61 @@ def add_operations_cost(stock_entry, work_order=None, expense_account=None):
 				},
 			)
 
+	def get_max_operation_quantity():
+		from frappe.query_builder.functions import Sum
+		table = frappe.qb.DocType("Job Card")
+		query = (
+			frappe.qb.from_(table)
+			.select(Sum(table.total_completed_qty).as_("qty"))
+			.where(
+				(table.docstatus == 1)
+				& (table.work_order == work_order.name)
+				& (table.is_corrective_job_card == 0)
+			)
+			.groupby(table.operation)
+		)
+		return min([d.qty for d in query.run(as_dict=True)], default=0)
+	def get_utilised_corrective_cost():
+		from frappe.query_builder.functions import Sum
+		table = frappe.qb.DocType("Stock Entry")
+		subquery = (
+			frappe.qb.from_(table)
+			.select(table.name)
+			.where(
+				(table.docstatus == 1)
+				& (table.work_order == work_order.name)
+				& (table.purpose == "Manufacture")
+			)
+		)
+		table = frappe.qb.DocType("Landed Cost Taxes and Charges")
+		query = (
+			frappe.qb.from_(table)
+			.select(Sum(table.amount).as_("amount"))
+			.where(table.parent.isin(subquery) & (table.has_corrective_cost == 1))
+		)
+		return query.run(as_dict=True)[0].amount or 0
+	if (
+		work_order
+		and work_order.corrective_operation_cost
+		and cint(
+			frappe.db.get_single_value(
+				"Manufacturing Settings", "add_corrective_operation_cost_in_finished_good_valuation"
+			)
+		)
+	):
+		
+		max_qty = get_max_operation_quantity() - work_order.produced_qty
+		remaining_corrective_cost = work_order.corrective_operation_cost - get_utilised_corrective_cost()
+		stock_entry.append(
+			"additional_costs",
+			{
+				"expense_account": expense_account,
+				"description": "Corrective Operation Cost",
+				"has_corrective_cost": 1,
+				"amount": remaining_corrective_cost / max_qty * flt(stock_entry.fg_completed_qty),
+			},
+		)
+
 
 @frappe.whitelist()
 def get_bom_diff(bom1, bom2):
@@ -1426,11 +1515,8 @@ def item_query(doctype, txt, searchfield, start, page_len, filters):
 	fields = ["name", "item_name", "item_group", "description"]
 	fields.extend([field for field in searchfields if field not in ["name", "item_group", "description"]])
 
-	searchfields = searchfields + [
-		field
-		for field in [searchfield or "name", "item_code", "item_group", "item_name"]
-		if field not in searchfields
-	]
+	if not searchfields:
+		searchfields = ["name"]
 
 	query_filters = {"disabled": 0, "ifnull(end_of_life, '3099-12-31')": (">", today())}
 

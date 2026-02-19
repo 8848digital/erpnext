@@ -11,9 +11,11 @@ class PaymentSchedule(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING: # pragma: no cover
 		from frappe.types import DF
 
+		base_outstanding: DF.Currency
+		base_paid_amount: DF.Currency
 		base_payment_amount: DF.Currency
 		description: DF.SmallText | None
 		discount: DF.Float

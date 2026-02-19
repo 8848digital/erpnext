@@ -11,7 +11,7 @@ class SubcontractingOrderItem(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING: # pragma: no cover
 		from frappe.types import DF
 
 		additional_cost_per_qty: DF.Currency
@@ -42,6 +42,7 @@ class SubcontractingOrderItem(Document):
 		schedule_date: DF.Date | None
 		service_cost_per_qty: DF.Currency
 		stock_uom: DF.Link
+		subcontracting_conversion_factor: DF.Float
 		warehouse: DF.Link
 	# end: auto-generated types
 

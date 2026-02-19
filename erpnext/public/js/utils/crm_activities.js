@@ -24,38 +24,38 @@ erpnext.utils.CRMActivities = class CRMActivities {
 		}
 
 		// open activities
-		// frappe.call({
-		// 	method: "crm.crm.utils.get_open_activities",
-		// 	args: {
-		// 		ref_doctype: this.frm.doc.doctype,
-		// 		ref_docname: this.frm.doc.name,
-		// 	},
-		// 	callback: (r) => {
-		// 		if (!r.exc) {
-		// 			var activities_html = frappe.render_template("crm_activities", {
-		// 				tasks: r.message.tasks,
-		// 				events: r.message.events,
-		// 			});
+		frappe.call({
+			method: "erpnext_crm.erpnext_crm.utils.get_open_activities",
+			args: {
+				ref_doctype: this.frm.doc.doctype,
+				ref_docname: this.frm.doc.name,
+			},
+			callback: (r) => {
+				if (!r.exc) {
+					var activities_html = frappe.render_template("crm_activities", {
+						tasks: r.message.tasks,
+						events: r.message.events,
+					});
 
-		// 			$(activities_html).appendTo(me.open_activities_wrapper);
+					$(activities_html).appendTo(me.open_activities_wrapper);
 
-		// 			$(".open-tasks")
-		// 				.find(".completion-checkbox")
-		// 				.on("click", function () {
-		// 					me.update_status(this, "ToDo");
-		// 				});
+					$(".open-tasks")
+						.find(".completion-checkbox")
+						.on("click", function () {
+							me.update_status(this, "ToDo");
+						});
 
-		// 			$(".open-events")
-		// 				.find(".completion-checkbox")
-		// 				.on("click", function () {
-		// 					me.update_status(this, "Event");
-		// 				});
+					$(".open-events")
+						.find(".completion-checkbox")
+						.on("click", function () {
+							me.update_status(this, "Event");
+						});
 
-		// 			me.create_task();
-		// 			me.create_event();
-		// 		}
-		// 	},
-		// });
+					me.create_task();
+					me.create_event();
+				}
+			},
+		});
 	}
 
 	create_task() {

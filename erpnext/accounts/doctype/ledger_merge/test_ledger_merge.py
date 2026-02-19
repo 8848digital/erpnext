@@ -16,20 +16,20 @@ class TestLedgerMerge(unittest.TestCase):
 			acc.is_group = 1
 			acc.parent_account = "Expenses - _TC"
 			acc.company = "_Test Company"
-			acc.insert()
+			acc.insert(ignore_permissions=True)
 		if not frappe.db.exists("Account", "Indirect Test Expenses - _TC"):
 			acc = frappe.new_doc("Account")
 			acc.account_name = "Indirect Test Expenses"
 			acc.is_group = 1
 			acc.parent_account = "Expenses - _TC"
 			acc.company = "_Test Company"
-			acc.insert()
+			acc.insert(ignore_permissions=True)
 		if not frappe.db.exists("Account", "Administrative Test Expenses - _TC"):
 			acc = frappe.new_doc("Account")
 			acc.account_name = "Administrative Test Expenses"
 			acc.parent_account = "Indirect Test Expenses - _TC"
 			acc.company = "_Test Company"
-			acc.insert()
+			acc.insert(ignore_permissions=True)
 
 		doc = frappe.get_doc(
 			{
@@ -60,20 +60,20 @@ class TestLedgerMerge(unittest.TestCase):
 			acc.is_group = 1
 			acc.parent_account = "Income - _TC"
 			acc.company = "_Test Company"
-			acc.insert()
+			acc.insert(ignore_permissions=True)
 		if not frappe.db.exists("Account", "Indirect Test Income - _TC"):
 			acc = frappe.new_doc("Account")
 			acc.account_name = "Indirect Test Income"
 			acc.is_group = 1
 			acc.parent_account = "Income - _TC"
 			acc.company = "_Test Company"
-			acc.insert()
+			acc.insert(ignore_permissions=True)
 		if not frappe.db.exists("Account", "Administrative Test Income - _TC"):
 			acc = frappe.new_doc("Account")
 			acc.account_name = "Administrative Test Income"
 			acc.parent_account = "Indirect Test Income - _TC"
 			acc.company = "_Test Company"
-			acc.insert()
+			acc.insert(ignore_permissions=True)
 
 		doc = frappe.get_doc(
 			{

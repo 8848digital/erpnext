@@ -6,7 +6,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 from frappe.utils import get_link_to_form
-
+from frappe.query_builder import Criterion
 
 class ProductBundle(Document):
 	# begin: auto-generated types
@@ -14,7 +14,7 @@ class ProductBundle(Document):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:
+	if TYPE_CHECKING: # pragma: no cover
 		from frappe.types import DF
 
 		from erpnext.selling.doctype.product_bundle_item.product_bundle_item import ProductBundleItem
@@ -90,9 +90,16 @@ class ProductBundle(Document):
 @frappe.validate_and_sanitize_search_inputs
 def get_new_item_code(doctype, txt, searchfield, start, page_len, filters):
 	product_bundles = frappe.db.get_list("Product Bundle", {"disabled": 0}, pluck="name")
+	if not searchfield or searchfield == "name":
+		searchfield = frappe.get_meta("Item").get("search_fields")
+	searchfield = searchfield.split(",")
+	searchfield.append("name")
 
 	item = frappe.qb.DocType("Item")
-	conditions = (item.is_stock_item == 0) & (item[searchfield].like(f"%{txt}%"))
+	conditions = (item.is_stock_item == 0) 
+	if txt:
+		search_criteria = Criterion.any([item[fieldname.strip()].like(f"%{txt}%") for fieldname in searchfield])
+		conditions &= search_criteria
 	# Check if the "assets" app is installed
 	if "assets" in frappe.get_installed_apps():
 		conditions &= (item.is_fixed_asset == 0)

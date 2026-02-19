@@ -4,7 +4,7 @@
 import frappe
 from frappe import _
 from frappe.utils import cint, flt
-
+import json
 from erpnext.stock.report.stock_ledger_invariant_check.stock_ledger_invariant_check import (
 	get_data as stock_ledger_invariant_check,
 )
@@ -270,12 +270,14 @@ def has_difference(row, precision, difference_in, valuation_method):
 		value_diff = flt(row.diff_value_diff, precision)
 		valuation_diff = flt(row.valuation_diff, precision)
 	else:
-		qty_diff = flt(row.difference_in_qty, precision) or flt(row.fifo_qty_diff, precision)
-		value_diff = (
-			flt(row.diff_value_diff, precision)
-			or flt(row.fifo_value_diff, precision)
-			or flt(row.fifo_difference_diff, precision)
-		)
+		qty_diff = flt(row.difference_in_qty, precision)
+		value_diff = flt(row.diff_value_diff, precision)
+		if row.stock_queue and json.loads(row.stock_queue):
+			value_diff = value_diff or (
+				flt(row.fifo_value_diff, precision) or flt(row.fifo_difference_diff, precision)
+			)
+			qty_diff = qty_diff or flt(row.fifo_qty_diff, precision)
+			
 		valuation_diff = flt(row.valuation_diff, precision) or flt(row.fifo_valuation_diff, precision)
 
 	if difference_in == "Qty" and qty_diff:

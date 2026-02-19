@@ -44,18 +44,22 @@ class TestShippingRule(unittest.TestCase):
 			self.assertRaises(OverlappingConditionError, shipping_rule.insert)
 
 
-def create_shipping_rule(shipping_rule_type, shipping_rule_name):
+def create_shipping_rule(shipping_rule_type, shipping_rule_name, args = None):
+
 	if frappe.db.exists("Shipping Rule", shipping_rule_name):
 		return frappe.get_doc("Shipping Rule", shipping_rule_name)
 
+	
+	args = frappe._dict() if args is None else frappe._dict(args) 
 	sr = frappe.new_doc("Shipping Rule")
 	sr.account = "_Test Account Shipping Charges - _TC"
-	sr.calculate_based_on = "Net Total"
+	sr.calculate_based_on = args.calculate_based_on or "Net Total"
 	sr.company = "_Test Company"
 	sr.cost_center = "_Test Cost Center - _TC"
 	sr.label = shipping_rule_name
 	sr.name = shipping_rule_name
 	sr.shipping_rule_type = shipping_rule_type
+	sr.shipping_amount = args.shipping_amount or None
 
 	sr.append(
 		"conditions",

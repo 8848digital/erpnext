@@ -34,7 +34,8 @@
   "col_break3",
   "is_advance",
   "user_remark",
-  "against_account"
+  "against_account",
+  "remaining_amount"
  ],
  "fields": [
   {
@@ -255,12 +256,19 @@
    "label": "Reference Detail No",
    "no_copy": 1,
    "search_index": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "remaining_amount",
+   "fieldtype": "Currency",
+   "label": "Remaining Amount",
+   "read_only": 1
   }
  ],
  "idx": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-02-05 01:10:50.224840",
+ "modified": "2025-01-17 11:24:12.286002",
  "modified_by": "Administrator",
  "module": "Accounts",
  "name": "Journal Entry Account",

@@ -93,3 +93,7 @@ frappe.ui.form.on("Payment Request", "is_a_subscription", function (frm) {
 		});
 	}
 });
+
+frappe.ui.form.on("Payment Request", "is_payment_order_required", function (frm) {
+    frm.toggle_reqd("bank_account", frm.doc.is_payment_order_required);
+})
