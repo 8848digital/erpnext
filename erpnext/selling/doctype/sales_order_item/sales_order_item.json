@@ -521,6 +521,7 @@
    "depends_on": "eval:doc.delivered_by_supplier!=1",
    "fieldname": "warehouse",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Source Warehouse",
    "oldfieldname": "reserved_warehouse",
    "oldfieldtype": "Link",
