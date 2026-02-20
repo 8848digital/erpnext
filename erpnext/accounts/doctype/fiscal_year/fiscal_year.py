@@ -4,7 +4,7 @@
 
 import frappe
 from dateutil.relativedelta import relativedelta
-from frappe import _
+from frappe import _, cint
 from frappe.model.document import Document
 from frappe.utils import add_days, add_years, cstr, getdate
 
@@ -90,38 +90,25 @@ class FiscalYear(Document):
 
 
 @frappe.whitelist()
-<<<<<<< HEAD
-def check_duplicate_fiscal_year(doc):
-	year_start_end_dates = frappe.db.sql(
-		"""select name, year_start_date, year_end_date from `tabFiscal Year` where name!=%s""",
-		(doc.name),
-	)
-	for fiscal_year, ysd, yed in year_start_end_dates:
-		if (getdate(doc.year_start_date) == ysd and getdate(doc.year_end_date) == yed) and (
-			not frappe.flags.in_test
-		):
-			frappe.throw(
-				_(
-					"Fiscal Year Start Date and Fiscal Year End Date are already set in Fiscal Year {0}"
-				).format(fiscal_year)
-			)
-
-
-@frappe.whitelist()
-=======
->>>>>>> 74ac28fc70 (refactor: `Fiscal Year` DocType cleanup)
 def auto_create_fiscal_year():
-	for d in frappe.db.sql(
-		"""
-		SELECT name
-		FROM `tabFiscal Year`
-		WHERE year_end_date = current_date + 3
-		"""
-	):
+	fy = frappe.qb.DocType("Fiscal Year")
+
+	# Skipped auto-creating Short Year, as it has very rare use case.
+	# Reference: https://www.irs.gov/businesses/small-businesses-self-employed/tax-years (US)
+	follow_up_date = add_days(getdate(), days=3)
+	fiscal_year = (
+		frappe.qb.from_(fy)
+		.select(fy.name)
+		.where((fy.year_end_date == follow_up_date) & (fy.is_short_year == 0))
+		.run()
+	)
+
+	for d in fiscal_year:
 		try:
 			current_fy = frappe.get_doc("Fiscal Year", d[0])
 
-			new_fy = frappe.copy_doc(current_fy, ignore_no_copy=False)
+			new_fy = frappe.new_doc("Fiscal Year")
+			new_fy.disabled = cint(current_fy.disabled)
 
 			new_fy.year_start_date = add_days(current_fy.year_end_date, 1)
 			new_fy.year_end_date = add_years(current_fy.year_end_date, 1)
@@ -129,6 +116,10 @@ def auto_create_fiscal_year():
 			start_year = cstr(new_fy.year_start_date.year)
 			end_year = cstr(new_fy.year_end_date.year)
 			new_fy.year = start_year if start_year == end_year else (start_year + "-" + end_year)
+
+			for row in current_fy.companies:
+				new_fy.append("companies", {"company": row.company})
+
 			new_fy.auto_created = 1
 
 			new_fy.insert(ignore_permissions=True)
