@@ -89,7 +89,6 @@ class FiscalYear(Document):
 					)
 
 
-@frappe.whitelist()
 def auto_create_fiscal_year():
 	fy = frappe.qb.DocType("Fiscal Year")
 
