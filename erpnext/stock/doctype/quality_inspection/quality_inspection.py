@@ -306,7 +306,6 @@ class QualityInspection(Document):
 
 	def min_max_criteria_passed(self, reading):
 		"""Determine whether all readings fall in the acceptable range."""
-		has_reading = False
 		for i in range(1, 11):
 			reading_value = reading.get("reading_" + str(i))
 			if reading_value is not None and reading_value.strip():
@@ -317,7 +316,7 @@ class QualityInspection(Document):
 				)
 				if not result:
 					return False
-		return has_reading
+		return True
 
 	def set_status_based_on_acceptance_formula(self, reading):
 		if not reading.acceptance_formula:

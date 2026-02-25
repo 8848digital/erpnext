@@ -96,9 +96,7 @@ frappe.ui.form.on("Material Request", {
 			};
 		});
 
-		if (!frm.doc.buying_price_list) {
-			frm.doc.buying_price_list = frappe.defaults.get_default("buying_price_list");
-		}
+		frm.doc.buying_price_list = frappe.defaults.get_default("buying_price_list");
 	},
 
 	company: function (frm) {

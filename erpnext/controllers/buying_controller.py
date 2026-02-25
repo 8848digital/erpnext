@@ -17,7 +17,6 @@ from erpnext.controllers.sales_and_purchase_return import get_rate_for_return
 from erpnext.controllers.subcontracting_controller import SubcontractingController
 from erpnext.stock.get_item_details import get_conversion_factor
 from erpnext.stock.utils import get_incoming_rate
-from erpnext.controllers.accounts_controller import get_taxes_and_charges
 
 
 class QtyMismatchError(ValidationError):
@@ -179,12 +178,6 @@ class BuyingController(SubcontractingController):
 			)
 
 		self.set_missing_item_details(for_validate)
-		if self.meta.get_field("taxes"):
-			if self.get("taxes_and_charges") and not self.get("taxes") and not for_validate:
-				taxes = get_taxes_and_charges("Purchase Taxes and Charges Template", self.taxes_and_charges)
-				for tax in taxes:
-					self.append("taxes", tax)
-
 
 	def set_supplier_from_item_default(self):
 		if self.meta.get_field("supplier") and not self.supplier:

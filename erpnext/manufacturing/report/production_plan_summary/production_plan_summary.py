@@ -149,9 +149,10 @@ def get_column(filters):
 		},
 		{
 			"label": _("Document Type"),
-			"fieldtype": "Data",
+			"fieldtype": "Link",
 			"fieldname": "document_type",
 			"width": 150,
+			"options": "DocType",
 		},
 		{
 			"label": _("Document Name"),

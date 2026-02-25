@@ -7,7 +7,9 @@ import json
 import frappe
 from frappe import _, scrub
 from frappe.model.document import Document
+from frappe.utils import cint, flt, round_based_on_smallest_currency_fraction
 from frappe.utils.deprecations import deprecated
+
 import erpnext
 from erpnext.accounts.doctype.journal_entry.journal_entry import get_exchange_rate
 from erpnext.accounts.doctype.pricing_rule.utils import get_applied_pricing_rules
@@ -695,24 +697,6 @@ class calculate_taxes_and_totals:
 				* self.doc.additional_discount_percentage
 				/ 100,
 				self.doc.precision("discount_amount"),
-			)
-		discount_amount = self.doc.discount_amount or 0
-		grand_total = self.doc.grand_total
-
-		# validate that discount amount cannot exceed the total before discount
-		if (
-			(grand_total >= 0 and discount_amount > grand_total)
-			or (grand_total < 0 and discount_amount < grand_total)  # returns
-		):
-			frappe.throw(
-				_(
-					"Additional Discount Amount ({discount_amount}) cannot exceed "
-					"the total before such discount ({total_before_discount})"
-				).format(
-					discount_amount=self.doc.get_formatted("discount_amount"),
-					total_before_discount=self.doc.get_formatted("grand_total"),
-				),
-				title=_("Invalid Discount Amount"),
 			)
 
 	def apply_discount_amount(self):

@@ -11,7 +11,6 @@ erpnext.buying = {
 				super.setup();
 				this.toggle_enable_for_stock_uom("allow_to_edit_stock_uom_qty_for_purchase");
 				this.frm.email_field = "contact_email";
-				this.frm.add_fetch("project", "cost_center", "cost_center");
 			}
 
 			onload(doc, cdt, cdn) {
@@ -172,13 +171,15 @@ erpnext.buying = {
 						shipping_address: this.frm.doc.shipping_address
 					},
 					callback: (r) => {
-						if (!r.message) return;
+						if (!this.frm.doc.billing_address)
+							this.frm.set_value("billing_address", r.message.primary_address || "");
 
-						this.frm.set_value("billing_address", r.message.primary_address || "");
-
-						if (frappe.meta.has_field(this.frm.doc.doctype, "shipping_address")) {
-							this.frm.set_value("shipping_address", r.message.shipping_address || "");
-						}
+						if (
+							!frappe.meta.has_field(this.frm.doc.doctype, "shipping_address") ||
+							this.frm.doc.shipping_address
+						)
+							return;
+						this.frm.set_value("shipping_address", r.message.shipping_address || "");
 					},
 				});
 				erpnext.utils.set_letter_head(this.frm)

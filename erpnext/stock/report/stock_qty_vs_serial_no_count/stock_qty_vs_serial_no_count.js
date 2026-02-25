@@ -25,7 +25,7 @@ frappe.query_reports["Stock Qty vs Serial No Count"] = {
 			reqd: 1,
 		},
 		{
-			fieldname: "show_disabled_items",
+			fieldname: "show_disables_items",
 			label: __("Show Disabled Items"),
 			fieldtype: "Check",
 		},
