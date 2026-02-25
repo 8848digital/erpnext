@@ -93,6 +93,7 @@
   "total_monthly_sales",
   "column_break_goals",
   "default_selling_terms",
+  "default_sales_contact",
   "default_warehouse_for_sales_return",
   "credit_limit",
   "transactions_annual_history",
@@ -782,6 +783,12 @@
     "fieldtype": "Select",
     "label": "Reconciliation Takes Effect On",
     "options": "Advance Payment Date\nOldest Of Invoice Or Advance\nReconciliation Date"
+     },
+  {
+   "fieldname": "default_sales_contact",
+   "fieldtype": "Link",
+   "label": "Default Sales Contact",
+   "options": "Contact"
   }
  ],
  "icon": "fa fa-building",

@@ -1916,7 +1916,7 @@ def get_valuation_rate(
 		)
 
 		last_valuation_rate = query.run()
-		if last_valuation_rate:
+		if last_valuation_rate and last_valuation_rate[0][0] is not None:
 			return flt(last_valuation_rate[0][0])
 
 	# Get moving average rate of a specific batch number
@@ -2168,7 +2168,7 @@ def validate_negative_qty_in_future_sle(args, allow_negative_stock=False):
 			)
 			frappe.throw(message, NegativeStockError, title=_("Insufficient Stock for Batch"))
 
-	if args.reserved_stock:
+	if args.reserved_stock and args.voucher_type != "Delivery Note":
 		validate_reserved_stock(args)
 
 
@@ -2237,12 +2237,16 @@ def get_future_sle_with_negative_batch_qty(sle_args):
 
 
 def validate_reserved_stock(kwargs):
+	# ignore current voucher when validating the reserved stock
+	if not kwargs.ignore_voucher_nos and kwargs.voucher_no:
+		kwargs.ignore_voucher_nos = [kwargs.voucher_no]
 	if kwargs.serial_no:
-		serial_nos = kwargs.serial_no.split("\n")
-		validate_reserved_serial_nos(kwargs.item_code, kwargs.warehouse, serial_nos)
+		kwargs.serial_nos = kwargs.serial_no.split("\n")
+		validate_reserved_serial_nos(kwargs)
 
 	elif kwargs.batch_no:
-		validate_reserved_batch_nos(kwargs.item_code, kwargs.warehouse, [kwargs.batch_no])
+		kwargs.batch_nos = [kwargs.batch_no]
+		validate_reserved_batch_nos(kwargs)
 
 	elif kwargs.serial_and_batch_bundle:
 		sbb_entries = frappe.db.get_all(
@@ -2256,9 +2260,11 @@ def validate_reserved_stock(kwargs):
 		)
 
 		if serial_nos := [entry.serial_no for entry in sbb_entries if entry.serial_no]:
-			validate_reserved_serial_nos(kwargs.item_code, kwargs.warehouse, serial_nos)
+			kwargs.serial_nos = serial_nos
+			validate_reserved_serial_nos(kwargs)
 		elif batch_nos := [entry.batch_no for entry in sbb_entries if entry.batch_no]:
-			validate_reserved_batch_nos(kwargs.item_code, kwargs.warehouse, batch_nos)
+			kwargs.batch_nos = batch_nos
+			validate_reserved_batch_nos(kwargs)
 
 	# Qty based validation for non-serial-batch items OR SRE with Reservation Based On Qty.
 	precision = cint(frappe.db.get_default("float_precision")) or 2
@@ -2276,9 +2282,13 @@ def validate_reserved_stock(kwargs):
 		frappe.throw(msg, title=_("Reserved Stock"))
 
 
-def validate_reserved_serial_nos(item_code, warehouse, serial_nos):
-	if reserved_serial_nos_details := get_sre_reserved_serial_nos_details(item_code, warehouse, serial_nos):
-		if common_serial_nos := list(set(serial_nos).intersection(set(reserved_serial_nos_details.keys()))):
+def validate_reserved_serial_nos(kwargs):
+	if reserved_serial_nos_details := get_sre_reserved_serial_nos_details(
+		kwargs.item_code, kwargs.warehouse, kwargs.serial_nos, kwargs.ignore_voucher_nos
+	):
+		if common_serial_nos := list(
+			set(kwargs.serial_nos).intersection(set(reserved_serial_nos_details.keys()))
+		):
 			msg = _(
 				"Serial Nos are reserved in Stock Reservation Entries, you need to unreserve them before proceeding."
 			)
@@ -2292,22 +2302,25 @@ def validate_reserved_serial_nos(item_code, warehouse, serial_nos):
 			frappe.throw(msg, title=_("Reserved Serial No."))
 
 
-def validate_reserved_batch_nos(item_code, warehouse, batch_nos):
-	if reserved_batches_map := get_sre_reserved_batch_nos_details(item_code, warehouse, batch_nos):
+def validate_reserved_batch_nos(kwargs):
+	if reserved_batches_map := get_sre_reserved_batch_nos_details(
+		kwargs.item_code, kwargs.warehouse, kwargs.batch_nos, kwargs.ignore_voucher_nos
+	):
 		available_batches = get_auto_batch_nos(
 			frappe._dict(
 				{
-					"item_code": item_code,
-					"warehouse": warehouse,
-					"posting_date": nowdate(),
-					"posting_time": nowtime(),
+					"item_code": kwargs.item_code,
+					"warehouse": kwargs.warehouse,
+					"posting_date": kwargs.posting_date,
+					"posting_time": kwargs.posting_time,
+					"ignore_voucher_nos": kwargs.ignore_voucher_nos,
 				}
 			)
 		)
 		available_batches_map = {row.batch_no: row.qty for row in available_batches}
 		precision = cint(frappe.db.get_default("float_precision")) or 2
 
-		for batch_no in batch_nos:
+		for batch_no in kwargs.batch_nos:
 			diff = flt(
 				available_batches_map.get(batch_no, 0) - reserved_batches_map.get(batch_no, 0), precision
 			)

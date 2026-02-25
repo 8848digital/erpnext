@@ -53,12 +53,14 @@ class Customer(TransactionBase):
 		disabled: DF.Check
 		dn_required: DF.Check
 		email_id: DF.ReadOnly | None
+		first_name: DF.ReadOnly | None
 		gender: DF.Link | None
 		image: DF.AttachImage | None
 		industry: DF.Link | None
 		is_frozen: DF.Check
 		is_internal_customer: DF.Check
 		language: DF.Link | None
+		last_name: DF.ReadOnly | None
 		loyalty_program: DF.Link | None
 		loyalty_program_tier: DF.Data | None
 		mobile_no: DF.ReadOnly | None
@@ -228,7 +230,7 @@ class Customer(TransactionBase):
 	
 	def create_primary_contact(self):
 		if not self.customer_primary_contact:
-			if self.mobile_no or self.email_id:
+			if self.mobile_no or self.email_id or self.first_name or self.last_name:
 				contact = make_contact(self)
 				self.db_set("customer_primary_contact", contact.name)
 				self.db_set("mobile_no", self.mobile_no)
@@ -689,6 +691,11 @@ def make_contact(args, is_primary_contact=1):
 		contact.add_email(args.get("email_id"), is_primary=True)
 	if args.get("mobile_no"):
 		contact.add_phone(args.get("mobile_no"), is_primary_mobile_no=True)
+	
+	if args.get("first_name"):
+		contact.first_name = args.get("first_name")
+	if args.get("last_name"):
+		contact.last_name = args.get("last_name")
 
 	if flags := args.get("flags"):
 		contact.insert(ignore_permissions=flags.get("ignore_permissions"))

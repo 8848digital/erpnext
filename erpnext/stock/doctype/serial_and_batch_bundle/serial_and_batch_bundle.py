@@ -244,6 +244,9 @@ class SerialandBatchBundle(Document):
 					"posting_time": self.posting_time,
 				}
 			)
+		
+		if self.voucher_type == "Delivery Note":
+			kwargs["ignore_voucher_nos"] = self.get_sre_against_dn()
 
 		available_serial_nos = get_available_serial_nos(frappe._dict(kwargs))
 
@@ -1364,6 +1367,22 @@ class SerialandBatchBundle(Document):
 		frappe.qb.from_(SBBE).delete().where(SBBE.parent == self.name).run()
 
 		self.set("entries", [])
+	
+	def get_sre_against_dn(self):
+		from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import (
+			get_sre_against_so_for_dn,
+		)
+
+		so_name, so_detail_no = frappe.db.get_value(
+			"Delivery Note Item", self.voucher_detail_no, ["against_sales_order", "so_detail"]
+		) or [None, None]
+
+		if so_name and so_detail_no:
+			sre_names = get_sre_against_so_for_dn(so_name, so_detail_no)
+
+			return sre_names
+		return None
+
 
 
 @frappe.whitelist()
