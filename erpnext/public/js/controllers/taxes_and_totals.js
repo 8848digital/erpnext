@@ -175,11 +175,6 @@ erpnext.taxes_and_totals = class TaxesAndTotals extends erpnext.payments {
 			if (!tax.dont_recompute_tax) {
 				tax.item_wise_tax_detail = {};
 			}
-<<<<<<< HEAD
-			var tax_fields = ["total", "tax_amount_after_discount_amount",
-				"tax_amount_for_current_item", "grand_total_for_current_item",
-				"tax_fraction_for_current_item", "grand_total_fraction_for_current_item"];
-=======
 			var tax_fields = [
 				"net_amount",
 				"total",
@@ -189,7 +184,6 @@ erpnext.taxes_and_totals = class TaxesAndTotals extends erpnext.payments {
 				"tax_fraction_for_current_item",
 				"grand_total_fraction_for_current_item",
 			];
->>>>>>> 153ad99f85 (fix(accounts): compute tax net_amount in JS controller)
 
 			if (cstr(tax.charge_type) != "Actual" &&
 				!(me.discount_amount_applied && me.frm.doc.apply_discount_on=="Grand Total")) {
@@ -450,12 +444,7 @@ erpnext.taxes_and_totals = class TaxesAndTotals extends erpnext.payments {
 
 		for (const [i, tax] of doc.taxes.entries()) {
 			me.round_off_totals(tax);
-<<<<<<< HEAD
-			me.set_in_company_currency(tax,
-				["tax_amount", "tax_amount_after_discount_amount"]);
-=======
 			me.set_in_company_currency(tax, ["tax_amount", "tax_amount_after_discount_amount", "net_amount"]);
->>>>>>> b10b205394 (fix(accounts): round and convert net_amount to company currency in JS tax controller)
 
 			me.round_off_base_values(tax);
 
@@ -518,15 +507,11 @@ erpnext.taxes_and_totals = class TaxesAndTotals extends erpnext.payments {
 			current_tax_amount = tax_rate * item.qty;
 		}
 
-<<<<<<< HEAD
 		if (!tax.dont_recompute_tax) {
 			this.set_item_wise_tax(item, tax, tax_rate, current_tax_amount);
 		}
 
-		return current_tax_amount;
-=======
 		return [current_net_amount, current_tax_amount];
->>>>>>> 153ad99f85 (fix(accounts): compute tax net_amount in JS controller)
 	}
 
 	set_item_wise_tax(item, tax, tax_rate, current_tax_amount) {
@@ -560,15 +545,11 @@ erpnext.taxes_and_totals = class TaxesAndTotals extends erpnext.payments {
 		}
 
 		tax.tax_amount = flt(tax.tax_amount, precision("tax_amount", tax));
-<<<<<<< HEAD
-		tax.tax_amount_after_discount_amount = flt(tax.tax_amount_after_discount_amount, precision("tax_amount", tax));
-=======
 		tax.net_amount = flt(tax.net_amount, precision("net_amount", tax));
 		tax.tax_amount_after_discount_amount = flt(
 			tax.tax_amount_after_discount_amount,
 			precision("tax_amount", tax)
 		);
->>>>>>> 153ad99f85 (fix(accounts): compute tax net_amount in JS controller)
 	}
 
 	round_off_base_values(tax) {
