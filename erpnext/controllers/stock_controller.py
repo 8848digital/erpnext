@@ -67,10 +67,6 @@ class StockController(AccountsController):
 		self.validate_putaway_capacity()
 		self.reset_conversion_factor()
 
-	def on_update(self):
-		super().on_update()
-		self.check_zero_rate()
-
 	def validate_warehouse_of_sabb(self):
 		if self.is_internal_transfer():
 			return
