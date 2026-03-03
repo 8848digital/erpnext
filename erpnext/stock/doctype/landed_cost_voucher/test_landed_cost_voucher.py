@@ -1087,18 +1087,6 @@ def make_landed_cost_voucher(**args):
 		],
 	)
 
-<<<<<<< HEAD
-	lcv.set(
-		"taxes",
-		[
-			{
-				"description": "Shipping Charges",
-				"expense_account": args.expense_account or "Expenses Included In Valuation - TCP1",
-				"amount": args.charges,
-			}
-		],
-	)
-=======
 	if args.charges:
 		lcv.set(
 			"taxes",
@@ -1110,7 +1098,6 @@ def make_landed_cost_voucher(**args):
 				}
 			],
 		)
->>>>>>> d54d0c25a2 (fix: set company based expense account)
 
 	if not args.do_not_save:
 		lcv.insert()
