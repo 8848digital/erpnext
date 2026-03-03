@@ -319,45 +319,12 @@ class SellingController(StockController):
 			if is_internal_customer or not is_stock_item:
 				continue
 
-			valuation_rate_map[(item.item_code, item.warehouse)] = None
-
-		if not valuation_rate_map:
-			return
-
-		or_conditions = (
-			f"""(item_code = {frappe.db.escape(valuation_rate[0])}
-			and warehouse = {frappe.db.escape(valuation_rate[1])})"""
-			for valuation_rate in valuation_rate_map
-		)
-
-		valuation_rates = frappe.db.sql(
-			f"""
-			select
-				item_code, warehouse, valuation_rate
-			from
-				`tabBin`
-			where
-				({" or ".join(or_conditions)})
-				and valuation_rate > 0
-		""",
-			as_dict=True,
-		)
-
-		for rate in valuation_rates:
-			valuation_rate_map[(rate.item_code, rate.warehouse)] = rate.valuation_rate
-
-		for item in self.items:
-			if not item.item_code or item.is_free_item:
-				continue
-
-			last_valuation_rate = valuation_rate_map.get((item.item_code, item.warehouse))
-
-			if not last_valuation_rate:
-				continue
-
-			last_valuation_rate_in_sales_uom = last_valuation_rate * (item.conversion_factor or 1)
-
-			if flt(item.base_net_rate) < flt(last_valuation_rate_in_sales_uom):
+			rate_field = "valuation_rate" if self.doctype in ["Sales Order", "Quotation"] else "incoming_rate"
+			if item.get(rate_field) and item.base_net_rate < (
+				valuation_rate := flt(
+					item.get(rate_field) * (item.conversion_factor or 1), item.precision("base_net_rate")
+				)
+			):
 				throw_message(
 					item.idx,
 					item.item_name,
