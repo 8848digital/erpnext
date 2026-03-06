@@ -165,12 +165,11 @@ class TestQuotation(FrappeTestCase):
 		quotation.insert()
 
 		self.assertTrue(quotation.payment_schedule)
-	
+
 	@change_settings(
 		"Accounts Settings",
 		{"automatically_fetch_payment_terms": 1},
 	)
-
 	def test_make_sales_order_terms_copied(self):
 		from erpnext.selling.doctype.quotation.quotation import make_sales_order
 
@@ -310,7 +309,11 @@ class TestQuotation(FrappeTestCase):
 	
 	@change_settings(
 		"Accounts Settings",
-		{"add_taxes_from_item_tax_template": 0, "add_taxes_from_taxes_and_charges_template": 0,"automatically_fetch_payment_terms": 1,},
+		{
+			"add_taxes_from_item_tax_template": 0,
+			"add_taxes_from_taxes_and_charges_template": 0,
+			"automatically_fetch_payment_terms": 1,
+		},
 	)
 
 	def test_make_sales_order_with_terms(self):
@@ -2052,7 +2055,7 @@ class TestQuotation(FrappeTestCase):
 
 		quotation.reload()
 		self.assertEqual(quotation.status, "Open")
-		
+
 	@change_settings(
 		"Accounts Settings",
 		{"automatically_fetch_payment_terms": 1},
@@ -2102,7 +2105,6 @@ class TestQuotation(FrappeTestCase):
 		self.assertEqual(sales_order.payment_schedule[1].due_date, add_days(sales_order.transaction_date, 10))
 		self.assertEqual(sales_order.payment_schedule[0].payment_amount, 5000)
 		self.assertEqual(sales_order.payment_schedule[1].payment_amount, 5000)
-
 
 
 test_records = frappe.get_test_records("Quotation")

@@ -2587,10 +2587,12 @@ class AccountsController(TransactionBase):
 			prev_doc = self.get("items")[0].get("purchase_order")
 			prev_doctype = "Purchase Order"
 			prev_doctype_name = "purchase_order"
-		else:
+		elif self.doctype == "Sales Order":
 			prev_doc = self.get("items")[0].get("prevdoc_docname")
 			prev_doctype = "Quotation"
 			prev_doctype_name = "prevdoc_docname"
+		else:
+			return None, None, None
 		return prev_doc, prev_doctype, prev_doctype_name
 
 	def linked_order_has_payment_terms(self, po_or_so, fieldname, doctype):
@@ -2686,7 +2688,9 @@ class AccountsController(TransactionBase):
 
 		for d in self.get("payment_schedule"):
 			d.validate_from_to_dates("discount_date", "due_date")
-			if self.doctype == "Sales Order" and getdate(d.due_date) < getdate(self.transaction_date):
+			if self.doctype in ["Sales Order", "Quotation"] and getdate(d.due_date) < getdate(
+				self.transaction_date
+			):
 				frappe.throw(
 					_("Row {0}: Due Date in the Payment Terms table cannot be before Posting Date").format(
 						d.idx
