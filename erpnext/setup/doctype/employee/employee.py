@@ -186,13 +186,17 @@ class Employee(NestedSet):
 				throw(_("Please enter relieving date."))
 
 	def validate_for_enabled_user_id(self, enabled):
+<<<<<<< HEAD
 		if not self.status == "Active":
 			return
 
+=======
+>>>>>>> 194d060f13 (fix: update user status depends on employee status)
 		if enabled is None:
 			frappe.throw(_("User {0} does not exist").format(self.user_id))
-		if enabled == 0:
-			frappe.throw(_("User {0} is disabled").format(self.user_id), EmployeeUserDisabledError)
+
+		if self.status != "Active" and enabled or self.status == "Active" and enabled == 0:
+			frappe.set_value("User", self.user_id, "enabled", not enabled)
 
 	def validate_duplicate_user_id(self):
 		Employee = frappe.qb.DocType("Employee")
