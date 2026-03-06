@@ -418,11 +418,10 @@ def _make_sales_order(source_name, target_doc=None, ignore_permissions=False, ar
 		filtered_items = args.get("filtered_children", [])
 		child_filter = d.name in filtered_items if filtered_items else True
 		return child_filter
-	
+
 	automatically_fetch_payment_terms = cint(
 		frappe.get_single_value("Accounts Settings", "automatically_fetch_payment_terms")
 	)
-
 
 	doclist = get_mapped_doc(
 		"Quotation",
@@ -441,7 +440,6 @@ def _make_sales_order(source_name, target_doc=None, ignore_permissions=False, ar
 			},
 			"Sales Taxes and Charges": {"doctype": "Sales Taxes and Charges", "reset_value": True},
 			"Sales Team": {"doctype": "Sales Team", "add_if_empty": True},
-			"Payment Schedule": {"doctype": "Payment Schedule", "add_if_empty": True},
 		},
 		target_doc,
 		set_missing_values,
