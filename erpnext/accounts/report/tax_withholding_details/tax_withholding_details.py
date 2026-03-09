@@ -47,13 +47,12 @@ def get_result(filters, tds_accounts, tax_category_map, net_total_map):
 	precision = get_currency_precision()
 
 	entries = {}
-	for name, details in gle_map.items():
+	for (voucher_type, name), details in gle_map.items():
 		for entry in details:
 			tax_amount, total_amount, grand_total, base_total, base_tax_withholding_net_total = 0, 0, 0, 0, 0
 			tax_withholding_category, rate = None, None
 			bill_no, bill_date = "", ""
 			posting_date = entry.posting_date
-			voucher_type = entry.voucher_type
 
 			values = net_total_map.get((voucher_type, name))
 			party = values.party if values else (entry.party or entry.against)
@@ -197,7 +196,7 @@ def get_gle_map(net_total_map):
 
 	gle_map = {}
 	for d in rows:
-		gle_map.setdefault(d.voucher_no, []).append(d)
+		gle_map.setdefault((d.voucher_type, d.voucher_no), []).append(d)
 
 	return gle_map
 
