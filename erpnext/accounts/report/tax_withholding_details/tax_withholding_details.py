@@ -5,6 +5,7 @@
 import frappe
 from frappe import _
 from frappe.utils import flt, getdate
+from pypika import Tuple
 
 from erpnext.accounts.utils import get_currency_precision
 
@@ -141,8 +142,7 @@ def get_result(filters, tds_accounts, tax_category_map, net_total_map):
 				else:
 					entries[key] = row
 	out = list(entries.values())
-
-	out.sort(key=lambda x: (x["section_code"], x["transaction_date"]))
+	out.sort(key=lambda x: (x["section_code"], x["transaction_date"], x["ref_no"]))
 
 	return out
 
@@ -175,14 +175,9 @@ def get_gle_map(net_total_map):
 	if not net_total_map:
 		return {}
 
-	voucher_types = set()
-	voucher_nos = set()
-
-	for doctype, voucher_no in net_total_map.keys():
-		voucher_types.add(doctype)
-		voucher_nos.add(voucher_no)
-
 	gle = frappe.qb.DocType("GL Entry")
+	voucher_pairs = list(net_total_map.keys())
+
 	rows = (
 		frappe.qb.from_(gle)
 		.select(
@@ -197,8 +192,7 @@ def get_gle_map(net_total_map):
 			gle.party_type,
 		)
 		.where(gle.is_cancelled == 0)
-		.where(gle.voucher_type.isin(voucher_types))
-		.where(gle.voucher_no.isin(voucher_nos))
+		.where(Tuple(gle.voucher_type, gle.voucher_no).isin(voucher_pairs))
 	).run(as_dict=True)
 
 	gle_map = {}
@@ -493,8 +487,11 @@ def get_doc_info(vouchers, doctype, tax_category_map, net_total_map=None, filter
 			value.grand_total = entry.paid_amount_after_tax
 			value.base_total = entry.base_paid_amount
 		else:
-			party_list = journal_entry_party_map.get(entry.name)
-			value.party = party_list[0] if party_list else None
+			party_list = journal_entry_party_map.get(entry.name, [])
+			if party and party in party_list:
+				value.party = party
+			elif party_list:
+				value.party = sorted(party_list)[0]
 			value.party_type = party_type
 			value.base_tax_withholding_net_total = entry.total_debit
 			value.grand_total = entry.total_debit
