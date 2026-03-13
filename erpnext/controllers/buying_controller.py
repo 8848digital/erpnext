@@ -379,6 +379,57 @@ class BuyingController(SubcontractingController):
 				item.valuation_rate = 0.0
 		update_regional_item_valuation_rate(self)
 
+<<<<<<< HEAD
+=======
+	def get_tax_details(self):
+		tax_accounts = []
+		total_valuation_amount = 0.0
+		total_actual_tax_amount = 0.0
+
+		for d in self.get("taxes"):
+			if d.category not in ["Valuation", "Valuation and Total"]:
+				continue
+
+			amount = flt(d.base_tax_amount_after_discount_amount) * (
+				-1 if d.get("add_deduct_tax") == "Deduct" else 1
+			)
+
+			if d.charge_type == "On Net Total":
+				total_valuation_amount += amount
+				tax_accounts.append(d.account_head)
+			else:
+				total_actual_tax_amount += amount
+
+		return tax_accounts, total_valuation_amount, total_actual_tax_amount
+
+	def get_item_tax_amount(self, item, tax_accounts):
+		item_tax_amount = 0.0
+		if item.item_tax_rate:
+			tax_details = json.loads(item.item_tax_rate)
+			for account, rate in tax_details.items():
+				if account not in tax_accounts:
+					continue
+
+				net_rate = item.base_net_amount
+				if item.sales_incoming_rate:
+					net_rate = item.qty * item.sales_incoming_rate
+
+				item_tax_amount += flt(net_rate) * flt(rate) / 100
+
+		return item_tax_amount
+
+	def get_item_actual_tax_amount(
+		self, item, actual_tax_amount, stock_and_asset_items_amount, stock_and_asset_items_qty
+	):
+		item_proportion = (
+			flt(item.base_net_amount) / stock_and_asset_items_amount
+			if stock_and_asset_items_amount
+			else flt(item.qty) / stock_and_asset_items_qty
+		)
+
+		return flt(item_proportion * actual_tax_amount, self.precision("item_tax_amount", item))
+
+>>>>>>> e68f149d3a (fix: correct item valuation when "Deduct" is used in Purchase Invoice and Receipt.)
 	def set_incoming_rate(self):
 		"""
 		Override item rate with incoming rate for internal stock transfer
