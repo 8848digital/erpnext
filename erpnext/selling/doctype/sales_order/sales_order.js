@@ -23,7 +23,16 @@ frappe.ui.form.on("Sales Order", {
 
 		// formatter for material request item
 		frm.set_indicator_formatter("item_code", function (doc) {
-			return doc.stock_qty <= doc.delivered_qty ? "green" : "orange";
+			let color;
+			if (!doc.qty && frm.doc.has_unit_price_items) {
+				color = "yellow";
+			} else if (doc.stock_qty <= doc.actual_qty) {
+				color = "green";
+			} else {
+				color = "orange";
+			}
+
+			return color;
 		});
 
 		frm.set_query("bom_no", "items", function (doc, cdt, cdn) {
