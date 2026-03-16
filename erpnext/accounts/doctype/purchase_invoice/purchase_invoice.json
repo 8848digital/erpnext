@@ -311,7 +311,7 @@
    "fieldname": "posting_date",
    "fieldtype": "Date",
    "in_list_view": 1,
-   "label": "Date",
+   "label": "Posting Date",
    "oldfieldname": "posting_date",
    "oldfieldtype": "Date",
    "print_hide": 1,
