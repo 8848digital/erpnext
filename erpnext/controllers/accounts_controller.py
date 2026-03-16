@@ -2016,11 +2016,7 @@ class AccountsController(TransactionBase):
 									discount_amount * self.get("conversion_rate"),
 									item.precision("discount_amount"),
 								),
-<<<<<<< HEAD
-								dr_or_cr + "_in_account_currency": flt(
-=======
 								"debit_in_transaction_currency": flt(
->>>>>>> e41a7b8cd7 (fix(accounts): populate correct fields on GL Entry during discount accounting)
 									discount_amount, item.precision("discount_amount")
 								),
 								"cost_center": item.cost_center,
@@ -2041,11 +2037,7 @@ class AccountsController(TransactionBase):
 									discount_amount * self.get("conversion_rate"),
 									item.precision("discount_amount"),
 								),
-<<<<<<< HEAD
-								rev_dr_cr + "_in_account_currency": flt(
-=======
 								"credit_in_transaction_currency": flt(
->>>>>>> e41a7b8cd7 (fix(accounts): populate correct fields on GL Entry during discount accounting)
 									discount_amount, item.precision("discount_amount")
 								),
 								"cost_center": item.cost_center,
