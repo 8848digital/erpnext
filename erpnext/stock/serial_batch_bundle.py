@@ -1325,8 +1325,6 @@ class SerialBatchCreation:
 		if self.get("voucher_no"):
 			voucher_no = self.get("voucher_no")
 
-<<<<<<< HEAD
-=======
 		voucher_type = ""
 		if self.get("voucher_type"):
 			voucher_type = self.get("voucher_type")
@@ -1343,7 +1341,6 @@ class SerialBatchCreation:
 			"posting_date",
 		)
 
->>>>>>> 19a9497273 (perf: serial no creation)
 		for _i in range(abs(cint(self.actual_qty))):
 			current_value += 1
 			serial_no = parse_naming_series(self.serial_no_series, number_generator=get_series)
