@@ -5,11 +5,8 @@
 import frappe
 from frappe import _
 from frappe.utils import flt, getdate
-<<<<<<< HEAD
-=======
 
 from erpnext.accounts.utils import get_currency_precision
->>>>>>> c150e5795e (fix: improve precision in tax amount calculations in tax withholding details report)
 
 from erpnext.accounts.utils import get_currency_precision
 
