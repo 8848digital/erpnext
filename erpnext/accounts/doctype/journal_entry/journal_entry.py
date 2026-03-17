@@ -252,7 +252,10 @@ class JournalEntry(AccountsController):
 					frappe.throw(_("Total Credit/ Debit Amount should be same as linked Journal Entry"))
 
 	def validate_stock_accounts(self):
-		stock_accounts = get_stock_accounts(self.company, self.doctype, self.name)
+		if not erpnext.is_perpetual_inventory_enabled(self.company):
+			return
+
+		stock_accounts = get_stock_accounts(self.company, accounts=self.accounts)
 		for account in stock_accounts:
 			account_bal, stock_bal, warehouse_list = get_stock_and_account_balance(
 				account, self.posting_date, self.company
