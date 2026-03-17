@@ -20,8 +20,6 @@ frappe.ui.form.on("Process Period Closing Voucher", {
 				});
 			});
 		}
-<<<<<<< HEAD
-=======
 
 		if (frm.doc.docstatus == 1 && ["Running"].find((x) => x == frm.doc.status)) {
 			let execute_btn = __("Pause");
@@ -58,6 +56,5 @@ frappe.ui.form.on("Process Period Closing Voucher", {
 				});
 			});
 		}
->>>>>>> b6b5524228 (refactor: build and post gl entries)
 	},
 });
