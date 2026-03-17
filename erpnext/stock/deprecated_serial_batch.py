@@ -366,4 +366,4 @@ class DeprecatedBatchNoValuation:
 	def get_valuation_method(self, item_code):
 		from erpnext.stock.utils import get_valuation_method
 
-		return get_valuation_method(item_code, self.sle.company)
+		return get_valuation_method(item_code)
