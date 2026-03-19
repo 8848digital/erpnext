@@ -48,23 +48,7 @@ def create_customer_or_supplier():
 		return
 
 	fullname = frappe.utils.get_fullname(user)
-<<<<<<< HEAD
-
-	if not doctype == "Customer":
-		party.update(
-			{
-				"supplier_name": fullname,
-				"supplier_group": "All Supplier Groups",
-				"supplier_type": "Individual",
-			}
-		)
-
-	party.flags.ignore_mandatory = True
-	party.insert(ignore_permissions=True)
-
-=======
 	party = create_party(doctype, fullname)
->>>>>>> 256d267a3b (fix: set customer details on customer creation at login (#53509))
 	alternate_doctype = "Customer" if doctype == "Supplier" else "Supplier"
 
 	if party_exists(alternate_doctype, user):
