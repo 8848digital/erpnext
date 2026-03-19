@@ -55,8 +55,82 @@ class TestJobCard(FrappeTestCase):
 				basic_rate=100,
 			)
 
+<<<<<<< HEAD
 	def tearDown(self):
 		frappe.db.rollback()
+=======
+	def test_quality_inspection_mandatory_check(self):
+		from erpnext.manufacturing.doctype.operation.test_operation import make_operation
+
+		raw = create_item("Fabric-Raw")
+		cut_fg = create_item("Cut-Fabric-SFG")
+		stitch_fg = create_item("Stitched-TShirt-SFG")
+		final = create_item("Finished-TShirt")
+
+		row = {"operation": "Cutting", "workstation": "_Test Workstation 1"}
+
+		cutting = make_operation(row)
+		stitching = make_operation({"operation": "Stitching", "workstation": "_Test Workstation 1"})
+		ironing = make_operation({"operation": "Ironing", "workstation": "_Test Workstation 1"})
+
+		cut_bom = create_semi_fg_bom(cut_fg.name, raw.name, inspection_required=1)
+		stitch_bom = create_semi_fg_bom(stitch_fg.name, cut_fg.name, inspection_required=0)
+		final_bom = frappe.new_doc(
+			"BOM",
+			item=final.name,
+			quantity=1,
+			with_operations=1,
+			track_semi_finished_goods=1,
+			company="_Test Company",
+		)
+		final_bom.append("items", {"item_code": raw.name, "qty": 1})
+		final_bom.append(
+			"operations",
+			{
+				"operation": cutting.name,
+				"workstation": "_Test Workstation 1",
+				"bom_no": cut_bom,
+				"skip_material_transfer": 1,
+				"time_in_mins": 60,
+			},
+		)
+		final_bom.append(
+			"operations",
+			{
+				"operation": stitching.name,
+				"workstation": "_Test Workstation 1",
+				"bom_no": stitch_bom,
+				"skip_material_transfer": 1,
+				"time_in_mins": 60,
+			},
+		)
+		final_bom.append(
+			"operations",
+			{
+				"operation": ironing.name,
+				"workstation": "_Test Workstation 1",
+				"bom_no": final_bom.name,
+				"is_final_finished_good": 1,
+				"skip_material_transfer": 1,
+				"time_in_mins": 60,
+			},
+		)
+		final_bom.append("items", {"item_code": stitch_fg.name, "qty": 1, "operation_row_id": 3})
+		final_bom.insert()
+		final_bom.submit()
+		work_order = make_work_order(final_bom.name, final.name, 1, variant_items=[], use_multi_level_bom=0)
+		work_order.company = "_Test Company"
+		work_order.wip_warehouse = "Work In Progress - _TC"
+		work_order.fg_warehouse = "Finished Goods - _TC"
+		work_order.scrap_warehouse = "All Warehouses - _TC"
+		for operation in work_order.operations:
+			operation.time_in_mins = 60
+
+		work_order.submit()
+		job_card = frappe.get_all("Job Card", filters={"work_order": work_order.name, "operation": "Cutting"})
+		job_card_doc = frappe.get_doc("Job Card", job_card[0].name)
+		self.assertRaises(frappe.ValidationError, job_card_doc.submit)
+>>>>>>> 7f70e62c30 (fix: Adding validation for operation time in BOM)
 
 	def test_job_card_operations(self):
 		job_cards = frappe.get_all(
@@ -698,6 +772,309 @@ class TestJobCard(FrappeTestCase):
 		self.assertEqual(wo_doc.process_loss_qty, 2)
 		self.assertEqual(wo_doc.status, "Completed")
 
+<<<<<<< HEAD
+=======
+	def test_op_cost_calculation(self):
+		from erpnext.manufacturing.doctype.routing.test_routing import (
+			create_routing,
+			setup_bom,
+			setup_operations,
+		)
+		from erpnext.manufacturing.doctype.work_order.work_order import make_job_card
+		from erpnext.manufacturing.doctype.work_order.work_order import (
+			make_stock_entry as make_stock_entry_for_wo,
+		)
+		from erpnext.stock.doctype.item.test_item import make_item
+		from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
+
+		make_workstation(workstation_name="Test Workstation Z", hour_rate_rent=240)
+		operations = [
+			{"operation": "Test Operation A1", "workstation": "Test Workstation Z", "time_in_mins": 30},
+		]
+
+		warehouse = create_warehouse("Test Warehouse 123 for Job Card")
+		setup_operations(operations)
+
+		item_code = "Test Job Card Process Qty Item"
+		for item in [item_code, item_code + "RM 1", item_code + "RM 2"]:
+			if not frappe.db.exists("Item", item):
+				make_item(
+					item,
+					{
+						"item_name": item,
+						"stock_uom": "Nos",
+						"is_stock_item": 1,
+					},
+				)
+
+		routing_doc = create_routing(routing_name="Testing Route", operations=operations)
+		bom_doc = setup_bom(
+			item_code=item_code,
+			routing=routing_doc.name,
+			raw_materials=[item_code + "RM 1", item_code + "RM 2"],
+			source_warehouse=warehouse,
+		)
+
+		for row in bom_doc.items:
+			make_stock_entry(
+				item_code=row.item_code,
+				target=row.source_warehouse,
+				qty=10,
+				basic_rate=100,
+			)
+
+		wo_doc = make_wo_order_test_record(
+			production_item=item_code,
+			bom_no=bom_doc.name,
+			qty=10,
+			skip_transfer=1,
+			wip_warehouse=warehouse,
+			source_warehouse=warehouse,
+		)
+
+		first_job_card = frappe.get_all(
+			"Job Card",
+			filters={"work_order": wo_doc.name, "sequence_id": 1},
+			fields=["name"],
+			order_by="sequence_id",
+			limit=1,
+		)[0].name
+
+		jc = frappe.get_doc("Job Card", first_job_card)
+		for _ in jc.scheduled_time_logs:
+			jc.append(
+				"time_logs",
+				{
+					"from_time": now(),
+					"to_time": add_to_date(now(), minutes=1),
+					"completed_qty": 4,
+				},
+			)
+		jc.for_quantity = 4
+		jc.save()
+		jc.submit()
+
+		s = frappe.get_doc(make_stock_entry_for_wo(wo_doc.name, "Manufacture", 4))
+		s.submit()
+
+		self.assertEqual(s.additional_costs[0].amount, 4)
+
+		make_job_card(
+			wo_doc.name,
+			[
+				{
+					"name": wo_doc.operations[0].name,
+					"operation": "Test Operation A1",
+					"qty": 6,
+					"pending_qty": 6,
+				}
+			],
+		)
+
+		job_card = frappe.get_last_doc("Job Card", {"work_order": wo_doc.name})
+		job_card.append(
+			"time_logs",
+			{
+				"from_time": add_to_date(now(), hours=1),
+				"to_time": add_to_date(now(), hours=1, minutes=2),
+				"completed_qty": 6,
+			},
+		)
+		job_card.for_quantity = 6
+		job_card.save()
+		job_card.submit()
+
+		s = frappe.get_doc(make_stock_entry_for_wo(wo_doc.name, "Manufacture", 6))
+		self.assertEqual(s.additional_costs[0].amount, 8)
+
+	def test_co_by_product_for_sfg_flow(self):
+		from erpnext.manufacturing.doctype.operation.test_operation import make_operation
+
+		frappe.db.set_value("UOM", "Nos", "must_be_whole_number", 0)
+
+		def create_bom(raw_material, finished_good, scrap_item, submit=True):
+			bom = frappe.new_doc("BOM")
+			bom.company = "_Test Company"
+			bom.item = finished_good
+			bom.quantity = 1
+			bom.append("items", {"item_code": raw_material, "qty": 1})
+			bom.append(
+				"secondary_items",
+				{
+					"item_code": scrap_item,
+					"qty": 1,
+					"process_loss_per": 10,
+					"cost_allocation_per": 5,
+					"type": "Scrap",
+				},
+			)
+			if submit:
+				bom.insert()
+				bom.submit()
+
+			return bom
+
+		rm1 = create_item("RM 1")
+		scrap1 = create_item("Scrap 1")
+		sfg = create_item("SFG 1")
+		sfg_bom = create_bom(rm1.name, sfg.name, scrap1.name)
+
+		rm2 = create_item("RM 2")
+		fg1 = create_item("FG 1")
+		scrap2 = create_item("Scrap 2")
+		scrap_extra = create_item("Scrap Extra")
+		fg_bom = create_bom(rm2.name, fg1.name, scrap2.name, submit=False)
+		fg_bom.with_operations = 1
+		fg_bom.track_semi_finished_goods = 1
+
+		operation1 = {
+			"operation": "Test Operation A",
+			"workstation": "_Test Workstation A",
+			"finished_good": sfg.name,
+			"bom_no": sfg_bom.name,
+			"finished_good_qty": 1,
+			"sequence_id": 1,
+			"time_in_mins": 60,
+		}
+		operation2 = {
+			"operation": "Test Operation B",
+			"workstation": "_Test Workstation A",
+			"finished_good": fg1.name,
+			"bom_no": fg_bom.name,
+			"finished_good_qty": 1,
+			"is_final_finished_good": 1,
+			"sequence_id": 2,
+			"time_in_mins": 60,
+		}
+
+		make_workstation(operation1)
+		make_operation(operation1)
+		make_operation(operation2)
+
+		fg_bom.append("operations", operation1)
+		fg_bom.append("operations", operation2)
+		fg_bom.append("items", {"item_code": sfg.name, "qty": 1, "uom": "Nos", "operation_row_id": 2})
+		fg_bom.insert()
+		fg_bom.save()
+		fg_bom.submit()
+
+		work_order = make_wo_order_test_record(
+			item=fg1.name,
+			qty=10,
+			source_warehouse="Stores - _TC",
+			fg_warehouse="Finished Goods - _TC",
+			bom_no=fg_bom.name,
+			skip_transfer=1,
+			do_not_save=True,
+		)
+
+		work_order.operations[0].time_in_mins = 60
+		work_order.operations[1].time_in_mins = 60
+		work_order.save()
+		work_order.submit()
+
+		job_card = frappe.get_doc(
+			"Job Card",
+			frappe.db.get_value(
+				"Job Card", {"work_order": work_order.name, "operation": "Test Operation A"}, "name"
+			),
+		)
+		job_card.append(
+			"time_logs",
+			{
+				"from_time": "2009-01-01 12:06:25",
+				"to_time": "2009-01-01 12:37:25",
+				"completed_qty": job_card.for_quantity,
+			},
+		)
+		job_card.append(
+			"secondary_items", {"item_code": scrap_extra.name, "stock_qty": 5, "type": "Co-Product"}
+		)
+		job_card.submit()
+
+		for row in sfg_bom.items:
+			make_stock_entry(
+				item_code=row.item_code,
+				target="Stores - _TC",
+				qty=10,
+				basic_rate=100,
+			)
+
+		manufacturing_entry = frappe.get_doc(job_card.make_stock_entry_for_semi_fg_item())
+		manufacturing_entry.submit()
+
+		self.assertEqual(manufacturing_entry.items[2].item_code, scrap1.name)
+		self.assertEqual(manufacturing_entry.items[2].qty, 9)
+		self.assertEqual(flt(manufacturing_entry.items[2].basic_rate, 3), 5.556)
+		self.assertEqual(manufacturing_entry.items[3].item_code, scrap_extra.name)
+		self.assertEqual(manufacturing_entry.items[3].type, "Co-Product")
+		self.assertEqual(manufacturing_entry.items[3].qty, 5)
+		self.assertEqual(manufacturing_entry.items[3].basic_rate, 0)
+
+		job_card = frappe.get_doc(
+			"Job Card",
+			frappe.db.get_value(
+				"Job Card", {"work_order": work_order.name, "operation": "Test Operation B"}, "name"
+			),
+		)
+		job_card.append(
+			"time_logs",
+			{
+				"from_time": "2009-02-01 12:06:25",
+				"to_time": "2009-02-01 12:37:25",
+				"completed_qty": job_card.for_quantity,
+			},
+		)
+		job_card.submit()
+
+		for row in fg_bom.items:
+			make_stock_entry(
+				item_code=row.item_code,
+				target="Stores - _TC",
+				qty=10,
+				basic_rate=100,
+			)
+
+		manufacturing_entry = frappe.get_doc(job_card.make_stock_entry_for_semi_fg_item())
+		manufacturing_entry.submit()
+
+		self.assertEqual(manufacturing_entry.items[2].item_code, scrap2.name)
+		self.assertEqual(manufacturing_entry.items[2].qty, 9)
+		self.assertEqual(flt(manufacturing_entry.items[2].basic_rate, 3), 5.556)
+
+	def test_secondary_items_without_sfg(self):
+		for row in frappe.get_doc("BOM", self.work_order.bom_no).items:
+			make_stock_entry(
+				item_code=row.item_code,
+				target="_Test Warehouse - _TC",
+				qty=10,
+				basic_rate=100,
+			)
+
+		job_card = frappe.get_last_doc("Job Card", {"work_order": self.work_order.name})
+		job_card.append("secondary_items", {"item_code": "_Test Item", "stock_qty": 2, "type": "Scrap"})
+		job_card.append(
+			"time_logs",
+			{
+				"from_time": "2009-01-01 12:06:25",
+				"to_time": "2009-01-01 12:37:25",
+				"completed_qty": job_card.for_quantity,
+			},
+		)
+		job_card.save()
+		job_card.submit()
+
+		from erpnext.manufacturing.doctype.work_order.work_order import (
+			make_stock_entry as make_stock_entry_for_wo,
+		)
+
+		s = frappe.get_doc(make_stock_entry_for_wo(self.work_order.name, "Manufacture"))
+		s.submit()
+
+		self.assertEqual(s.items[3].item_code, "_Test Item")
+		self.assertEqual(s.items[3].transfer_qty, 2)
+
+>>>>>>> 7f70e62c30 (fix: Adding validation for operation time in BOM)
 
 def create_bom_with_multiple_operations():
 	"Create a BOM with multiple operations and Material Transfer against Job Card"
