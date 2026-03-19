@@ -152,7 +152,7 @@ class TestBOM(FrappeTestCase):
 
 	@timeout
 	def test_bom_no_operation_time_validation(self):
-		bom = frappe.copy_doc(self.globalTestRecords["BOM"][2])
+		bom = frappe.copy_doc(test_records[2])
 		bom.docstatus = 0
 		for op_row in bom.operations:
 			op_row.time_in_mins = 0
