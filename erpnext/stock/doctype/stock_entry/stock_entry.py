@@ -549,9 +549,6 @@ class StockEntry(StockController):
 					flt(item.qty) * flt(item.conversion_factor), self.precision("transfer_qty", item)
 				)
 
-			if self.purpose == "Manufacture":
-				item.set("expense_account", item_details.get("expense_account"))
-
 	def validate_fg_completed_qty(self):
 		item_wise_qty = {}
 		if self.purpose == "Manufacture" and self.work_order:
