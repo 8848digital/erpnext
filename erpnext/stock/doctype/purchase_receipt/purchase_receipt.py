@@ -1366,7 +1366,7 @@ def make_purchase_return(source_name, target_doc=None):
 
 @frappe.whitelist()
 def update_purchase_receipt_status(docname, status):
-	frappe.has_permission("Purchase Receipt", "write", docname, throw=True)
+	frappe.has_permission("Purchase Receipt", "submit", docname, throw=True)
 
 	pr = frappe.get_doc("Purchase Receipt", docname)
 	pr.update_status(status)
