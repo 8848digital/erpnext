@@ -1350,9 +1350,10 @@ def add_non_stock_items_cost(stock_entry, work_order, expense_account):
 	bom = frappe.get_doc("BOM", work_order.bom_no)
 	table = "exploded_items" if work_order.get("use_multi_level_bom") else "items"
 
-	items = {}
+	items = frappe._dict()
 	for d in bom.get(table):
-		items.setdefault(d.item_code, d.amount)
+		items.setdefault(d.item_code, 0)
+		items[d.item_code] += flt(d.amount)
 
 	non_stock_items = frappe.get_all(
 		"Item",
