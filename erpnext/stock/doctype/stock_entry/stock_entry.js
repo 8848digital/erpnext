@@ -350,7 +350,7 @@ frappe.ui.form.on("Stock Entry", {
 				);
 			}
 
-			if (frm.doc.purpose === "Manufacture") {
+			if (frm.doc.purpose === "Manufacture" && frm.doc.work_order) {
 				frm.add_custom_button(
 					__("Disassemble"),
 					async function () {
@@ -359,6 +359,7 @@ frappe.ui.form.on("Stock Entry", {
 							{ stock_entry_name: frm.doc.name }
 						);
 						frappe.prompt(
+							// fields
 							{
 								fieldtype: "Float",
 								label: __("Qty to Disassemble"),
@@ -366,33 +367,28 @@ frappe.ui.form.on("Stock Entry", {
 								default: available_qty,
 								description: __("Max: {0}", [available_qty]),
 							},
+							// callback
 							async (data) => {
-								if (frm.doc.work_order) {
-									let stock_entry = await frappe.xcall(
-										"erpnext.manufacturing.doctype.work_order.work_order.make_stock_entry",
-										{
-											work_order_id: frm.doc.work_order,
-											purpose: "Disassemble",
-											qty: data.qty,
-											source_stock_entry: frm.doc.name,
-										}
+								if (data.qty > available_qty) {
+									frappe.throw(
+										__("Cannot disassemble more than available quantity ({0})", [
+											available_qty,
+										])
 									);
-									if (stock_entry) {
-										frappe.model.sync(stock_entry);
-										frappe.set_route("Form", stock_entry.doctype, stock_entry.name);
-									}
-								} else {
-									let se = frappe.model.get_new_doc("Stock Entry");
-									se.company = frm.doc.company;
-									se.stock_entry_type = "Disassemble";
-									se.purpose = "Disassemble";
-									se.source_stock_entry = frm.doc.name;
-									se.from_bom = frm.doc.from_bom;
-									se.bom_no = frm.doc.bom_no;
-									se.fg_completed_qty = data.qty;
-									frm._via_source_stock_entry = true;
+								}
 
-									frappe.set_route("Form", "Stock Entry", se.name);
+								let stock_entry = await frappe.xcall(
+									"erpnext.manufacturing.doctype.work_order.work_order.make_stock_entry",
+									{
+										work_order_id: frm.doc.work_order,
+										purpose: "Disassemble",
+										qty: data.qty,
+										source_stock_entry: frm.doc.name,
+									}
+								);
+								if (stock_entry) {
+									frappe.model.sync(stock_entry);
+									frappe.set_route("Form", stock_entry.doctype, stock_entry.name);
 								}
 							},
 							__("Disassemble"),
