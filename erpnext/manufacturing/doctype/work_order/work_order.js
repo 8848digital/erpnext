@@ -411,7 +411,7 @@ frappe.ui.form.on("Work Order", {
 
 	make_disassembly_order(frm) {
 		erpnext.work_order
-			.show_prompt_for_qty_input(frm, "Disassemble")
+			.show_disassembly_prompt(frm)
 			.then((data) => {
 				if (flt(data.qty) <= 0) {
 					frappe.msgprint(__("Disassemble Qty cannot be less than or equal to <b>0</b>."));
@@ -421,11 +421,14 @@ frappe.ui.form.on("Work Order", {
 					work_order_id: frm.doc.name,
 					purpose: "Disassemble",
 					qty: data.qty,
+					source_stock_entry: data.source_stock_entry,
 				});
 			})
 			.then((stock_entry) => {
-				frappe.model.sync(stock_entry);
-				frappe.set_route("Form", stock_entry.doctype, stock_entry.name);
+				if (stock_entry) {
+					frappe.model.sync(stock_entry);
+					frappe.set_route("Form", stock_entry.doctype, stock_entry.name);
+				}
 			});
 	},
 
@@ -870,6 +873,7 @@ erpnext.work_order = {
 		return flt(max, precision("qty"));
 	},
 
+
 	show_disassembly_prompt: function (frm) {
 		let max_qty = flt(frm.doc.produced_qty - frm.doc.disassembled_qty);
 
@@ -924,8 +928,9 @@ erpnext.work_order = {
 		});
 	},
 
-	show_prompt_for_qty_input: function (frm, purpose) {
-		let max = this.get_max_transferable_qty(frm, purpose);
+	show_prompt_for_qty_input: function (frm, purpose, qty, additional_transfer_entry) {
+		let max = !additional_transfer_entry ? this.get_max_transferable_qty(frm, purpose) : qty;
+
 
 		let fields = [
 			{
