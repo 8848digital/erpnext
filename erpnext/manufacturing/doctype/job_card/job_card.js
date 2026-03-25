@@ -31,7 +31,6 @@ frappe.ui.form.on("Job Card", {
 			};
 		});
 
-
 		frm.set_query("operation", "time_logs", () => {
 			let operations = (frm.doc.sub_operations || []).map((d) => d.sub_operation);
 			return {
