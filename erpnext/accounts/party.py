@@ -7,18 +7,16 @@ from frappe import _, msgprint, qb, scrub
 from frappe.contacts.doctype.address.address import get_company_address, get_default_address
 from frappe.core.doctype.user_permission.user_permission import get_permitted_documents
 from frappe.model.utils import get_fetch_values
-from frappe.query_builder.functions import Abs, Count, Date, Sum
+from frappe.query_builder.functions import Abs, Date, Sum
 from frappe.utils import (
 	add_days,
 	add_months,
-	add_years,
 	cint,
 	cstr,
 	date_diff,
 	flt,
 	formatdate,
 	get_last_day,
-	get_timestamp,
 	getdate,
 	nowdate,
 )
@@ -297,17 +295,27 @@ def get_regional_address_details(party_details, doctype, company):
 
 
 def complete_contact_details(party_details):
-	if not party_details.contact_person:
-		party_details.update(
-			{
-				"contact_person": None,
-				"contact_display": None,
-				"contact_email": None,
-				"contact_mobile": None,
-				"contact_phone": None,
-				"contact_designation": None,
-				"contact_department": None,
-			}
+	contact_details = frappe._dict()
+
+	if party_details.party_type == "Employee":
+		from erpnext.setup.doctype.employee.employee import _get_contact_details as get_employee_contact
+
+		contact_details = get_employee_contact(party_details.party)
+		contact_details.update({"contact_person": None, "contact_phone": None})
+	elif party_details.contact_person:
+		contact_details = frappe.db.get_value(
+			"Contact",
+			party_details.contact_person,
+			[
+				"name as contact_person",
+				"full_name as contact_display",
+				"email_id as contact_email",
+				"mobile_no as contact_mobile",
+				"phone as contact_phone",
+				"designation as contact_designation",
+				"department as contact_department",
+			],
+			as_dict=True,
 		)
 	else:
 		fields = [
@@ -1030,3 +1038,21 @@ def add_party_account(party_type, party, company, account):
 
 def render_address(address, check_permissions=True):
 	return frappe.call(_render_address, address, check_permissions=check_permissions)
+
+
+def validate_party_currency_before_merging(party_type, old_party, new_party):
+	for company in frappe.get_all("Company"):
+		old_party_currency = get_party_gle_currency(party_type, old_party, company.name)
+		new_party_currency = get_party_gle_currency(party_type, new_party, company.name)
+
+		if old_party_currency and new_party_currency and old_party_currency != new_party_currency:
+			frappe.throw(
+				_(
+					"Cannot merge {0} '{1}' into '{2}' as both have existing accounting entries in different currencies for company '{3}'."
+				).format(
+					party_type,
+					old_party,
+					new_party,
+					company.name,
+				)
+			)

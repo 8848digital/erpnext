@@ -13,6 +13,7 @@ from frappe.utils.dashboard import cache_source
 import erpnext
 from erpnext.accounts.doctype.accounting_dimension.accounting_dimension import (
 	get_accounting_dimensions,
+	get_checks_for_pl_and_bs_accounts,
 )
 from erpnext.accounts.doctype.accounting_dimension_filter.accounting_dimension_filter import (
 	get_dimension_filter_map,
@@ -201,18 +202,19 @@ def distribute_gl_based_on_cost_center_allocation(gl_map, precision=None, from_r
 	for d in gl_map:
 		cost_center = d.get("cost_center")
 
+		cost_center_allocation = get_cost_center_allocation_data(
+			gl_map[0]["company"], gl_map[0]["posting_date"], cost_center
+		)
+
+		if not cost_center_allocation:
+			new_gl_map.append(d)
+			continue
+
 		# Validate budget against main cost center
 		if not from_repost:
 			validate_expense_against_budget(
 				d, expense_amount=flt(d.debit, precision) - flt(d.credit, precision)
 			)
-
-		cost_center_allocation = get_cost_center_allocation_data(
-			gl_map[0]["company"], gl_map[0]["posting_date"], cost_center
-		)
-		if not cost_center_allocation:
-			new_gl_map.append(d)
-			continue
 
 		if d.account == round_off_account:
 			d.cost_center = cost_center_allocation[0][0]
@@ -289,7 +291,9 @@ def merge_similar_entries(gl_map, precision=None):
 	company_currency = erpnext.get_company_currency(company)
 
 	if not precision:
-		precision = get_field_precision(frappe.get_meta("GL Entry").get_field("debit"), company_currency)
+		precision = get_field_precision(
+			frappe.get_meta("GL Entry").get_field("debit"), currency=company_currency
+		)
 
 	# filter zero debit and credit entries
 	merged_gl_map = filter(
@@ -407,7 +411,11 @@ def make_entry(args, adv_adj, update_outstanding, from_repost=False, clearing_da
 	gle.flags.notify_update = False
 	gle.submit()
 
-	if not from_repost and gle.voucher_type != "Period Closing Voucher":
+	if (
+		not from_repost
+		and gle.voucher_type != "Period Closing Voucher"
+		and (gle.is_cancelled == 0 or gle.voucher_type == "Journal Entry")
+	):
 		validate_expense_against_budget(args)
 
 
@@ -496,8 +504,8 @@ def make_round_off_gle(gl_map, debit_credit_diff, trx_cur_debit_credit_diff, pre
 	)
 	round_off_gle = frappe._dict()
 	round_off_account_exists = False
-
 	has_opening_entry = has_opening_entries(gl_map)
+
 	if has_opening_entry:
 		if not round_off_for_opening:
 			frappe.throw(
@@ -573,6 +581,18 @@ def update_accounting_dimensions(round_off_gle):
 
 		for dimension in dimensions:
 			round_off_gle[dimension] = dimension_values.get(dimension)
+	else:
+		report_type = frappe.get_cached_value("Account", round_off_gle.account, "report_type")
+		for dimension in get_checks_for_pl_and_bs_accounts():
+			if (
+				round_off_gle.company == dimension.company
+				and (
+					(report_type == "Profit and Loss" and dimension.mandatory_for_pl)
+					or (report_type == "Balance Sheet" and dimension.mandatory_for_bs)
+				)
+				and dimension.default_dimension
+			):
+				round_off_gle[dimension.fieldname] = dimension.default_dimension
 
 
 def get_round_off_account_and_cost_center(company, voucher_type, voucher_no, use_company_default=False):
@@ -753,23 +773,19 @@ def validate_against_pcv(is_opening, posting_date, company):
 			title=_("Invalid Opening Entry"),
 		)
 
-	# last_pcv_date = frappe.db.get_value(
-	# 	"Period Closing Voucher", {"docstatus": 1, "company": company}, "max(posting_date)"
-	# )
+	# Local import so you don't have to touch file-level imports
+	from frappe.query_builder.functions import Max
 
-	last_pcv_date = frappe.db.sql(
-			"""SELECT period_start_date FROM `tabPeriod Closing Voucher`
-			WHERE `docstatus` = 1 AND `company` = %s
-			ORDER BY period_start_date DESC 
-       		LIMIT 1""",
-			(company,),
-			as_dict=True
-		)
+	pcv = frappe.qb.DocType("Period Closing Voucher")
 
-	last_pcv_date_value = last_pcv_date[0].get('MAX(posting_date)') if last_pcv_date else None
+	last_pcv_date = (
+		frappe.qb.from_(pcv)
+		.select(Max(pcv.period_end_date))
+		.where((pcv.docstatus == 1) & (pcv.company == company))
+	).run(pluck=True)[0]
 
-	if last_pcv_date_value and getdate(posting_date) <= getdate(last_pcv_date):
-		message = _("Books have been closed till the period ending on {0}").format(formatdate(last_pcv_date))
+	if last_pcv_date and getdate(posting_date) <= getdate(last_pcv_date):
+		message = _("Books have been closed till the period ending on {0}.").format(formatdate(last_pcv_date))
 		message += "</br >"
 		message += _("You cannot create/amend any accounting entries till this date.")
 		frappe.throw(message, title=_("Period Closed"))

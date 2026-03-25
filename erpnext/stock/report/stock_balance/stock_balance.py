@@ -7,7 +7,8 @@ from typing import Any, TypedDict
 
 import frappe
 from frappe import _
-from frappe.query_builder.functions import Coalesce
+from frappe.query_builder import Order
+from frappe.query_builder.functions import Coalesce, Count
 from frappe.utils import add_days, cint, date_diff, flt, getdate
 from frappe.utils.nestedset import get_descendants_of
 from frappe.query_builder import Order
@@ -154,6 +155,8 @@ class StockBalanceReport:
 		if self.filters.get("show_stock_ageing_data"):
 			self.sle_entries = self.sle_query.run(as_dict=True)
 
+		self.prepare_stock_reco_voucher_wise_count()
+
 		# HACK: This is required to avoid causing db query in flt
 		_system_settings = frappe.get_cached_doc("System Settings")
 		with frappe.db.unbuffered_cursor():
@@ -180,6 +183,30 @@ class StockBalanceReport:
 
 		return item_warehouse_map
 
+	def prepare_stock_reco_voucher_wise_count(self):
+		self.stock_reco_voucher_wise_count = frappe._dict()
+
+		doctype = frappe.qb.DocType("Stock Ledger Entry")
+		item = frappe.qb.DocType("Item")
+
+		query = (
+			frappe.qb.from_(doctype)
+			.inner_join(item)
+			.on(doctype.item_code == item.name)
+			.select(doctype.voucher_detail_no, Count(doctype.name).as_("count"))
+			.where(
+				(doctype.voucher_type == "Stock Reconciliation")
+				& (doctype.docstatus < 2)
+				& (doctype.is_cancelled == 0)
+				& (item.has_serial_no == 1)
+			)
+			.groupby(doctype.voucher_detail_no)
+		)
+
+		data = query.run(as_list=True)
+		if data:
+			self.stock_reco_voucher_wise_count = frappe._dict(data)
+
 	def get_sre_reserved_qty_details(self) -> dict:
 		from erpnext.stock.doctype.stock_reservation_entry.stock_reservation_entry import (
 			get_sre_reserved_qty_for_items_and_warehouses as get_reserved_qty_details,
@@ -197,8 +224,14 @@ class StockBalanceReport:
 		for field in self.inventory_dimensions:
 			qty_dict[field] = entry.get(field)
 
-		if entry.voucher_type == "Stock Reconciliation" and (not entry.batch_no or entry.serial_no):
-			qty_diff = flt(entry.qty_after_transaction) - flt(qty_dict.bal_qty)
+		if entry.voucher_type == "Stock Reconciliation" and (
+			not entry.batch_no or entry.serial_no or entry.serial_and_batch_bundle
+		):
+			if entry.serial_no and self.stock_reco_voucher_wise_count.get(entry.voucher_detail_no, 0) == 1:
+				qty_dict.bal_qty = 0.0
+				qty_diff = flt(entry.actual_qty)
+			else:
+				qty_diff = flt(entry.qty_after_transaction) - flt(qty_dict.bal_qty)
 		else:
 			qty_diff = flt(entry.actual_qty)
 
@@ -315,6 +348,7 @@ class StockBalanceReport:
 				sle.serial_no,
 				sle.serial_and_batch_bundle,
 				sle.has_serial_no,
+				sle.voucher_detail_no,
 				item_table.item_group,
 				item_table.stock_uom,
 				item_table.item_name,

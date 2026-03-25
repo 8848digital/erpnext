@@ -3,9 +3,11 @@
 
 
 import frappe
-from frappe.utils import cint
 from frappe.defaults import get_user_default
+from frappe.utils import cint
+
 from erpnext.accounts.utils import get_fiscal_years
+
 
 def boot_session(bootinfo):
 	"""boot session - send website info if guest"""
@@ -44,7 +46,7 @@ def boot_session(bootinfo):
 
 		bootinfo.docs += frappe.db.sql(
 			"""select name, default_currency, cost_center, default_selling_terms, default_buying_terms,
-			default_letter_head, default_bank_account, enable_perpetual_inventory, country from `tabCompany`""",
+			default_letter_head, default_bank_account, enable_perpetual_inventory, country, exchange_gain_loss_account from `tabCompany`""",
 			as_dict=1,
 			update={"doctype": ":Company"},
 		)

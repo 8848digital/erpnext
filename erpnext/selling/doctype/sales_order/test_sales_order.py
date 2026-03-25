@@ -57,6 +57,29 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 	def tearDown(self):
 		frappe.set_user("Administrator")
 
+	def test_sales_order_skip_delivery_note(self):
+		so = make_sales_order(do_not_submit=True)
+		so.order_type = "Maintenance"
+		so.skip_delivery_note = 1
+		so.append(
+			"items",
+			{
+				"item_code": "_Test Item 2",
+				"qty": 2,
+				"rate": 100,
+			},
+		)
+		so.save()
+		so.submit()
+
+		so.reload()
+		si = make_sales_invoice(so.name)
+		si.insert()
+		si.submit()
+		so.reload()
+		self.assertEqual(so.status, "Completed")
+
+	@change_settings("Selling Settings", {"allow_negative_rates_for_items": 1})
 	def test_sales_order_with_negative_rate(self):
 		"""
 		Test if negative rate is allowed in Sales Order via doc submission and update items
@@ -179,7 +202,11 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 
 	@change_settings(
 		"Accounts Settings",
-		{"add_taxes_from_item_tax_template": 0, "add_taxes_from_taxes_and_charges_template": 1},
+		{
+			"add_taxes_from_item_tax_template": 0,
+			"add_taxes_from_taxes_and_charges_template": 1,
+			"automatically_fetch_payment_terms": 1,
+		},
 	)
 	def test_make_sales_invoice_with_terms(self):
 		so = make_sales_order(do_not_submit=True)
@@ -208,6 +235,34 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 
 		si1 = make_sales_invoice(so.name)
 		self.assertEqual(len(si1.get("items")), 0)
+
+	@change_settings("Accounts Settings", {"automatically_fetch_payment_terms": 1})  # Enable auto fetch
+	def test_auto_fetch_terms_enable(self):
+		so = make_sales_order(do_not_submit=True)
+
+		so.payment_terms_template = "_Test Payment Term Template"
+		so.save()
+		so.submit()
+
+		si = make_sales_invoice(so.name)
+		# Check if payment terms are copied from sales order to sales invoice
+		self.assertTrue(si.payment_terms_template)
+		si.insert()
+		si.submit()
+
+	@change_settings("Accounts Settings", {"automatically_fetch_payment_terms": 0})  # Disable auto fetch
+	def test_auto_fetch_terms_disable(self):
+		so = make_sales_order(do_not_submit=True)
+
+		so.payment_terms_template = "_Test Payment Term Template"
+		so.save()
+		so.submit()
+
+		si = make_sales_invoice(so.name)
+		# Check if payment terms are not copied from sales order to sales invoice
+		self.assertFalse(si.payment_terms_template)
+		si.insert()
+		si.submit()
 
 	def test_update_qty(self):
 		so = make_sales_order()

@@ -99,7 +99,8 @@ class AccountsSettings(Document):
 
 		if clear_cache:
 			frappe.clear_cache()
-		
+
+		self.validate_and_sync_auto_reconcile_config()
 		self.hide_or_show_party_and_account_balance()
 
 	def validate_stale_days(self):
@@ -108,6 +109,18 @@ class AccountsSettings(Document):
 				_("Stale Days should start from 1."), title="Error", indicator="red", raise_exception=1
 			)
 		
+	def hide_or_show_party_and_account_balance(self):
+		def set_property(fieldname, value):
+			make_property_setter("Payment Entry", fieldname, "hidden", value, "Check")
+
+		if self.has_value_changed("show_party_balance"):
+			set_property("party_balance", not self.show_party_balance)
+
+		if self.has_value_changed("show_account_balance"):
+			account_fields = ["paid_from_account_balance", "paid_to_account_balance"]
+			for field in account_fields:
+				set_property(field, not self.show_account_balance)
+
 	def hide_or_show_party_and_account_balance(self):
 		def set_property(fieldname, value):
 			make_property_setter("Payment Entry", fieldname, "hidden", value, "Check")

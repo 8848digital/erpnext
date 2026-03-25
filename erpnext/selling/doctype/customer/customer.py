@@ -18,7 +18,11 @@ from frappe.utils import cint, cstr, flt, get_formatted_email, today
 from frappe.utils.deprecations import deprecated
 from frappe.utils.user import get_users_with_role
 
-from erpnext.accounts.party import get_dashboard_info, validate_party_accounts
+from erpnext.accounts.party import (
+	get_dashboard_info,
+	validate_party_accounts,
+	validate_party_currency_before_merging,
+)
 from erpnext.controllers.website_list_for_contact import add_role_for_portal_user
 from erpnext.utilities.transaction_base import TransactionBase
 
@@ -61,6 +65,7 @@ class Customer(TransactionBase):
 		is_internal_customer: DF.Check
 		language: DF.Link | None
 		last_name: DF.ReadOnly | None
+		lead_name: DF.Link | None
 		loyalty_program: DF.Link | None
 		loyalty_program_tier: DF.Data | None
 		mobile_no: DF.ReadOnly | None
@@ -97,6 +102,7 @@ class Customer(TransactionBase):
 			set_name_from_naming_options(frappe.get_meta(self.doctype).autoname, self)
 
 	def get_customer_name(self):
+		self.customer_name = self.customer_name.strip()
 		if frappe.db.get_value("Customer", self.customer_name) and not frappe.flags.in_import:
 			count = frappe.db.sql(
 				"""
@@ -219,6 +225,12 @@ class Customer(TransactionBase):
 		self.create_primary_contact()
 		self.create_primary_address()
 
+		if self.flags.old_lead != self.lead_name:
+			self.update_lead_status()
+
+		if self.flags.is_new_doc:
+			self.link_address_and_contact()
+			self.copy_communication()
 
 		self.update_customer_groups()
 	
@@ -243,9 +255,13 @@ class Customer(TransactionBase):
 				"Customer", self.name, "Customer Group", self.customer_group, ignore_doctypes
 			)
 
-	
-
-	
+	def create_primary_contact(self):
+		if not self.customer_primary_contact and not self.lead_name:
+			if self.mobile_no or self.email_id or self.first_name or self.last_name:
+				contact = make_contact(self)
+				self.db_set("customer_primary_contact", contact.name)
+				self.db_set("mobile_no", self.mobile_no)
+				self.db_set("email_id", self.email_id)
 
 	def create_primary_address(self):
 		from frappe.contacts.doctype.address.address import get_address_display
@@ -258,6 +274,43 @@ class Customer(TransactionBase):
 			self.db_set("primary_address", address_display)
 
 
+	def link_address_and_contact(self):
+		linked_documents = {
+			"Lead": self.lead_name,
+			"Opportunity": self.opportunity_name,
+			"Prospect": self.prospect_name,
+		}
+		for doctype, docname in linked_documents.items():
+			# assign lead, opportunity and prospect address and contact to customer (if already not set)
+			if not docname:
+				continue
+
+			linked_contacts_and_addresses = frappe.get_all(
+				"Dynamic Link",
+				filters=[
+					["parenttype", "in", ["Contact", "Address"]],
+					["link_doctype", "=", doctype],
+					["link_name", "=", docname],
+				],
+				fields=["parent as name", "parenttype as doctype"],
+			)
+
+			for row in linked_contacts_and_addresses:
+				linked_doc = frappe.get_doc(row.doctype, row.name)
+				if not linked_doc.has_link("Customer", self.name):
+					linked_doc.append("links", dict(link_doctype="Customer", link_name=self.name))
+					linked_doc.save(ignore_permissions=self.flags.ignore_permissions)
+
+	def copy_communication(self):
+		if not self.lead_name or not frappe.db.get_single_value(
+			"CRM Settings", "carry_forward_communication_and_comments"
+		):
+			return
+
+		from erpnext.crm.utils import copy_comments, link_communications
+
+		copy_comments("Lead", self.lead_name, self)
+		link_communications("Lead", self.lead_name, self)
 
 	def validate_name_with_customer_group(self):
 		if frappe.db.exists("Customer Group", self.name):
@@ -312,6 +365,20 @@ class Customer(TransactionBase):
 						"""New credit limit is less than current outstanding amount for the customer. Credit limit has to be atleast {0}"""
 					).format(outstanding_amt)
 				)
+
+	def on_trash(self):
+		if self.customer_primary_contact:
+			self.db_set("customer_primary_contact", None)
+		if self.customer_primary_address:
+			self.db_set("customer_primary_address", None)
+
+		delete_contact_and_address("Customer", self.name)
+		if self.lead_name:
+			frappe.db.sql("update `tabLead` set status='Interested' where name=%s", self.lead_name)
+
+	def before_rename(self, olddn, newdn, merge=False):
+		if merge:
+			validate_party_currency_before_merging("Customer", olddn, newdn)
 
 	def after_rename(self, olddn, newdn, merge=False):
 		if frappe.defaults.get_global_default("cust_master_name") == "Customer Name":
@@ -434,6 +501,9 @@ def _set_missing_values(source, target):
 
 	if contact:
 		target.contact_person = contact[0].parent
+		target.contact_display, target.contact_email, target.contact_mobile = frappe.get_value(
+			"Contact", contact[0].parent, ["full_name", "email_id", "mobile_no"]
+		)
 
 
 @frappe.whitelist()
@@ -691,7 +761,6 @@ def make_contact(args, is_primary_contact=1):
 		contact.add_email(args.get("email_id"), is_primary=True)
 	if args.get("mobile_no"):
 		contact.add_phone(args.get("mobile_no"), is_primary_mobile_no=True)
-	
 	if args.get("first_name"):
 		contact.first_name = args.get("first_name")
 	if args.get("last_name"):
@@ -746,20 +815,28 @@ def make_address(args, is_primary_address=1, is_shipping_address=1):
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
-def get_customer_primary_contact(doctype, txt, searchfield, start, page_len, filters):
+def get_customer_primary(doctype, txt, searchfield, start, page_len, filters):
 	customer = filters.get("customer")
-
-	con = qb.DocType("Contact")
+	type = filters.get("type")
+	type_doctype = qb.DocType(type)
 	dlink = qb.DocType("Dynamic Link")
 
-	return (
-		qb.from_(con)
+	query = (
+		qb.from_(type_doctype)
 		.join(dlink)
-		.on(con.name == dlink.parent)
-		.select(con.name, con.email_id)
-		.where((dlink.link_name == customer) & (con.name.like(f"%{txt}%")))
-		.run()
+		.on(type_doctype.name == dlink.parent)
+		.select(type_doctype.name)
+		.where(
+			(dlink.link_name == customer)
+			& (type_doctype.name.like(f"%{txt}%"))
+			& (dlink.link_doctype == "Customer")
+		)
 	)
+
+	if type == "Contact":
+		query = query.select(type_doctype.email_id)
+
+	return query.run()
 
 
 def parse_full_name(full_name: str) -> tuple[str, str | None, str | None]:

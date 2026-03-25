@@ -7,7 +7,6 @@ on:
 concurrency:
   group: postgres-erp-${{ github.event.number }}
   cancel-in-progress: true
-
 jobs:
   tests:
     runs-on: ubuntu-latest
@@ -35,23 +34,19 @@ jobs:
           --health-cmd="pg_isready -U postgres"
           --health-interval=5s
           --health-timeout=2s
-          --health-retries=3
-
+          --health-retries=5
     steps:
       - name: Clone Repository
         uses: actions/checkout@v3
-
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
-
+          python-version: "3.10"
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
           check-latest: true
-
       - name: Cache Dependencies (PIP)
         uses: actions/cache@v4
         with:
@@ -60,26 +55,25 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
             ${{ runner.os }}-
-
       - name: Cache Dependencies (Yarn)
-        id: yarn-cache
         uses: actions/cache@v3
         with:
           path: ~/.yarn-cache
           key: yarn-${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
             yarn-${{ runner.os }}-
-
-      - name: Install Dependencies
+      - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y postgresql-client redis-server
-
       - name: Install Frappe Bench
         run: |
           pip install frappe-bench
-          bench init --skip-redis-config-generation --skip-assets --python "$(which python)" --frappe-path https://github.com/8848digital/frappe --frappe-branch pre-prod ~/frappe-bench
-
+          bench init --skip-redis-config-generation --skip-assets \
+            --python "$(which python)" \
+            --frappe-path https://github.com/8848digital/frappe \
+            --frappe-branch pre-prod \
+            ~/frappe-bench     
       - name: Install Apps
         working-directory: /home/runner/frappe-bench
         run: |
@@ -93,13 +87,29 @@ jobs:
           bench get-app --branch version-15 payments
           bench setup requirements --dev
 
+      - name: Fix Dropbox pkg_resources (setuptools downgrade)
+        working-directory: /home/runner/frappe-bench
+        run: |
+          ./env/bin/pip install "setuptools<82"
+     
       - name: Create Site
         working-directory: /home/runner/frappe-bench
         run: |
-          bench new-site --db-type postgres --db-root-password root --admin-password admin test_site
-          bench --site test_site install-app erpnext erpnext_india assets erpnext_crm projects payments sales_commission india_compliance
+          bench new-site test_site \
+            --db-type postgres \
+            --db-host localhost \
+            --db-root-password root \
+            --admin-password admin
+          bench --site test_site install-app \
+            erpnext \
+            erpnext_india \
+            assets \
+            erpnext_crm \
+            projects \
+            payments \
+            sales_commission \
+            india_compliance
           bench --site test_site migrate
-
       - name: Set Permissions & Configs
         working-directory: /home/runner/frappe-bench
         run: |
@@ -107,79 +117,59 @@ jobs:
           bench --site test_site set-config developer_mode 1
           bench --site test_site set-config db_host localhost
           bench --site test_site set-config admin_password admin
-
       - name: Run Tests
         working-directory: /home/runner/frappe-bench
         run: |
           set +e
-          bench --site test_site run-tests --app erpnext --coverage --junit-xml-output /home/runner/frappe-bench/test_results.xml 2>&1 | tee test_output.log
-          echo "Tests completed, proceeding..."
-
-      # ✅ Updated Step Starts Here
+          bench --site test_site run-tests --app erpnext \
+            --coverage \
+            --junit-xml-output /home/runner/frappe-bench/test_results.xml \
+            2>&1 | tee test_output.log
+          echo "Tests completed"
       - name: Convert Test Results to CSV
         run: |
           pip install xmltodict pandas
           python <<EOF
           import xmltodict, pandas as pd, os
-
           xml_file = "/home/runner/frappe-bench/test_results.xml"
           csv_file = "/home/runner/frappe-bench/test_report.csv"
-
           if not os.path.exists(xml_file) or os.path.getsize(xml_file) == 0:
-              df = pd.DataFrame([["No Tests Executed", "N/A", ""]], columns=["Test Name", "Status", "Traceback"])
+              df = pd.DataFrame([["No Tests Executed","N/A",""]], columns=["Test Name","Status","Traceback"])
               df.to_csv(csv_file, index=False)
-              print("⚠️ No test results found. Created fallback CSV.")
               exit(0)
-
-          text = open(xml_file).read().strip()
-          if not text:
-              df = pd.DataFrame([["No Tests Executed", "N/A", ""]], columns=["Test Name", "Status", "Traceback"])
-              df.to_csv(csv_file, index=False)
-              print("⚠️ XML empty. Created fallback CSV.")
-              exit(0)
-
-          data = xmltodict.parse(text)
+          data = xmltodict.parse(open(xml_file).read())
           suites = data.get("testsuites", {}).get("testsuite", [])
-          if isinstance(suites, dict): suites = [suites]
-
-          results = []
+          if isinstance(suites, dict): suites=[suites]
+          rows=[]
           for s in suites:
-              cases = s.get("testcase", [])
-              if isinstance(cases, dict): cases = [cases]
+              cases=s.get("testcase",[])
+              if isinstance(cases, dict): cases=[cases]
               for c in cases:
-                  name = c.get("@name", "Unknown")
-                  err = c.get("error")
-                  status = "Failed" if err else "Passed"
-                  trace = err.get("#text", "") if err else ""
-                  results.append([name, status, trace])
-
-          pd.DataFrame(results, columns=["Test Name", "Status", "Traceback"]).to_csv(csv_file, index=False)
-          print("✅ CSV report generated successfully.")
+                  name=c.get("@name","Unknown")
+                  err=c.get("error")
+                  rows.append([name,"Failed" if err else "Passed", err.get("#text","") if err else ""])
+          pd.DataFrame(rows, columns=["Test Name","Status","Traceback"]).to_csv(csv_file,index=False)
           EOF
-      # ✅ Updated Step Ends Here
-
       - name: Upload CSV Test Report
         uses: actions/upload-artifact@v4
         with:
           name: csv-test-report
           path: /home/runner/frappe-bench/test_report.csv
-
       - name: Upload Coverage Data to Codecov
         uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: false
           files: /home/runner/frappe-bench/sites/coverage.xml
-          verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Upload Coverage Data as Artifact
+      - name: Upload Coverage Artifact
         uses: actions/upload-artifact@v4
         with:
           name: coverage
           path: /home/runner/frappe-bench/sites/coverage.xml
-
       - name: Upload Test Logs
         uses: actions/upload-artifact@v4
         with:
           name: test-logs
           path: /home/runner/frappe-bench/test_output.log
+          
+          

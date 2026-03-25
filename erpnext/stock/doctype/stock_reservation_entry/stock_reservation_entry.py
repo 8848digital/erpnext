@@ -445,6 +445,7 @@ class StockReservationEntry(Document):
 			voucher_delivered_qty = flt(delivered_qty) * flt(conversion_factor)
 
 		allowed_qty = min(self.available_qty, (self.voucher_qty - voucher_delivered_qty - total_reserved_qty))
+		allowed_qty = flt(allowed_qty, self.precision("reserved_qty"))
 		qty_to_be_reserved = flt(qty_to_be_reserved, self.precision("reserved_qty"))
 
 		if self.get("_action") != "submit" and self.voucher_type == "Sales Order" and allowed_qty <= 0:
@@ -537,6 +538,7 @@ def get_available_qty_to_reserve(
 				& (sre.reserved_qty >= sre.delivered_qty)
 				& (sre.status.notin(["Delivered", "Cancelled"]))
 			)
+			.for_update()
 		)
 
 		if ignore_sre:
@@ -761,7 +763,7 @@ def get_sre_reserved_serial_nos_details(
 
 	if serial_nos:
 		query = query.where(sb_entry.serial_no.isin(serial_nos))
-	
+
 	if ignore_voucher_nos:
 		query = query.where(sre.name.notin(ignore_voucher_nos))
 
@@ -797,10 +799,9 @@ def get_sre_reserved_batch_nos_details(
 
 	if batch_nos:
 		query = query.where(sb_entry.batch_no.isin(batch_nos))
-	
+
 	if ignore_voucher_nos:
 		query = query.where(sre.name.notin(ignore_voucher_nos))
-
 
 	return frappe._dict(query.run())
 

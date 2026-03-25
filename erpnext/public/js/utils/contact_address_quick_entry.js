@@ -16,7 +16,7 @@ frappe.ui.form.ContactAddressQuickEntryForm = class ContactAddressQuickEntryForm
 	insert() {
 		/**
 		 * Using alias fieldnames because the doctype definition define "email_id" and "mobile_no" as readonly fields.
-		 * Therefor, resulting in the fields being "hidden".
+		 * This results in the fields being "hidden".
 		 */
 		const map_field_names = {
 			email_address: "email_id",

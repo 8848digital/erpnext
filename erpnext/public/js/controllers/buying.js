@@ -2,7 +2,6 @@
 // License: GNU General Public License v3. See license.txt
 
 frappe.provide("erpnext.buying");
-// cur_frm.add_fetch('project', 'cost_center', 'cost_center');
 
 erpnext.buying = {
 	setup_buying_controller: function() {

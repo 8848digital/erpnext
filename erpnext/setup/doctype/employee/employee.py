@@ -10,6 +10,7 @@ from frappe.permissions import (
 	remove_user_permission,
 )
 from frappe.utils import cstr, getdate, today, validate_email_address
+from frappe.utils.deprecations import deprecated
 from frappe.utils.nestedset import NestedSet
 
 from erpnext.utilities.transaction_base import delete_events
@@ -85,9 +86,6 @@ class Employee(NestedSet):
 
 	def update_user_permissions(self):
 		if not self.has_value_changed("user_id") and not self.has_value_changed("create_user_permission"):
-			return
-
-		if not has_permission("User Permission", ptype="write", raise_exception=False):
 			return
 
 		employee_user_permission_exists = frappe.db.exists(
@@ -252,8 +250,9 @@ def validate_employee_role(doc, method=None, ignore_emp_check=False):
 		doc.get("roles").remove(doc.get("roles", {"role": "Employee Self Service"})[0])
 
 
+@deprecated
 def update_user_permissions(doc, method):
-	# called via User hook
+	# formerly called via User hook
 	if "Employee" in [d.role for d in doc.get("roles")]:
 		if not has_permission("User Permission", ptype="write", raise_exception=False):
 			return
@@ -438,3 +437,59 @@ def has_upload_permission(doc, ptype="read", user=None):
 	if get_doc_permissions(doc, user=user, ptype=ptype).get(ptype):
 		return True
 	return doc.user_id == user
+
+
+@frappe.whitelist()
+def get_contact_details(employee: str) -> dict:
+	"""
+	Returns basic contact details for the given employee.
+
+	Email is selected based on the following priority:
+	1. Prefered Email
+	2. Company Email
+	3. Personal Email
+	4. User ID
+	"""
+	if not employee:
+		frappe.throw(msg=_("Employee is required"), title=_("Missing Parameter"))
+
+	frappe.has_permission("Employee", "read", employee, throw=True)
+
+	return _get_contact_details(employee)
+
+
+def _get_contact_details(employee: str) -> dict:
+	contact_data = frappe.db.get_value(
+		"Employee",
+		employee,
+		[
+			"employee_name",
+			"prefered_email",
+			"company_email",
+			"personal_email",
+			"user_id",
+			"cell_number",
+			"designation",
+			"department",
+		],
+		as_dict=True,
+	)
+
+	if not contact_data:
+		frappe.throw(msg=_("Employee {0} not found").format(employee), title=_("Not Found"))
+
+	# Email with priority
+	employee_email = (
+		contact_data.get("prefered_email")
+		or contact_data.get("company_email")
+		or contact_data.get("personal_email")
+		or contact_data.get("user_id")
+	)
+
+	return {
+		"contact_display": contact_data.get("employee_name"),
+		"contact_email": employee_email,
+		"contact_mobile": contact_data.get("cell_number"),
+		"contact_designation": contact_data.get("designation"),
+		"contact_department": contact_data.get("department"),
+	}
