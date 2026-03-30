@@ -1539,8 +1539,36 @@ def make_stock_entry(work_order_id, purpose, qty=None, target_warehouse=None):
 
 
 @frappe.whitelist()
+
 def get_default_warehouse():
 	doc = frappe.get_cached_doc("Manufacturing Settings")
+
+
+def get_disassembly_available_qty(stock_entry_name: str) -> float:
+def get_disassembly_available_qty(stock_entry_name: str, current_se_name: str | None = None) -> float:
+	se = frappe.db.get_value("Stock Entry", stock_entry_name, ["fg_completed_qty"], as_dict=True)
+	if not se:
+		return 0.0
+
+	filters = {
+		"source_stock_entry": stock_entry_name,
+		"purpose": "Disassemble",
+		"docstatus": 1,
+	}
+
+	if current_se_name:
+		filters["name"] = ("!=", current_se_name)
+
+	already_disassembled = flt(frappe.db.get_value("Stock Entry", filters, [{"SUM": "fg_completed_qty"}]))
+
+	return flt(se.fg_completed_qty) - already_disassembled
+
+
+@frappe.whitelist()
+def get_default_warehouse(company: str):
+	wip, fg, scrap = frappe.get_cached_value(
+		"Company", company, ["default_wip_warehouse", "default_fg_warehouse", "default_scrap_warehouse"]
+	)
 
 	return {
 		"wip_warehouse": doc.default_wip_warehouse,
