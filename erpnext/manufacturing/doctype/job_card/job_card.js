@@ -31,11 +31,19 @@ frappe.ui.form.on("Job Card", {
 			};
 		});
 
-		frm.set_query("operation", "time_logs", () => {
-			let operations = (frm.doc.sub_operations || []).map((d) => d.sub_operation);
+		frm.set_indicator_formatter("sub_operation", function (doc) {
+			if (doc.status == "Pending") {
+				return "red";
+			} else {
+				return doc.status === "Complete" ? "green" : "orange";
+			}
+		});
+
+		frm.set_query("employee", () => {
 			return {
 				filters: {
-					name: ["in", operations],
+					company: frm.doc.company,
+					status: "Active",
 				},
 			};
 		});
@@ -46,25 +54,6 @@ frappe.ui.form.on("Job Card", {
 					status: ["not in", ["Cancelled", "Closed", "Stopped"]],
 				},
 			};
-		});
-
-		frm.events.set_company_filters(frm, "target_warehouse");
-		frm.events.set_company_filters(frm, "source_warehouse");
-		frm.events.set_company_filters(frm, "wip_warehouse");
-		frm.set_query("source_warehouse", "items", () => {
-			return {
-				filters: {
-					company: frm.doc.company,
-				},
-			};
-		});
-
-		frm.set_indicator_formatter("sub_operation", function (doc) {
-			if (doc.status == "Pending") {
-				return "red";
-			} else {
-				return doc.status === "Complete" ? "green" : "orange";
-			}
 		});
 	},
 
