@@ -1447,6 +1447,7 @@ class SerialandBatchBundle(Document):
 	def on_cancel(self):
 		self.validate_voucher_no_docstatus()
 		self.validate_batch_quantity()
+		self.remove_source_document_no()
 
 	def validate_batch_quantity(self):
 		if not self.has_batch_no:
@@ -1464,6 +1465,19 @@ class SerialandBatchBundle(Document):
 			available_qty = batch_wise_available_qty.get(d.batch_no, 0)
 			if flt(available_qty, precision) < 0:
 				self.throw_negative_batch(d.batch_no, available_qty, precision)
+
+	def remove_source_document_no(self):
+		if not self.has_serial_no:
+			return
+
+		if self.total_qty > 0:
+			serial_nos = [d.serial_no for d in self.entries if d.serial_no]
+			sn_table = frappe.qb.DocType("Serial No")
+			(
+				frappe.qb.update(sn_table)
+				.set(sn_table.purchase_document_no, None)
+				.where((sn_table.name.isin(serial_nos)) & (sn_table.purchase_document_no == self.voucher_no))
+			).run()
 
 	def throw_negative_batch(self, batch_no, available_qty, precision, posting_datetime=None):
 		from erpnext.stock.stock_ledger import NegativeStockError
