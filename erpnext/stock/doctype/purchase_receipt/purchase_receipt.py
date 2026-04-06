@@ -1071,10 +1071,8 @@ def update_billing_percentage(pr_doc, update_modified=True, adjust_incoming_rate
 	billed_qty_amt = frappe._dict()
 
 	if adjust_incoming_rate:
-		item_wise_billed_qty = get_billed_qty_against_purchase_receipt(pr_doc)
 		billed_qty_amt = get_billed_qty_amount_against_purchase_receipt(pr_doc)
 		billed_qty_amt_based_on_po = get_billed_qty_amount_against_purchase_order(pr_doc)
-
 
 	for item in pr_doc.items:
 		returned_qty = flt(item_wise_returned_qty.get(item.name))
@@ -1102,11 +1100,6 @@ def update_billing_percentage(pr_doc, update_modified=True, adjust_incoming_rate
 			if (
 				item.billed_amt is not None
 				and item.amount is not None
-				and item_wise_billed_qty.get(item.name)
-			):
-				adjusted_amt = (
-					flt(item.billed_amt / item_wise_billed_qty.get(item.name)) - flt(item.rate)
-				) * item.qty
 				and (
 					billed_qty_amt.get(item.name) or billed_qty_amt_based_on_po.get(item.purchase_order_item)
 				)
@@ -1248,7 +1241,6 @@ def get_billed_qty_amount_against_purchase_order(pr_doc):
 			invoice_data_po_based[row.po_detail]["qty"] += flt(row.qty)
 
 	return invoice_data_po_based
-
 
 
 def adjust_incoming_rate_for_pr(doc):
