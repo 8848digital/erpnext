@@ -802,6 +802,16 @@ class StockEntry(StockController):
 		if not self.get("source_stock_entry"):
 			return
 
+		if self.work_order:
+			source_wo = frappe.db.get_value("Stock Entry", self.source_stock_entry, "work_order")
+			if source_wo and source_wo != self.work_order:
+				frappe.throw(
+					_(
+						"Source Stock Entry {0} belongs to Work Order {1}, not {2}. Please use a manufacture entry from the same Work Order."
+					).format(self.source_stock_entry, source_wo, self.work_order),
+					title=_("Work Order Mismatch"),
+				)
+
 		from erpnext.manufacturing.doctype.work_order.work_order import get_disassembly_available_qty
 
 		available_qty = get_disassembly_available_qty(self.source_stock_entry, self.name)
@@ -2354,7 +2364,161 @@ class StockEntry(StockController):
 				if self.pro_doc and self.pro_doc.scrap_warehouse:
 					item["to_warehouse"] = self.pro_doc.scrap_warehouse
 
+<<<<<<< HEAD
 			self.add_to_stock_entry_detail(scrap_item_dict, bom_no=self.bom_no)
+=======
+			if (
+				self.purpose not in ["Material Transfer for Manufacture"]
+				and frappe.db.get_single_value("Manufacturing Settings", "backflush_raw_materials_based_on")
+				!= "BOM"
+				and not skip_transfer
+			):
+				return
+
+		reservation_entries = self.get_available_reserved_materials()
+		if not reservation_entries:
+			return
+
+		new_items_to_add = []
+		for d in self.items:
+			if d.serial_and_batch_bundle or d.serial_no or d.batch_no:
+				continue
+
+			key = (d.item_code, d.s_warehouse)
+			if details := reservation_entries.get(key):
+				original_qty = d.qty
+				if batches := details.get("batch_no"):
+					for batch_no, qty in batches.items():
+						if original_qty <= 0:
+							break
+
+						if qty <= 0:
+							continue
+
+						if d.batch_no and original_qty > 0:
+							new_row = frappe.copy_doc(d)
+							new_row.name = None
+							new_row.batch_no = batch_no
+							new_row.qty = qty
+							new_row.idx = d.idx + 1
+							if new_row.batch_no and details.get("batchwise_sn"):
+								new_row.serial_no = "\n".join(
+									details.get("batchwise_sn")[new_row.batch_no][: cint(new_row.qty)]
+								)
+
+							new_items_to_add.append(new_row)
+							original_qty -= qty
+							batches[batch_no] -= qty
+
+						if qty >= d.qty and not d.batch_no:
+							d.batch_no = batch_no
+							batches[batch_no] -= d.qty
+							if d.batch_no and details.get("batchwise_sn"):
+								d.serial_no = "\n".join(
+									details.get("batchwise_sn")[d.batch_no][: cint(d.qty)]
+								)
+						elif not d.batch_no:
+							d.batch_no = batch_no
+							d.qty = qty
+							original_qty -= qty
+							batches[batch_no] = 0
+
+							if d.batch_no and details.get("batchwise_sn"):
+								d.serial_no = "\n".join(
+									details.get("batchwise_sn")[d.batch_no][: cint(d.qty)]
+								)
+
+				if details.get("serial_no"):
+					d.serial_no = "\n".join(details.get("serial_no")[: cint(d.qty)])
+
+				d.use_serial_batch_fields = 1
+
+		for new_row in new_items_to_add:
+			self.append("items", new_row)
+
+		sorted_items = sorted(self.items, key=lambda x: x.item_code)
+		if self.purpose == "Manufacture":
+			# ensure finished item at last
+			sorted_items = sorted(sorted_items, key=lambda x: x.t_warehouse)
+
+		idx = 0
+		for row in sorted_items:
+			idx += 1
+			row.idx = idx
+		self.set("items", sorted_items)
+
+	def get_available_reserved_materials(self):
+		reserved_entries = self.get_reserved_materials()
+		if not reserved_entries:
+			return {}
+
+		itemwise_serial_batch_qty = frappe._dict()
+
+		for d in reserved_entries:
+			key = (d.item_code, d.warehouse)
+			if key not in itemwise_serial_batch_qty:
+				itemwise_serial_batch_qty[key] = frappe._dict(
+					{
+						"serial_no": [],
+						"batch_no": defaultdict(float),
+						"batchwise_sn": defaultdict(list),
+					}
+				)
+
+			details = itemwise_serial_batch_qty[key]
+			if d.batch_no:
+				details.batch_no[d.batch_no] += d.qty
+				if d.serial_no:
+					details.batchwise_sn[d.batch_no].extend(d.serial_no.split("\n"))
+			elif d.serial_no:
+				details.serial_no.append(d.serial_no)
+
+		return itemwise_serial_batch_qty
+
+	def get_reserved_materials(self):
+		doctype = frappe.qb.DocType("Stock Reservation Entry")
+		serial_batch_doc = frappe.qb.DocType("Serial and Batch Entry")
+
+		query = (
+			frappe.qb.from_(doctype)
+			.inner_join(serial_batch_doc)
+			.on(doctype.name == serial_batch_doc.parent)
+			.select(
+				serial_batch_doc.serial_no,
+				serial_batch_doc.batch_no,
+				serial_batch_doc.qty,
+				doctype.item_code,
+				doctype.warehouse,
+				doctype.name,
+				doctype.transferred_qty,
+				doctype.consumed_qty,
+			)
+			.where(
+				(doctype.docstatus == 1)
+				& (doctype.voucher_no == (self.work_order or self.subcontracting_order))
+				& (serial_batch_doc.delivered_qty < serial_batch_doc.qty)
+			)
+			.orderby(serial_batch_doc.idx)
+		)
+
+		return query.run(as_dict=True)
+
+	def set_secondary_items(self):
+		if self.purpose in ["Manufacture", "Repack"]:
+			secondary_items_dict = self.get_secondary_items(self.fg_completed_qty)
+			for item in secondary_items_dict.values():
+				if self.pro_doc and item.type:
+					if self.pro_doc.scrap_warehouse and item.type == "Scrap":
+						item["to_warehouse"] = self.pro_doc.scrap_warehouse
+
+				if item.process_loss_per:
+					item["qty"] -= flt(
+						item["qty"] * (item.process_loss_per / 100),
+						self.precision("fg_completed_qty"),
+					)
+
+			self.add_to_stock_entry_detail(secondary_items_dict, bom_no=self.bom_no)
+>>>>>>> ea392b2009 (fix: validate work order consistency in stock entry)
 
 	def set_process_loss_qty(self):
 		if self.purpose not in ("Manufacture", "Repack"):
