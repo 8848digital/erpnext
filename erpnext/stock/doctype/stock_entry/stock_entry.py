@@ -2543,7 +2543,7 @@ class StockEntry(StockController):
 		return item_dict
 
 	def get_scrap_items_from_job_card(self):
-		if not self.pro_doc:
+		if not getattr(self, "pro_doc", None):
 			self.set_work_order_details()
 
 		if not self.pro_doc.operations:

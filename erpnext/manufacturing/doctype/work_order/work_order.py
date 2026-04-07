@@ -1559,7 +1559,9 @@ def get_disassembly_available_qty(stock_entry_name: str, current_se_name: str | 
 	if current_se_name:
 		filters["name"] = ("!=", current_se_name)
 
-	already_disassembled = flt(frappe.db.get_value("Stock Entry", filters, [{"SUM": "fg_completed_qty"}]))
+	already_disassembled = flt(
+		frappe.db.get_value("Stock Entry", filters, "sum(fg_completed_qty)", order_by=None)
+	)
 
 	return flt(se.fg_completed_qty) - already_disassembled
 
