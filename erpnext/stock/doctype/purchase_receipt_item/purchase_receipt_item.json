@@ -717,7 +717,6 @@
    "oldfieldname": "valuation_rate",
    "oldfieldtype": "Currency",
    "options": "Company:company:default_currency",
-   "precision": "6",
    "print_hide": 1,
    "print_width": "80px",
    "read_only": 1,
