@@ -2339,13 +2339,11 @@ class TestWorkOrder(FrappeTestCase):
 		scrap_item = make_item("Test Scrap for Multi Batch Disassembly", {"is_stock_item": 1}).name
 		fg_item = make_item("Test FG for Multi Batch Disassembly", {"is_stock_item": 1}).name
 		bom = make_bom(
-			item=fg_item,
-			quantity=1,
-			raw_materials=[raw_item1, raw_item2],
-			rm_qty=2,
-			scrap_items=[scrap_item],
-			scrap_qty=10,
+			item=fg_item, quantity=1, raw_materials=[raw_item1, raw_item2], rm_qty=2, do_not_submit=True
 		)
+		# add scrap item
+		bom.append("scrap_items", {"item_code": scrap_item, "stock_qty": 10})
+		bom.submit()
 
 		# Create WO
 		wo = make_wo_order_test_record(production_item=fg_item, qty=10, bom_no=bom.name, status="Not Started")
@@ -2431,16 +2429,15 @@ class TestWorkOrder(FrappeTestCase):
 		fg_item_row = next((i for i in stock_entry.items if i.item_code == fg_item), None)
 		self.assertEqual(fg_item_row.qty, disassemble_qty)
 
-		# Secondary/Scrap item: should be taken from scrap warehouse in disassembly
+		# Scrap item: should be taken from scrap warehouse in disassembly
 		scrap_row = next((i for i in stock_entry.items if i.item_code == scrap_item), None)
 		self.assertIsNotNone(scrap_row)
-		self.assertEqual(scrap_row.type, "Scrap")
+		self.assertEqual(scrap_row.is_scrap_item, 1)
 		self.assertTrue(scrap_row.s_warehouse)
 		self.assertFalse(scrap_row.t_warehouse)
 		self.assertEqual(scrap_row.s_warehouse, wo.scrap_warehouse)
-		# BOM has scrap_qty=10/FG but also process_loss_per=10%, so actual scrap per FG = 9
-		# Total produced = 9*3 + 9*7 = 90, disassemble 4/10 → 36
-		self.assertEqual(scrap_row.qty, 36)
+		# BOM has scrap_qty=10/FG, total produced = 10*10 = 100, disassemble 4/10 → 40
+		self.assertEqual(scrap_row.qty, 40)
 
 		# RM quantities
 		for bom_item in bom.items:
@@ -2485,11 +2482,11 @@ class TestWorkOrder(FrappeTestCase):
 
 		bom_scrap_row = next((i for i in bom_se.items if i.item_code == scrap_item), None)
 		self.assertIsNotNone(bom_scrap_row, "Scrap item must appear in BOM-path disassembly")
-		# Without fix 3: qty = 10 * 2 = 20; with fix 3 (process_loss_per=10%): qty = 9 * 2 = 18
+		# v15: BOM scrap_qty=10/FG, no process_loss_per field → qty = 10 * 2 = 20
 		self.assertEqual(
 			bom_scrap_row.qty,
-			18,
-			f"BOM-path disassembly must apply process_loss_per; expected 18, got {bom_scrap_row.qty}",
+			20,
+			f"BOM-path disassembly scrap qty mismatch; expected 20, got {bom_scrap_row.qty}",
 		)
 
 	def test_disassembly_with_additional_rm_not_in_bom(self):

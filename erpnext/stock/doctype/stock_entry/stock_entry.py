@@ -743,7 +743,7 @@ class StockEntry(StockController):
 
 			if self.purpose == "Disassemble":
 				if has_bom:
-					if d.is_finished_item or d.type or d.is_legacy_scrap_item:
+					if d.is_finished_item or d.is_scrap_item:
 						d.t_warehouse = None
 						if not d.s_warehouse:
 							frappe.throw(_("Source warehouse is mandatory for row {0}").format(d.idx))
@@ -2094,9 +2094,7 @@ class StockEntry(StockController):
 				"s_warehouse": s_warehouse,
 				"t_warehouse": t_warehouse,
 				"is_finished_item": source_row.is_finished_item,
-				"type": source_row.type,
-				"is_legacy_scrap_item": source_row.is_legacy_scrap_item,
-				"bom_secondary_item": source_row.bom_secondary_item,
+				"is_scrap_item": source_row.is_scrap_item,
 				"bom_no": source_row.bom_no,
 				# batch and serial bundles built on submit
 				"use_serial_batch_fields": 1 if (source_row.batch_no or source_row.serial_no) else 0,
@@ -2126,9 +2124,9 @@ class StockEntry(StockController):
 
 		self.add_to_stock_entry_detail(item_dict)
 
-		# Secondary/Scrap items (reverse of what set_secondary_items does for Manufacture)
-		secondary_items = self.get_secondary_items(self.fg_completed_qty)
-		if secondary_items:
+		# Scrap items (reverse: take scrap FROM scrap warehouse instead of producing TO it)
+		scrap_items = self.get_bom_scrap_material(self.fg_completed_qty)
+		if scrap_items:
 			scrap_warehouse = self.from_warehouse
 			if self.work_order:
 				wo_values = frappe.db.get_value(
@@ -2136,18 +2134,12 @@ class StockEntry(StockController):
 				)
 				scrap_warehouse = wo_values.scrap_warehouse or scrap_warehouse or wo_values.fg_warehouse
 
-			for item in secondary_items.values():
+			for item in scrap_items.values():
 				item["from_warehouse"] = scrap_warehouse
 				item["to_warehouse"] = ""
 				item["is_finished_item"] = 0
 
-				if item.get("process_loss_per"):
-					item["qty"] -= flt(
-						item["qty"] * (item["process_loss_per"] / 100),
-						self.precision("fg_completed_qty"),
-					)
-
-			self.add_to_stock_entry_detail(secondary_items, bom_no=self.bom_no)
+			self.add_to_stock_entry_detail(scrap_items, bom_no=self.bom_no)
 
 		# Finished goods
 		self.load_items_from_bom()
@@ -2166,9 +2158,7 @@ class StockEntry(StockController):
 			SED.basic_rate,
 			SED.conversion_factor,
 			SED.is_finished_item,
-			SED.type,
-			SED.is_legacy_scrap_item,
-			SED.bom_secondary_item,
+			SED.is_scrap_item,
 			SED.batch_no,
 			SED.serial_no,
 			SED.use_serial_batch_fields,
