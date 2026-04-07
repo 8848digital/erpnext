@@ -305,9 +305,7 @@ class StockEntry(StockController):
 		scale_factor = flt(self.fg_completed_qty) / source_fg_qty if source_fg_qty else 0
 
 		bundle_data = get_voucher_wise_serial_batch_from_bundle(voucher_no=[self.source_stock_entry])
-		source_rows_by_name = {
-			r.name: r for r in self.get_items_from_manufacture_stock_entry(self.source_stock_entry)
-		}
+		source_rows_by_name = {r.name: r for r in self.get_items_from_manufacture_stock_entry()}
 
 		for row in self.items:
 			if not row.ste_detail:
@@ -2063,7 +2061,6 @@ class StockEntry(StockController):
 		self._append_disassembly_row_from_source(
 			disassemble_qty=disassemble_qty,
 			scale_factor=scale_factor,
-			source_stock_entry=self.source_stock_entry,
 		)
 
 	def _add_items_for_disassembly_from_work_order(self):
@@ -2084,8 +2081,8 @@ class StockEntry(StockController):
 			scale_factor=scale_factor,
 		)
 
-	def _append_disassembly_row_from_source(self, disassemble_qty, scale_factor, source_stock_entry=None):
-		for source_row in self.get_items_from_manufacture_stock_entry(self.source_stock_entry):
+	def _append_disassembly_row_from_source(self, disassemble_qty, scale_factor):
+		for source_row in self.get_items_from_manufacture_stock_entry():
 			if source_row.is_finished_item:
 				qty = disassemble_qty
 				s_warehouse = self.from_warehouse or source_row.t_warehouse
@@ -2121,10 +2118,10 @@ class StockEntry(StockController):
 				"use_serial_batch_fields": 1 if (source_row.batch_no or source_row.serial_no) else 0,
 			}
 
-			if source_stock_entry:
+			if self.source_stock_entry:
 				item.update(
 					{
-						"against_stock_entry": source_stock_entry,
+						"against_stock_entry": self.source_stock_entry,
 						"ste_detail": source_row.name,
 					}
 				)
@@ -2173,6 +2170,7 @@ class StockEntry(StockController):
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 	def get_items_from_manufacture_entry(self):
 		return frappe.get_all(
 			"Stock Entry",
@@ -2206,6 +2204,9 @@ class StockEntry(StockController):
 =======
 	def get_items_from_manufacture_stock_entry(self, stock_entry=None):
 >>>>>>> 3cf1ce8360 (fix: manufacture entry with group_by support)
+=======
+	def get_items_from_manufacture_stock_entry(self):
+>>>>>>> 98dfd64f63 (fix: remove unnecessary param, and use value from self)
 		SE = frappe.qb.DocType("Stock Entry")
 		SED = frappe.qb.DocType("Stock Entry Detail")
 		query = frappe.qb.from_(SED).join(SE).on(SED.parent == SE.name).where(SE.docstatus == 1)
@@ -2230,10 +2231,10 @@ class StockEntry(StockController):
 			SED.bom_no,
 		]
 
-		if stock_entry:
+		if self.source_stock_entry:
 			return (
 				query.select(SED.name, SED.qty, SED.transfer_qty, *common_fields)
-				.where(SE.name == stock_entry)
+				.where(SE.name == self.source_stock_entry)
 				.orderby(SED.idx)
 				.run(as_dict=True)
 			)
