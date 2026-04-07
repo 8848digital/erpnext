@@ -329,7 +329,7 @@ class StockEntry(StockController):
 				for batch_no, batch_qty in source_bundle["batch_nos"].items():
 					if qty_remaining <= 0:
 						break
-					alloc = min(flt(batch_qty) * scale_factor, qty_remaining)
+					alloc = min(abs(flt(batch_qty)) * scale_factor, qty_remaining)
 					batches[batch_no] = alloc
 					qty_remaining -= alloc
 			elif source_row.batch_no:
@@ -2116,6 +2116,7 @@ class StockEntry(StockController):
 				"type": source_row.type,
 				"is_legacy_scrap_item": source_row.is_legacy_scrap_item,
 				"bom_secondary_item": source_row.bom_secondary_item,
+				"bom_no": source_row.bom_no,
 				# batch and serial bundles built on submit
 				"use_serial_batch_fields": 1 if (source_row.batch_no or source_row.serial_no) else 0,
 			}
@@ -2226,6 +2227,7 @@ class StockEntry(StockController):
 			SED.use_serial_batch_fields,
 			SED.s_warehouse,
 			SED.t_warehouse,
+			SED.bom_no,
 		]
 
 		if stock_entry:
