@@ -870,6 +870,60 @@ erpnext.work_order = {
 		return flt(max, precision("qty"));
 	},
 
+	show_disassembly_prompt: function (frm) {
+		let max_qty = flt(frm.doc.produced_qty - frm.doc.disassembled_qty);
+
+		let fields = [
+			{
+				fieldtype: "Link",
+				label: __("Source Manufacture Entry"),
+				fieldname: "source_stock_entry",
+				options: "Stock Entry",
+				description: __("Optional. Select a specific manufacture entry to reverse."),
+				get_query: () => {
+					return {
+						filters: {
+							work_order: frm.doc.name,
+							purpose: "Manufacture",
+							docstatus: 1,
+						},
+					};
+				},
+				onchange: async function () {
+					if (!frm.disassembly_prompt) return;
+
+					let se_name = this.value;
+					let qty = max_qty;
+					if (se_name) {
+						qty = await frappe.xcall(
+							"erpnext.manufacturing.doctype.work_order.work_order.get_disassembly_available_qty",
+							{ stock_entry_name: se_name }
+						);
+					}
+
+					frm.disassembly_prompt.set_value("qty", qty);
+					frm.disassembly_prompt.fields_dict.qty.set_description(__("Max: {0}", [qty]));
+				},
+			},
+			{
+				fieldtype: "Float",
+				label: __("Qty for {0}", [__("Disassemble")]),
+				fieldname: "qty",
+				description: __("Max: {0}", [max_qty]),
+				default: max_qty,
+			},
+		];
+
+		return new Promise((resolve, reject) => {
+			frm.disassembly_prompt = frappe.prompt(
+				fields,
+				(data) => resolve(data),
+				__("Disassemble"),
+				__("Create")
+			);
+		});
+	},
+
 	show_prompt_for_qty_input: function (frm, purpose) {
 		let max = this.get_max_transferable_qty(frm, purpose);
 

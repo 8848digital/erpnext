@@ -12,6 +12,7 @@
   "naming_series",
   "stock_entry_type",
   "outgoing_stock_entry",
+  "source_stock_entry",
   "purpose",
   "add_to_transit",
   "work_order",

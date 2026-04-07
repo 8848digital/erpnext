@@ -1489,7 +1489,13 @@ def set_work_order_ops(name):
 
 
 @frappe.whitelist()
-def make_stock_entry(work_order_id, purpose, qty=None, target_warehouse=None):
+def make_stock_entry(
+	work_order_id: str,
+	purpose: str,
+	qty: float | None = None,
+	target_warehouse: str | None = None,
+	source_stock_entry: str | None = None,
+):
 	work_order = frappe.get_doc("Work Order", work_order_id)
 	if not frappe.db.get_value("Warehouse", work_order.wip_warehouse, "is_group"):
 		wip_warehouse = work_order.wip_warehouse
@@ -1539,12 +1545,6 @@ def make_stock_entry(work_order_id, purpose, qty=None, target_warehouse=None):
 
 
 @frappe.whitelist()
-
-def get_default_warehouse():
-	doc = frappe.get_cached_doc("Manufacturing Settings")
-
-
-def get_disassembly_available_qty(stock_entry_name: str) -> float:
 def get_disassembly_available_qty(stock_entry_name: str, current_se_name: str | None = None) -> float:
 	se = frappe.db.get_value("Stock Entry", stock_entry_name, ["fg_completed_qty"], as_dict=True)
 	if not se:
@@ -1565,10 +1565,8 @@ def get_disassembly_available_qty(stock_entry_name: str, current_se_name: str | 
 
 
 @frappe.whitelist()
-def get_default_warehouse(company: str):
-	wip, fg, scrap = frappe.get_cached_value(
-		"Company", company, ["default_wip_warehouse", "default_fg_warehouse", "default_scrap_warehouse"]
-	)
+def get_default_warehouse():
+	doc = frappe.get_cached_doc("Manufacturing Settings")
 
 	return {
 		"wip_warehouse": doc.default_wip_warehouse,

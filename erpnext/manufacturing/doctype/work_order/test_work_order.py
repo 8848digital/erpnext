@@ -3,13 +3,8 @@
 
 
 import frappe
-<<<<<<< HEAD
 from frappe.tests.utils import FrappeTestCase, change_settings, timeout
-from frappe.utils import add_days, add_months, add_to_date, cint, flt, now, today
-=======
-from frappe.tests import timeout
 from frappe.utils import add_days, add_months, add_to_date, cint, flt, now, nowdate, nowtime, today
->>>>>>> 93ad48bc1b (fix: process loss with bom path disassembly)
 
 from erpnext.manufacturing.doctype.job_card.job_card import JobCardCancelError
 from erpnext.manufacturing.doctype.job_card.job_card import make_stock_entry as make_stock_entry_from_jc
