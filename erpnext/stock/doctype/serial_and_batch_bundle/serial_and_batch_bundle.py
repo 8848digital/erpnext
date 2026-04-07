@@ -382,7 +382,7 @@ class SerialandBatchBundle(Document):
 		if valuation_details := self.get_valuation_rate_for_return_entry(return_against):
 			from erpnext.stock.utils import get_valuation_method
 
-			valuation_method = get_valuation_method(self.item_code, self.company)
+			valuation_method = get_valuation_method(self.item_code)
 
 			stock_queue = []
 			non_batchwise_batches = []
