@@ -74,11 +74,7 @@ class RepostItemValuation(Document):
 		repost(self)
 
 	def validate(self):
-<<<<<<< HEAD
-=======
 		self.set_default_posting_time()
-		self.reset_repost_only_accounting_ledgers()
->>>>>>> a7ece65536 (fix: set default posting time in RIV)
 		self.set_company()
 		self.validate_update_stock()
 		self.validate_period_closing_voucher()
@@ -88,8 +84,6 @@ class RepostItemValuation(Document):
 		self.reset_recreate_stock_ledgers()
 		self.validate_recreate_stock_ledgers()
 
-<<<<<<< HEAD
-=======
 	def set_default_posting_time(self):
 		if not self.posting_time:
 			self.posting_time = nowtime()
@@ -97,11 +91,6 @@ class RepostItemValuation(Document):
 		if not self.posting_date:
 			frappe.throw(_("Posting date is required"))
 
-	def reset_repost_only_accounting_ledgers(self):
-		if self.repost_only_accounting_ledgers and self.based_on != "Transaction":
-			self.repost_only_accounting_ledgers = 0
-
->>>>>>> a7ece65536 (fix: set default posting time in RIV)
 	def validate_update_stock(self):
 		if self.voucher_type in ["Sales Invoice", "Purchase Invoice"]:
 			update_stock = frappe.get_value(self.voucher_type, self.voucher_no, "update_stock")
