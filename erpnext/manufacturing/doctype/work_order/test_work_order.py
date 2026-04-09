@@ -511,7 +511,6 @@ class TestWorkOrder(FrappeTestCase):
 
 	def test_work_order_material_transferred_qty_with_process_loss(self):
 		stock_entries = []
-
 		item_code = make_item("_Test Item For Process Loss", {"is_stock_item": 1}).name
 		rm_item_code = make_item("Test Item For Process Loss RM", {"is_stock_item": 1}).name
 
