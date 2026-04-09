@@ -511,9 +511,6 @@ class TestWorkOrder(FrappeTestCase):
 
 	def test_work_order_material_transferred_qty_with_process_loss(self):
 		stock_entries = []
-<<<<<<< HEAD
-		bom = frappe.get_doc("BOM", {"docstatus": 1, "with_operations": 1, "company": "_Test Company"})
-=======
 		item_code = make_item("_Test Item For Process Loss", {"is_stock_item": 1}).name
 		rm_item_code = make_item("Test Item For Process Loss RM", {"is_stock_item": 1}).name
 
@@ -549,7 +546,6 @@ class TestWorkOrder(FrappeTestCase):
 		bom.append("operations", operation)
 		bom.save()
 		bom.submit()
->>>>>>> 38ed425ee2 (fix: last SLE not updated in the file)
 
 		work_order = make_wo_order_test_record(
 			item=bom.item,
