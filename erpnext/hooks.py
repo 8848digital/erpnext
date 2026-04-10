@@ -507,6 +507,7 @@ bank_reconciliation_doctypes = [
 
 accounting_dimension_doctypes = [
 	"GL Entry",
+	"FL Entry",
 	"Payment Ledger Entry",
 	"Sales Invoice",
 	"Purchase Invoice",
