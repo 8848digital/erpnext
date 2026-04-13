@@ -866,7 +866,7 @@ class StockEntry(StockController):
 		Raises:
 		    frappe.ValidationError: If warehouses are same and no inventory dimensions differ
 		"""
-		if frappe.get_single_value("Stock Settings", "validate_material_transfer_warehouses"):
+		if frappe.db.get_single_value("Stock Settings", "validate_material_transfer_warehouses"):
 			from erpnext.stock.doctype.inventory_dimension.inventory_dimension import get_inventory_dimensions
 
 			inventory_dimensions = get_inventory_dimensions()
@@ -1192,7 +1192,7 @@ class StockEntry(StockController):
 						"qty": row.transfer_qty * -1,
 					}
 				).update_serial_and_batch_entries()
-			elif not row.serial_and_batch_bundle and frappe.get_single_value(
+			elif not row.serial_and_batch_bundle and frappe.db.get_single_value(
 				"Stock Settings", "auto_create_serial_and_batch_bundle_for_outward"
 			):
 				bundle_doc = SerialBatchCreation(

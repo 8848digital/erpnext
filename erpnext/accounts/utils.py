@@ -1869,7 +1869,7 @@ def build_qb_match_conditions(doctype, user=None) -> list:
 	return criterion
 
 def is_immutable_ledger_enabled():
-	return frappe.get_single_value("Accounts Settings", "enable_immutable_ledger")
+	return frappe.db.get_single_value("Accounts Settings", "enable_immutable_ledger")
 
 def auto_create_exchange_rate_revaluation_weekly() -> None:
 	"""

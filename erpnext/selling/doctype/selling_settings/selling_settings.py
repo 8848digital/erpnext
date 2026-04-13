@@ -74,7 +74,7 @@ class SellingSettings(Document):
 		if (
 			self.fallback_to_default_price_list
 			and self.has_value_changed("fallback_to_default_price_list")
-			and frappe.get_single_value("Stock Settings", "auto_insert_price_list_rate_if_missing")
+			and frappe.db.get_single_value("Stock Settings", "auto_insert_price_list_rate_if_missing")
 		):
 			stock_meta = frappe.get_meta("Stock Settings")
 			frappe.msgprint(

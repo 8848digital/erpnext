@@ -420,7 +420,7 @@ def _make_sales_order(source_name, target_doc=None, ignore_permissions=False, ar
 		return child_filter
 
 	automatically_fetch_payment_terms = cint(
-		frappe.get_single_value("Accounts Settings", "automatically_fetch_payment_terms")
+		frappe.db.get_single_value("Accounts Settings", "automatically_fetch_payment_terms")
 	)
 
 	doclist = get_mapped_doc(

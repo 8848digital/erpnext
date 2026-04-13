@@ -2123,7 +2123,7 @@ class AccountsController(TransactionBase):
 		precision = self.precision(based_on, "items")
 		precision_allowance = 1 / (10**precision)
 
-		role_allowed_to_overbill = frappe.get_single_value("Accounts Settings", "role_allowed_to_over_bill")
+		role_allowed_to_overbill = frappe.db.get_single_value("Accounts Settings", "role_allowed_to_over_bill")
 		is_overbilling_allowed = role_allowed_to_overbill in frappe.get_roles()
 
 		for row in ref_wise_billed_amount.values():

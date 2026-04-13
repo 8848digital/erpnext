@@ -101,10 +101,10 @@ def get_item_details(args, doc=None, for_validate=False, overwrite_warehouse=Tru
 	if (
 		not out.price_list_rate
 		and args.transaction_type == "selling"
-		and frappe.get_single_value("Selling Settings", "fallback_to_default_price_list")
+		and frappe.db.get_single_value("Selling Settings", "fallback_to_default_price_list")
 	):
 		fallback_args = args.copy()
-		fallback_args.price_list = frappe.get_single_value("Selling Settings", "selling_price_list")
+		fallback_args.price_list = frappe.db.get_single_value("Selling Settings", "selling_price_list")
 		out.update(get_price_list_rate(fallback_args, item))
 
 	args.customer = current_customer
@@ -587,7 +587,7 @@ def get_item_warehouse(item, args, overwrite_warehouse, defaults=None):
 		warehouse = args.get("warehouse")
 
 	if not warehouse:
-		default_warehouse = frappe.get_single_value("Stock Settings", "default_warehouse")
+		default_warehouse = frappe.db.get_single_value("Stock Settings", "default_warehouse")
 		if (
 			default_warehouse
 			and frappe.get_cached_value("Warehouse", default_warehouse, "company") == args.company

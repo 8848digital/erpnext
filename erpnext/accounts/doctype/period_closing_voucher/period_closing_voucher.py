@@ -129,7 +129,7 @@ class PeriodClosingVoucher(AccountsController):
 
 	def on_submit(self):
 		self.db_set("gle_processing_status", "In Progress")
-		if frappe.get_single_value("Accounts Settings", "use_legacy_controller_for_pcv"):
+		if frappe.db.get_single_value("Accounts Settings", "use_legacy_controller_for_pcv"):
 			self.make_gl_entries()
 		else:
 			ppcv = frappe.get_doc({"doctype": "Process Period Closing Voucher", "parent_pcv": self.name})
@@ -145,7 +145,7 @@ class PeriodClosingVoucher(AccountsController):
 		)
 		self.block_if_future_closing_voucher_exists()
 
-		if not frappe.get_single_value("Accounts Settings", "use_legacy_controller_for_pcv"):
+		if not frappe.db.get_single_value("Accounts Settings", "use_legacy_controller_for_pcv"):
 			self.cancel_process_pcv_docs()
 
 		self.db_set("gle_processing_status", "In Progress")
