@@ -6,7 +6,7 @@ import json
 from collections import defaultdict
 
 import frappe
-from frappe.tests.utils import FrappeTestCase, if_app_installed
+from frappe.tests.utils import FrappeTestCase
 from frappe.utils import add_days, cstr, flt, getdate, nowdate, nowtime, today
 from frappe.tests import change_settings
 from erpnext.accounts.doctype.account.test_account import get_inventory_account, make_company
@@ -3607,7 +3607,7 @@ class TestDeliveryNote(FrappeTestCase):
 			company="_Test Company",
 		)
 
-	@if_app_installed("erpnext_crm")
+	
 	def test_dn_submission_TC_SCK_148(self):
 		# from erpnext_crm.erpnext_crm.doctype.lead.lead import make_customer
 		from erpnext.stock.doctype.delivery_note.test_delivery_note import create_delivery_note

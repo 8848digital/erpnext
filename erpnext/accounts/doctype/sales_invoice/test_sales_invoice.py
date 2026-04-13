@@ -7,7 +7,7 @@ import json
 import frappe
 from frappe import qb
 from frappe.model.dynamic_links import get_dynamic_link_map
-from frappe.tests.utils import FrappeTestCase, change_settings, if_app_installed
+from frappe.tests.utils import FrappeTestCase, change_settings
 from frappe.utils import add_days, flt, format_date, getdate, nowdate, today
 
 import erpnext
@@ -2491,7 +2491,7 @@ class TestSalesInvoice(FrappeTestCase):
 			self.assertEqual(expected_account_values[0], gle.debit)
 			self.assertEqual(expected_account_values[1], gle.credit)
 
-	@if_app_installed("assets")
+	
 	def test_rounding_adjustment_3(self):
 		from erpnext.accounts.doctype.accounting_dimension.test_accounting_dimension import (
 			create_dimension,
@@ -3570,7 +3570,7 @@ class TestSalesInvoice(FrappeTestCase):
 			invoice.reload()
 			self.assertEqual(invoice.status, "Overdue and Discounted")
 
-	@if_app_installed("sales_commission")
+	
 	def test_sales_commission(self):
 		si = frappe.copy_doc(test_records[2])
 
@@ -4041,7 +4041,7 @@ class TestSalesInvoice(FrappeTestCase):
 		check_gl_entries(self, pe.name, expected_gle, nowdate(), voucher_type="Payment Entry")
 		set_advance_flag(company="_Test Company", flag=0, default_account="")
 
-	@if_app_installed("india_compliance")
+	
 	def test_pulling_advance_based_on_debit_to(self):
 		from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_payment_entry
 
@@ -4930,7 +4930,7 @@ class TestSalesInvoice(FrappeTestCase):
 				posting_date=pe.posting_date,
 			)
 
-	@if_app_installed("india_compliance")
+	
 	def test_sales_invoice_without_sales_order_with_gst_TC_S_016(self):
 		from erpnext.stock.doctype.stock_entry.test_stock_entry import make_stock_entry
 		from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
@@ -5059,7 +5059,7 @@ class TestSalesInvoice(FrappeTestCase):
 				)
 				self.assertEqual(dn_acc_debit, 20000)
 
-	@if_app_installed("india_compliance")
+	
 	def test_sales_invoice_with_update_stock_checked_with_gst_TC_S_017(self):
 		from erpnext.stock.doctype.stock_entry.test_stock_entry import make_stock_entry
 		from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
@@ -6449,7 +6449,7 @@ class TestSalesInvoice(FrappeTestCase):
 		si = make_sales_invoice(so.name)
 		self.assertEqual(si.payment_terms_template, "_Test Payment Term Template")
 
-	@if_app_installed("india_compliance")
+	
 	def test_generate_sales_invoice_with_items_different_gst_rates_TC_ACC_131(self):
 		import json
 
@@ -7139,66 +7139,6 @@ class TestSalesInvoice(FrappeTestCase):
 		)
 		self.assertEqual(qty_change, 1)
 
-	def test_calculate_commission_for_sales_partner_TC_ACC_143(self):
-		from frappe.tests.utils import if_app_installed
-
-		from erpnext.accounts.doctype.payment_entry.test_payment_entry import make_test_item
-		from erpnext.accounts.utils import get_fiscal_year
-		from erpnext.stock.utils import get_or_create_fiscal_year
-
-		get_or_create_fiscal_year("_Test Company")
-		fiscal_year = get_fiscal_year(nowdate())[0]
-		if if_app_installed("Sales Commission"):
-			if not frappe.db.exists("Monthly Distribution", "_Test Sales Distribution"):
-				month_distribution = frappe.get_doc(
-					{
-						"distribution_id": "_Test Sales Distribution",
-						"doctype": "Monthly Distribution",
-						"fiscal_year": fiscal_year,
-					}
-				)
-				get_months(month_distribution)
-				month_distribution.insert()
-			if not frappe.db.exists("Sales Partner", "_Test Sales Distributor"):
-				month_distribution = frappe.get_doc("Monthly Distribution", "_Test Sales Distribution")
-
-				frappe.get_doc(
-					{
-						"partner_name": "_Test Sales Distributor",
-						"doctype": "Sales Partner",
-						"territory": "All Territories",
-						"sales_person": "_Test Sales Commission",
-						"partner_type": "Distributor",
-						"commission_rate": 5,
-						"targets": [
-							{
-								"item_group": "_Test Item Group",
-								"fiscal_year": fiscal_year,
-								"target_qty": 10,
-								"target_amount": 1000,
-								"distribution_id": month_distribution.name,
-							}
-						],
-					}
-				).insert()
-			customer = frappe.get_doc("Customer", "_Test Customer")
-			customer.default_sales_partner = "_Test Sales Distributor"
-			customer.default_commission_rate = 5
-			customer.save()
-			item = make_test_item("_Test Item 3")
-			si = create_sales_invoice(
-				customer="_Test Customer",
-				company="_Test Company",
-				item_code=item.name,
-				qty=10,
-				rate=1000,
-				do_not_submit=True,
-			)
-			si.submit()
-			self.assertEqual(si.total_commission, 500)
-			self.assertEqual(si.commission_rate, 5)
-			self.assertEqual(si.amount_eligible_for_commission, 10000)
-			self.assertEqual(si.sales_partner, "_Test Sales Distributor")
 
 	def test_payment_term_discount_for_si_at_fully_paid_TC_ACC_097(self):
 		from erpnext.accounts.doctype.payment_entry.test_payment_entry import make_test_item

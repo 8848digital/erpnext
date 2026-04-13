@@ -5,7 +5,7 @@
 from urllib.parse import urlparse
 
 import frappe
-from frappe.tests.utils import FrappeTestCase, if_app_installed,change_settings
+from frappe.tests.utils import FrappeTestCase,change_settings
 from frappe.utils import nowdate
 
 from erpnext.buying.doctype.request_for_quotation.request_for_quotation import (
@@ -134,7 +134,7 @@ class TestRequestforQuotation(FrappeTestCase):
 		self.assertEqual(supplier_quotation.items[0].qty, 5)
 		self.assertEqual(supplier_quotation.items[0].stock_qty, 10)
 
-	@if_app_installed("erpnext_crm")
+	
 	def test_make_rfq_from_opportunity(self):
 		from erpnext_crm.erpnext_crm.doctype.opportunity.opportunity import (
 			make_request_for_quotation as make_rfq,

@@ -2681,7 +2681,7 @@ class TestStockEntry(FrappeTestCase):
 			"batch_number_series": "Test-SABBMRP-Bno.#####",
 			"valuation_rate": 100,
 		}
-		# if if_app_installed("india_compliance"):
+
 		if frappe.db.has_column("Item", "gst_hsn_code"):
 			fields["gst_hsn_code"] = "01011010"
 

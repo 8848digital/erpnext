@@ -4,7 +4,7 @@
 
 import frappe
 from frappe import _, bold, throw
-from frappe.tests.utils import if_app_installed
+
 from frappe.utils import cint, flt, get_link_to_form, nowtime
 
 from erpnext.accounts.party import render_address
@@ -101,7 +101,7 @@ class SellingController(StockController):
 
 		self.set_price_list_and_item_details(for_validate=for_validate)
 
-	@if_app_installed("erpnext_crm")
+	
 	def set_missing_lead_customer_details(self, for_validate=False):
 		customer, lead = None, None
 		if getattr(self, "customer", None):

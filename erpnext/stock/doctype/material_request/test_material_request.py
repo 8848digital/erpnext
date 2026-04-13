@@ -9,7 +9,7 @@ import json
 from datetime import date
 
 import frappe
-from frappe.tests.utils import FrappeTestCase, change_settings, if_app_installed
+from frappe.tests.utils import FrappeTestCase, change_settings
 from frappe.utils import add_days, flt, getdate, nowdate, today
 
 from erpnext.accounts.doctype.account.test_account import get_inventory_account
@@ -6735,7 +6735,7 @@ class TestMaterialRequest(FrappeTestCase):
 		)
 		self.assertEqual(gl_stock_debit, 100)
 
-	@if_app_installed("india_compliance")
+	
 	def test_mr_to_po_pr_with_serial_no_TC_B_156(self):
 		from erpnext.stock.utils import get_or_create_fiscal_year
 
@@ -6828,7 +6828,7 @@ class TestMaterialRequest(FrappeTestCase):
 			self.assertEqual(sn.warehouse, warehouse)
 			self.assertEqual(sn.item_code, item_code)
 
-	@if_app_installed("india_compliance")
+	
 	def test_mr_to_po_pr_with_multiple_serial_nos_TC_B_157(self):
 		from erpnext.stock.utils import get_or_create_fiscal_year
 
@@ -6960,7 +6960,7 @@ class TestMaterialRequest(FrappeTestCase):
 			self.assertEqual(sn.warehouse, warehouse)
 			self.assertEqual(sn.item_code, item_code)
 
-	@if_app_installed("india_compliance")
+	
 	def test_mr_to_po_pi_with_serial_nos_TC_B_158(self):
 		company = create_company()
 		warehouse = "Stores - _CM"

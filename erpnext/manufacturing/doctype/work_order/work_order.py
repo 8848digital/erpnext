@@ -10,7 +10,7 @@ from frappe.model.document import Document
 from frappe.model.mapper import get_mapped_doc
 from frappe.query_builder import Case
 from frappe.query_builder.functions import Sum
-from frappe.tests.utils import if_app_installed
+
 from frappe.utils import (
 	cint,
 	date_diff,
