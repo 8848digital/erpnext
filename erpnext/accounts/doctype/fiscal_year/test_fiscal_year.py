@@ -155,7 +155,7 @@ def test_record_generator():
 			"year": "_Test Short Fiscal Year 2011",
 			"is_short_year": 1,
 			"year_start_date": "2011-04-01",
-			"year_end_date": "2011-12-31",
+			"year_end_date": "2012-03-31",
 		}
 	]
 
@@ -166,8 +166,8 @@ def test_record_generator():
 			{
 				"doctype": "Fiscal Year",
 				"year": f"_Test Fiscal Year {year}",
-				"year_start_date": f"{year}-01-01",
-				"year_end_date": f"{year}-12-31",
+				"year_start_date": f"{year}-04-01",
+				"year_end_date": f"{year+1}-03-31",
 			}
 		)
 
