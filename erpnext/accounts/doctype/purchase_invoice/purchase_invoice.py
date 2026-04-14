@@ -2003,7 +2003,10 @@ def make_purchase_receipt(source_name, target_doc=None, args=None):
 		child_filter = d.name in filtered_items if filtered_items else True
 		return child_filter
 
-	fields  = {
+	doc = get_mapped_doc(
+		"Purchase Invoice",
+		source_name,
+		{
 			"Purchase Invoice": {
 				"doctype": "Purchase Receipt",
 				"validation": {
@@ -2020,6 +2023,7 @@ def make_purchase_receipt(source_name, target_doc=None, args=None):
 					"po_detail": "purchase_order_item",
 					"material_request": "material_request",
 					"material_request_item": "material_request_item",
+					"wip_composite_asset": "wip_composite_asset",
 				},
 				"postprocess": update_item,
 				"condition": lambda doc: abs(doc.received_qty) < abs(doc.qty) and select_item(doc),
