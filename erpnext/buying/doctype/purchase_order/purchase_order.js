@@ -386,6 +386,7 @@ erpnext.buying.PurchaseOrderController = class PurchaseOrderController extends (
 	erpnext.buying.BuyingController
 ) {
 	setup() {
+		this.setup_accounting_dimension_triggers();
 		this.frm.custom_make_buttons = {
 			"Purchase Receipt": "Purchase Receipt",
 			"Purchase Invoice": "Purchase Invoice",
@@ -847,10 +848,6 @@ erpnext.buying.PurchaseOrderController = class PurchaseOrderController extends (
 	}
 
 	items_on_form_rendered() {
-		set_schedule_date(this.frm);
-	}
-
-	schedule_date() {
 		set_schedule_date(this.frm);
 	}
 };

@@ -165,6 +165,13 @@ class SellingController(StockController):
 				"Company", self.company, "default_sales_contact"
 			)
 
+	def set_company_contact_person(self):
+		"""Set the Company's Default Sales Contact as Company Contact Person."""
+		if self.company and self.meta.has_field("company_contact_person") and not self.company_contact_person:
+			self.company_contact_person = frappe.get_cached_value(
+				"Company", self.company, "default_sales_contact"
+			)
+
 	def remove_shipping_charge(self):
 		if self.shipping_rule:
 			shipping_rule = frappe.get_doc("Shipping Rule", self.shipping_rule)
@@ -289,6 +296,7 @@ class SellingController(StockController):
 					bold(ref_rate_field),
 					bold("net rate"),
 					bold(rate),
+					bold(frappe.get_meta("Selling Settings").get_label("validate_selling_price")),
 					get_link_to_form("Selling Settings", "Selling Settings"),
 				),
 				title=_("Invalid Selling Price"),
@@ -318,45 +326,12 @@ class SellingController(StockController):
 			if is_internal_customer or not is_stock_item:
 				continue
 
-			valuation_rate_map[(item.item_code, item.warehouse)] = None
-
-		if not valuation_rate_map:
-			return
-
-		or_conditions = (
-			f"""(item_code = {frappe.db.escape(valuation_rate[0])}
-			and warehouse = {frappe.db.escape(valuation_rate[1])})"""
-			for valuation_rate in valuation_rate_map
-		)
-
-		valuation_rates = frappe.db.sql(
-			f"""
-			select
-				item_code, warehouse, valuation_rate
-			from
-				`tabBin`
-			where
-				({" or ".join(or_conditions)})
-				and valuation_rate > 0
-		""",
-			as_dict=True,
-		)
-
-		for rate in valuation_rates:
-			valuation_rate_map[(rate.item_code, rate.warehouse)] = rate.valuation_rate
-
-		for item in self.items:
-			if not item.item_code or item.is_free_item:
-				continue
-
-			last_valuation_rate = valuation_rate_map.get((item.item_code, item.warehouse))
-
-			if not last_valuation_rate:
-				continue
-
-			last_valuation_rate_in_sales_uom = last_valuation_rate * (item.conversion_factor or 1)
-
-			if flt(item.base_net_rate) < flt(last_valuation_rate_in_sales_uom):
+			rate_field = "valuation_rate" if self.doctype in ["Sales Order", "Quotation"] else "incoming_rate"
+			if item.get(rate_field) and item.base_net_rate < (
+				valuation_rate := flt(
+					item.get(rate_field) * (item.conversion_factor or 1), item.precision("base_net_rate")
+				)
+			):
 				throw_message(
 					item.idx,
 					item.item_name,
@@ -516,9 +491,19 @@ class SellingController(StockController):
 		if self.doctype not in ("Delivery Note", "Sales Invoice"):
 			return
 
+		if self.doctype == "Sales Invoice" and not self.update_stock and not self.is_internal_transfer():
+			return
+
+		from erpnext.stock.serial_batch_bundle import get_batch_nos, get_serial_nos
+
 		allow_at_arms_length_price = frappe.get_cached_value(
 			"Stock Settings", None, "allow_internal_transfer_at_arms_length_price"
 		)
+		set_zero_rate_for_expired_batch = frappe.db.get_single_value(
+			"Selling Settings", "set_zero_rate_for_expired_batch"
+		)
+
+		old_doc = self.get_doc_before_save()
 		items = self.get("items") + (self.get("packed_items") or [])
 		for d in items:
 			if not frappe.get_cached_value("Item", d.item_code, "is_stock_item"):
@@ -536,6 +521,29 @@ class SellingController(StockController):
 			):
 				# Get incoming rate based on original item cost based on valuation method
 				qty = flt(d.get("stock_qty") or d.get("actual_qty") or d.get("qty"))
+
+				if old_doc:
+					old_item = next(
+						(
+							item
+							for item in (old_doc.get("items") + (old_doc.get("packed_items") or []))
+							if item.name == d.name
+						),
+						None,
+					)
+					if old_item:
+						old_qty = flt(
+							old_item.get("stock_qty") or old_item.get("actual_qty") or old_item.get("qty")
+						)
+						if (
+							old_item.item_code != d.item_code
+							or old_item.warehouse != d.warehouse
+							or old_qty != qty
+							or old_item.batch_no != d.batch_no
+							or get_batch_nos(old_item.serial_and_batch_bundle)
+							!= get_batch_nos(d.serial_and_batch_bundle)
+						):
+							d.incoming_rate = 0
 
 				if (
 					not d.incoming_rate
@@ -991,10 +999,19 @@ class SellingController(StockController):
 
 
 def set_default_income_account_for_item(obj):
-	for d in obj.get("items"):
-		if d.item_code:
-			if getattr(d, "income_account", None):
-				set_item_default(d.item_code, obj.company, "income_account", d.income_account)
+	"""Set income account as default for items in the transaction.
+
+	Updates the item default income account for each item in the transaction
+	if it differs from the company's default income account.
+
+	Args:
+	    obj: Transaction document containing items table with income_account field
+	"""
+	company_default = frappe.get_cached_value("Company", obj.company, "default_income_account")
+	for d in obj.get("items", default=[]):
+		income_account = getattr(d, "income_account", None)
+		if d.item_code and income_account and income_account != company_default:
+			set_item_default(d.item_code, obj.company, "income_account", income_account)
 
 
 def get_serial_and_batch_bundle(child, parent, delivery_note_child=None):

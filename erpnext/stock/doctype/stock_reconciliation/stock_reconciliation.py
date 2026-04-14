@@ -506,9 +506,12 @@ class StockReconciliation(StockController):
 				if abs(difference_amount) > 0:
 					return True
 
+			rate_precision = item.precision("valuation_rate")
+			rate = flt(item_dict.get("rate"), rate_precision)
+			valuation_rate = flt(item.valuation_rate, rate_precision) if item.valuation_rate else None
 			if (
 				(item.qty is None or item.qty == item_dict.get("qty"))
-				and (item.valuation_rate is None or item.valuation_rate == item_dict.get("rate"))
+				and (valuation_rate is None or valuation_rate == rate)
 				and (not item.serial_no or (item.serial_no == item_dict.get("serial_nos")))
 			):
 				return False
@@ -862,7 +865,7 @@ class StockReconciliation(StockController):
 			if row.get(dimension.get("fieldname")):
 				has_dimensions = True
 
-		if self.docstatus == 2 and (not row.batch_no or not row.serial_and_batch_bundle):
+		if self.docstatus == 2:
 			if row.current_qty and current_bundle:
 				data.actual_qty = -1 * row.current_qty
 				data.qty_after_transaction = flt(row.current_qty)
@@ -962,6 +965,7 @@ class StockReconciliation(StockController):
 			is_customer_item = frappe.db.get_value("Item", d.item_code, "is_customer_provided_item")
 			if is_customer_item and d.valuation_rate:
 				d.valuation_rate = 0.0
+				d.allow_zero_valuation_rate = 1
 				changed_any_values = True
 
 		if changed_any_values:
@@ -973,9 +977,9 @@ class StockReconciliation(StockController):
 
 	def set_total_qty_and_amount(self):
 		for d in self.get("items"):
-			d.amount = flt(d.qty, d.precision("qty")) * flt(d.valuation_rate, d.precision("valuation_rate"))
-			d.current_amount = flt(d.current_qty, d.precision("current_qty")) * flt(
-				d.current_valuation_rate, d.precision("current_valuation_rate")
+			d.amount = flt(flt(d.qty) * flt(d.valuation_rate), d.precision("amount"))
+			d.current_amount = flt(
+				flt(d.current_qty) * flt(d.current_valuation_rate), d.precision("current_amount")
 			)
 
 			d.quantity_difference = flt(d.qty) - flt(d.current_qty)
@@ -1209,32 +1213,23 @@ class StockReconciliation(StockController):
 def get_batch_qty_for_stock_reco(
 	item_code, warehouse, batch_no, posting_date, posting_time, voucher_no, sle_creation
 ):
-	ledger = frappe.qb.DocType("Stock Ledger Entry")
-	posting_datetime = get_combine_datetime(posting_date, posting_time)
-
-	query = (
-		frappe.qb.from_(ledger)
-		.select(
-			Sum(ledger.actual_qty).as_("batch_qty"),
+	qty = (
+		get_batch_qty(
+			batch_no,
+			warehouse,
+			item_code,
+			creation=sle_creation,
+			posting_date=posting_date,
+			posting_time=posting_time,
+			ignore_voucher_nos=[voucher_no],
+			for_stock_levels=True,
+			consider_negative_batches=True,
+			do_not_check_future_batches=True,
 		)
-		.where(
-			(ledger.item_code == item_code)
-			& (ledger.warehouse == warehouse)
-			& (ledger.docstatus == 1)
-			& (ledger.is_cancelled == 0)
-			& (ledger.batch_no == batch_no)
-			& (ledger.voucher_no != voucher_no)
-			& (
-				(ledger.posting_datetime < posting_datetime)
-				| ((ledger.posting_datetime == posting_datetime) & (ledger.creation < sle_creation))
-			)
-		)
-		.groupby(ledger.batch_no)
+		or 0
 	)
 
-	sle = query.run(as_dict=True)
-
-	return flt(sle[0].batch_qty) if sle else 0
+	return flt(qty)
 
 
 @frappe.whitelist()
@@ -1252,15 +1247,11 @@ def get_items(warehouse, posting_date, posting_time, company, item_code=None, ig
 
 	for d in items:
 		if (d.item_code, d.warehouse) in itemwise_batch_data:
-			valuation_rate = get_stock_balance(
-				d.item_code, d.warehouse, posting_date, posting_time, with_valuation_rate=True
-			)[1]
-
 			for row in itemwise_batch_data.get((d.item_code, d.warehouse)):
 				if ignore_empty_stock and not row.qty:
 					continue
 
-				args = get_item_data(row, row.qty, valuation_rate)
+				args = get_item_data(row, row.qty, row.valuation_rate)
 				res.append(args)
 		else:
 			stock_bal = get_stock_balance(
@@ -1405,6 +1396,7 @@ def get_itemwise_batch(warehouse, posting_date, company, item_code=None):
 					"item_code": row[0],
 					"warehouse": row[3],
 					"qty": row[8],
+					"valuation_rate": row[9],
 					"item_name": row[1],
 					"batch_no": row[4],
 				}

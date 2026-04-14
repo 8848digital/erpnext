@@ -490,6 +490,14 @@
    "fieldtype": "Column Break"
    },
   {
+   "fieldname": "prospect_name",
+   "fieldtype": "Link",
+   "label": "From Prospect",
+   "no_copy": 1,
+   "options": "Prospect",
+   "print_hide": 1
+  },
+  {
    "fetch_from": "customer_primary_contact.first_name",
    "fieldname": "first_name",
    "fieldtype": "Read Only",
@@ -502,14 +510,6 @@
    "fieldtype": "Read Only",
    "hidden": 1,
    "label": "Last Name"
-  },
-  {
-   "collapsible": 1,
-   "collapsible_depends_on": "customer_details\n",
-   "fieldname": "more_info",
-   "fieldtype": "Section Break",
-   "label": "More Information",
-   "options": "fa fa-file-text\n"
   }
  ],
  "icon": "fa fa-user",
@@ -523,7 +523,7 @@
    "link_fieldname": "party"
   }
  ],
- "modified": "2024-11-13 12:53:53.999541",
+ "modified": "2025-11-25 09:35:56.772949",
  "modified_by": "Administrator",
  "module": "Selling",
  "name": "Customer",

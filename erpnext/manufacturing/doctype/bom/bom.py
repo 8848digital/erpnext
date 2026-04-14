@@ -450,7 +450,7 @@ class BOM(WebsiteGenerator):
 				)
 			)
 
-	def get_rm_rate(self, arg):
+	def get_rm_rate(self, arg, notify=True):
 		"""Get raw material rate as per selected method, if bom exists takes bom cost"""
 		rate = 0
 		if not self.rm_cost_as_per:
@@ -476,7 +476,7 @@ class BOM(WebsiteGenerator):
 								),
 								alert=True,
 							)
-						else:
+						elif notify:
 							frappe.msgprint(
 								_("{0} not found for item {1}").format(self.rm_cost_as_per, arg["item_code"]),
 								alert=True,
@@ -752,12 +752,14 @@ class BOM(WebsiteGenerator):
 					hour_rate / flt(self.conversion_rate) if self.conversion_rate and hour_rate else hour_rate
 				)
 
-		if row.hour_rate and row.time_in_mins:
+		if row.hour_rate:
 			row.base_hour_rate = flt(row.hour_rate) * flt(self.conversion_rate)
-			row.operating_cost = flt(row.hour_rate) * flt(row.time_in_mins) / 60.0
-			row.base_operating_cost = flt(row.operating_cost) * flt(self.conversion_rate)
-			row.cost_per_unit = row.operating_cost / (row.batch_size or 1.0)
-			row.base_cost_per_unit = row.base_operating_cost / (row.batch_size or 1.0)
+
+			if row.time_in_mins:
+				row.operating_cost = flt(row.hour_rate) * flt(row.time_in_mins) / 60.0
+				row.base_operating_cost = flt(row.operating_cost) * flt(self.conversion_rate)
+				row.cost_per_unit = row.operating_cost / (row.batch_size or 1.0)
+				row.base_cost_per_unit = row.base_operating_cost / (row.batch_size or 1.0)
 
 		if update_hour_rate:
 			row.db_update()
@@ -781,11 +783,14 @@ class BOM(WebsiteGenerator):
 						"stock_uom": d.stock_uom,
 						"conversion_factor": d.conversion_factor,
 						"sourced_by_supplier": d.sourced_by_supplier,
-					}
+					},
+					notify=False,
 				)
 
 			d.base_rate = flt(d.rate) * flt(self.conversion_rate)
-			d.amount = flt(d.rate, d.precision("rate")) * flt(d.qty, d.precision("qty"))
+			d.amount = flt(
+				flt(d.rate, d.precision("rate")) * flt(d.qty, d.precision("qty")), d.precision("amount")
+			)
 			d.base_amount = d.amount * flt(self.conversion_rate)
 			d.qty_consumed_per_unit = flt(d.stock_qty, d.precision("stock_qty")) / flt(
 				self.quantity, self.precision("quantity")
@@ -808,7 +813,10 @@ class BOM(WebsiteGenerator):
 			d.base_rate = flt(d.rate, d.precision("rate")) * flt(
 				self.conversion_rate, self.precision("conversion_rate")
 			)
-			d.amount = flt(d.rate, d.precision("rate")) * flt(d.stock_qty, d.precision("stock_qty"))
+			d.amount = flt(
+				flt(d.rate, d.precision("rate")) * flt(d.stock_qty, d.precision("stock_qty")),
+				d.precision("amount"),
+			)
 			d.base_amount = flt(d.amount, d.precision("amount")) * flt(
 				self.conversion_rate, self.precision("conversion_rate")
 			)
@@ -997,6 +1005,12 @@ class BOM(WebsiteGenerator):
 						_(
 							"Row {0}: Workstation or Workstation Type is mandatory for an operation {1}"
 						).format(d.idx, d.operation)
+					)
+				if not d.time_in_mins or d.time_in_mins <= 0:
+					frappe.throw(
+						_("Row {0}: Operation time should be greater than 0 for operation {1}").format(
+							d.idx, d.operation
+						)
 					)
 
 	def get_tree_representation(self) -> BOMTree:
@@ -1338,9 +1352,10 @@ def add_non_stock_items_cost(stock_entry, work_order, expense_account):
 	bom = frappe.get_doc("BOM", work_order.bom_no)
 	table = "exploded_items" if work_order.get("use_multi_level_bom") else "items"
 
-	items = {}
+	items = frappe._dict()
 	for d in bom.get(table):
-		items.setdefault(d.item_code, d.amount)
+		items.setdefault(d.item_code, 0)
+		items[d.item_code] += flt(d.amount)
 
 	non_stock_items = frappe.get_all(
 		"Item",

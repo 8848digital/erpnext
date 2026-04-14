@@ -5,20 +5,7 @@
 import unittest
 
 import frappe
-from frappe.utils import (
-	today,
-	now_datetime,
-	add_years,
-	add_days,
-	add_months,
-	cstr,
-	flt,
-	get_first_day,
-	get_last_day,
-	getdate,
-	is_last_day_of_the_month,
-	nowdate,
-)
+from frappe.utils import today
 
 from erpnext.accounts.doctype.finance_book.test_finance_book import create_finance_book
 from erpnext.accounts.doctype.journal_entry.test_journal_entry import make_journal_entry
@@ -30,6 +17,7 @@ class TestPeriodClosingVoucher(unittest.TestCase):
 	def setUp(self):
 		super().setUp()
 		frappe.db.set_single_value("Accounts Settings", "use_legacy_controller_for_pcv", 1)
+
 	def test_closing_entry(self):
 		frappe.db.sql("delete from `tabGL Entry` where company='Test PCV Company'")
 		frappe.db.sql("delete from `tabPeriod Closing Voucher` where company='Test PCV Company'")
@@ -43,6 +31,7 @@ class TestPeriodClosingVoucher(unittest.TestCase):
 			account1="Cash - TPC",
 			account2="Sales - TPC",
 			cost_center=cost_center,
+			company=company,
 			save=False,
 		)
 		jv1.company = company
@@ -55,6 +44,7 @@ class TestPeriodClosingVoucher(unittest.TestCase):
 			account1="Cost of Goods Sold - TPC",
 			account2="Cash - TPC",
 			cost_center=cost_center,
+			company=company,
 			save=False,
 		)
 		jv2.company = company
@@ -172,6 +162,7 @@ class TestPeriodClosingVoucher(unittest.TestCase):
 			amount=400,
 			cost_center=cost_center,
 			posting_date="2021-03-15",
+			company=company,
 		)
 		jv.company = company
 		jv.finance_book = create_finance_book().name
@@ -182,10 +173,10 @@ class TestPeriodClosingVoucher(unittest.TestCase):
 		surplus_account = pcv.closing_account_head
 
 		expected_gle = (
-			(surplus_account, 0.0, 400.0, jv.finance_book),
 			(surplus_account, 0.0, 400.0, None),
-			("Sales - TPC", 400.0, 0.0, jv.finance_book),
+			(surplus_account, 0.0, 400.0, jv.finance_book),
 			("Sales - TPC", 400.0, 0.0, None),
+			("Sales - TPC", 400.0, 0.0, jv.finance_book),
 		)
 
 		pcv_gle = frappe.db.sql(
@@ -214,6 +205,7 @@ class TestPeriodClosingVoucher(unittest.TestCase):
 			account1="Cash - TPC",
 			account2="Sales - TPC",
 			cost_center=cost_center,
+			company=company,
 			save=False,
 		)
 		jv1.company = company
@@ -236,6 +228,7 @@ class TestPeriodClosingVoucher(unittest.TestCase):
 			account1="Cash - TPC",
 			account2="Sales - TPC",
 			cost_center=cost_center1,
+			company=company,
 			save=False,
 		)
 		jv1.company = company
@@ -248,6 +241,7 @@ class TestPeriodClosingVoucher(unittest.TestCase):
 			account1="Cash - TPC",
 			account2="Sales - TPC",
 			cost_center=cost_center2,
+			company=company,
 			save=False,
 		)
 		jv2.company = company
@@ -277,6 +271,7 @@ class TestPeriodClosingVoucher(unittest.TestCase):
 			account1="Cash - TPC",
 			account2="Sales - TPC",
 			cost_center=cost_center2,
+			company=company,
 			save=False,
 		)
 
@@ -333,60 +328,6 @@ class TestPeriodClosingVoucher(unittest.TestCase):
 		repost_doc.posting_date = today()
 		repost_doc.save()
 
-	def test_auto_ledger_entry_for_income_and_expense_accounts_TC_ACC_089(self):
-		# Cleanup
-		frappe.db.sql("delete from `tabGL Entry` where company='Test PCV Company'")
-		frappe.db.sql("delete from `tabPeriod Closing Voucher` where company='Test PCV Company'")
-		
-		# Create required data
-		company = create_company()
-		surplus_account = create_account()
-		cost_center = create_cost_center("Main")
-		backdate = add_years(nowdate(), -2)
-		last_date = get_last_day(backdate)
-		create_sales_invoice(
-			company=company,
-			cost_center=cost_center,
-			income_account="Sales - TPC",
-			expense_account="Cost of Goods Sold - TPC",
-			rate=1000,
-			debit_to="Debtors - TPC",
-			currency="USD",
-			customer="_Test Customer USD",
-			posting_date=backdate,
-		)
-		
-		# Create a Period Closing Voucher
-		pcv = self.make_period_closing_voucher(last_date, submit=False)
-		pcv.save()
-		pcv.submit()
-		surplus_account = pcv.closing_account_head
-		
-		# Fetch GL Entries created by Period Closing Voucher
-		gle = frappe.db.sql(
-			"""
-			SELECT account, debit, credit
-			FROM `tabGL Entry`
-			WHERE voucher_type='Period Closing Voucher' AND voucher_no=%s
-			ORDER BY account
-			""",
-			(pcv.name),
-			as_dict=True,
-		)
-		# Expected entries: Surplus Account, Sales (income), and Expense accounts
-		expected_gle = [
-			{"account": surplus_account, "debit": 0.0, "credit": 1000.0},
-			{"account": "Sales - TPC", "debit": 1000.0, "credit": 0.0},	
-		]
-		
-		# Assert GL Entries match the expected outcome
-		self.assertEqual(len(gle), len(expected_gle))
-		for i, entry in enumerate(expected_gle):
-			self.assertEqual(gle[i]["account"], entry["account"])
-			self.assertEqual(gle[i]["debit"], entry["debit"])
-			self.assertEqual(gle[i]["credit"], entry["credit"])
-
-
 	def make_period_closing_voucher(self, posting_date, submit=True):
 		surplus_account = create_account()
 		cost_center = create_cost_center("Test Cost Center 1")
@@ -420,10 +361,7 @@ def create_company():
 			"default_currency": "USD",
 		}
 	)
-	try:
-		company.insert(ignore_if_duplicate=True)
-	except frappe.DuplicateEntryError:
-		pass
+	company.insert(ignore_if_duplicate=True)
 	return company.name
 
 

@@ -69,6 +69,9 @@
   "supplier_address",
   "address_display",
   "accounting_dimensions_section",
+  "project",
+  "column_break_wgvc",
+  "cost_center",
   "other_info_tab",
   "printing_settings",
   "select_print_heading",
@@ -683,6 +686,49 @@
    "fieldtype": "Data",
    "is_virtual": 1,
    "label": "Last Scanned Warehouse"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_additional_transfer_entry",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Is Additional Transfer Entry",
+   "read_only": 1
+  },
+  {
+   "depends_on": "subcontracting_inward_order",
+   "fieldname": "subcontracting_inward_order",
+   "fieldtype": "Link",
+   "label": "Subcontracting Inward Order",
+   "options": "Subcontracting Inward Order",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reference_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_jabv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "reference_details_section",
+   "fieldtype": "Section Break",
+   "label": "Reference"
+  },
+  {
+   "fieldname": "column_break_qpvo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_wgvc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "options": "Cost Center"
   }
  ],
  "icon": "fa fa-file-text",
@@ -690,7 +736,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-08-13 19:05:42.386955",
+ "modified": "2026-03-04 19:03:23.426082",
  "modified_by": "Administrator",
  "module": "Stock",
  "name": "Stock Entry",

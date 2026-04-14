@@ -439,12 +439,12 @@ class PaymentEntry(AccountsController):
 				self.party_name = frappe.db.get_value(self.party_type, self.party, "name")
 
 		if self.party:
-			if not self.contact_person:
-				set_contact_details(
-					self, party=frappe._dict({"name": self.party}), party_type=self.party_type
-				)
-			else:
-				complete_contact_details(self)
+			if self.party_type == "Employee":
+				self.contact_person = None
+			elif not self.contact_person:
+				self.contact_person = get_default_contact(self.party_type, self.party)
+
+			complete_contact_details(self)
 			if not self.party_balance and frappe.get_single_value("Accounts Settings", "show_party_balance"):
 				self.party_balance = get_balance_on(
 					party_type=self.party_type, party=self.party, date=self.posting_date, company=self.company
@@ -1091,20 +1091,32 @@ class PaymentEntry(AccountsController):
 			self.base_paid_amount + deductions_to_consider
 		):
 			self.unallocated_amount = (
-				self.base_paid_amount
-				+ deductions_to_consider
-				- self.base_total_allocated_amount
-				- included_taxes
-			) / self.source_exchange_rate
+				flt(
+					(
+						self.base_paid_amount
+						+ deductions_to_consider
+						- self.base_total_allocated_amount
+						- included_taxes
+					),
+					self.precision("unallocated_amount"),
+				)
+				/ self.source_exchange_rate
+			)
 		elif self.payment_type == "Pay" and self.base_total_allocated_amount < (
 			self.base_received_amount - deductions_to_consider
 		):
 			self.unallocated_amount = (
-				self.base_received_amount
-				- deductions_to_consider
-				- self.base_total_allocated_amount
-				- included_taxes
-			) / self.target_exchange_rate
+				flt(
+					(
+						self.base_received_amount
+						- deductions_to_consider
+						- self.base_total_allocated_amount
+						- included_taxes
+					),
+					self.precision("unallocated_amount"),
+				)
+				/ self.target_exchange_rate
+			)
 
 	def set_exchange_gain_loss(self):
 		exchange_gain_loss = flt(
@@ -1780,7 +1792,7 @@ class PaymentEntry(AccountsController):
 				else:
 					self.total_taxes_and_charges += current_tax_amount
 
-			self.base_total_taxes_and_charges += tax.base_tax_amount
+			self.base_total_taxes_and_charges += current_tax_amount
 
 		if self.get("taxes"):
 			self.paid_amount_after_tax = self.get("taxes")[-1].base_total
@@ -2525,14 +2537,9 @@ def get_orders_to_be_billed(
 	if not voucher_type:
 		return []
 
-	# Add cost center condition
-	doc = frappe.get_doc({"doctype": voucher_type})
-	condition = ""
-	if doc and hasattr(doc, "cost_center") and doc.cost_center:
-		condition = " and cost_center='%s'" % cost_center
-
 	# dynamic dimension filters
-	active_dimensions = get_dimensions()[0]
+	condition = ""
+	active_dimensions = get_dimensions(True)[0]
 	for dim in active_dimensions:
 		if filters.get(dim.fieldname):
 			condition += f" and {dim.fieldname}='{filters.get(dim.fieldname)}'"
@@ -3525,7 +3532,7 @@ def get_paid_amount(dt, dn, party_type, party, account, due_date):
 @frappe.whitelist()
 def get_party_and_account_balance(
 	company, date, paid_from=None, paid_to=None, ptype=None, pty=None, cost_center=None
-):  # pragma: no cover
+):
 	show_account_balance = frappe.get_single_value("Accounts Settings", "show_account_balance")
 	return frappe._dict(
 		{

@@ -69,6 +69,11 @@
   "pos_tab",
   "pos_setting_section",
   "post_change_gl_entries",
+  "assets_tab",
+  "asset_settings_section",
+  "calculate_depr_using_total_days",
+  "column_break_gjcc",
+  "book_asset_depreciation_entry_automatically",
   "closing_settings_tab",
   "period_closing_settings_section",
   "acc_frozen_upto",
@@ -155,6 +160,12 @@
   },
   {
    "default": "1",
+   "fieldname": "book_asset_depreciation_entry_automatically",
+   "fieldtype": "Check",
+   "label": "Book Asset Depreciation Entry Automatically"
+  },
+  {
+   "default": "1",
    "fieldname": "add_taxes_from_item_tax_template",
    "fieldtype": "Check",
    "label": "Automatically Add Taxes and Charges from Item Tax Template"
@@ -204,7 +215,7 @@
    "description": "Payment Terms from orders will be fetched into the invoices as is",
    "fieldname": "automatically_fetch_payment_terms",
    "fieldtype": "Check",
-   "label": "Automatically Fetch Payment Terms from Order"
+   "label": "Automatically Fetch Payment Terms from Order/Quotation"
   },
   {
    "description": "The percentage you are allowed to bill more against the amount ordered. For example, if the order value is $100 for an item and tolerance is set as 10%, then you are allowed to bill up to $110 ",
@@ -314,9 +325,19 @@
    "fieldtype": "Column Break"
   },
   {
+   "fieldname": "asset_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Asset Settings"
+  },
+  {
    "fieldname": "invoicing_settings_tab",
    "fieldtype": "Tab Break",
    "label": "Credit Limits"
+  },
+  {
+   "fieldname": "assets_tab",
+   "fieldtype": "Tab Break",
+   "label": "Assets"
   },
   {
    "fieldname": "closing_settings_tab",
@@ -471,6 +492,17 @@
    "label": "Enable Immutable Ledger"
   },
   {
+   "fieldname": "column_break_gjcc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "Enable this option to calculate daily depreciation by considering the total number of days in the entire depreciation period, (including leap years) while using daily pro-rata based depreciation",
+   "fieldname": "calculate_depr_using_total_days",
+   "fieldtype": "Check",
+   "label": "Calculate daily depreciation using total days in depreciation period"
+  },
+  {
    "description": "Payment Request created from Sales Order or Purchase Order will be in Draft status. When disabled document will be in unsaved state.",
    "fieldname": "payment_request_settings",
    "fieldtype": "Tab Break",
@@ -608,7 +640,7 @@
    "fieldname": "use_legacy_controller_for_pcv",
    "fieldtype": "Check",
    "label": "Use Legacy Controller For Period Closing Voucher"
-   },
+  },
   {
    "fieldname": "payment_entry_settings",
    "fieldtype": "Section Break",
@@ -632,7 +664,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-10-20 14:06:08.870427",
+ "modified": "2026-03-06 14:49:11.467716",
  "modified_by": "Administrator",
  "module": "Accounts",
  "name": "Accounts Settings",

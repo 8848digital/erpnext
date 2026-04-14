@@ -348,7 +348,7 @@
    "fieldtype": "Date",
    "hide_days": 1,
    "hide_seconds": 1,
-   "label": "Date",
+   "label": "Posting Date",
    "no_copy": 1,
    "oldfieldname": "posting_date",
    "oldfieldtype": "Date",
