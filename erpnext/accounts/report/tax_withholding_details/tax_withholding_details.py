@@ -204,7 +204,7 @@ def get_columns(filters):
 	pan = "pan" if frappe.db.has_column(filters.party_type, "pan") else "tax_id"
 	columns = [
 		{
-			"label": _("Section Code"),
+			"label": _("Tax Withholding Category"),
 			"options": "Tax Withholding Category",
 			"fieldname": "section_code",
 			"fieldtype": "Link",
@@ -235,7 +235,12 @@ def get_columns(filters):
 
 	columns.extend(
 		[
-			{"label": _("Entity Type"), "fieldname": "entity_type", "fieldtype": "Data", "width": 100},
+			{
+				"label": _(f"{filters.get('party_type', 'Party')} Type"),
+				"fieldname": "party_entity_type",
+				"fieldtype": "Data",
+				"width": 100,
+			},
 		]
 	)
 	if filters.party_type == "Supplier":
