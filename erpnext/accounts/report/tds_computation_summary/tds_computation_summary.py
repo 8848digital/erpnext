@@ -49,11 +49,12 @@ def group_by_party_and_category(data, filters):
 
 	for row in data:
 		party_category_wise_map.setdefault(
-			(row.get("party"), row.get("section_code")),
+			(row.get("party_type"), row.get("party"), row.get("tax_withholding_category")),
 			{
 				"pan": row.get("pan"),
 				"tax_id": row.get("tax_id"),
 				"party": row.get("party"),
+				"party_type": row.get("party_type"),
 				"party_name": row.get("party_name"),
 				"section_code": row.get("section_code"),
 				"entity_type": row.get("entity_type"),
