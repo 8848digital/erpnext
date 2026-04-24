@@ -118,8 +118,8 @@ def get_result(filters, tds_accounts, tax_category_map, net_total_map):
 
 				row.update(
 					{
-						"section_code": tax_withholding_category or "",
-						"entity_type": party_map.get(party, {}).get(party_type),
+						"tax_withholding_category": tax_withholding_category or "",
+						"party_entity_type": party_map.get(party, {}).get(party_type),
 						"rate": rate,
 						"total_amount": total_amount,
 						"grand_total": grand_total,
@@ -140,7 +140,7 @@ def get_result(filters, tds_accounts, tax_category_map, net_total_map):
 				else:
 					entries[key] = row
 	out = list(entries.values())
-	out.sort(key=lambda x: (x["section_code"], x["transaction_date"], x["ref_no"]))
+	out.sort(key=lambda x: (x["tax_withholding_category"], x["transaction_date"], x["ref_no"]))
 
 	return out
 
@@ -206,7 +206,7 @@ def get_columns(filters):
 		{
 			"label": _("Tax Withholding Category"),
 			"options": "Tax Withholding Category",
-			"fieldname": "section_code",
+			"fieldname": "tax_withholding_category",
 			"fieldtype": "Link",
 			"width": 90,
 		},
