@@ -106,6 +106,7 @@
   "sales_invoice_item",
   "material_request",
   "material_request_item",
+  "delivered_by_supplier",
   "item_weight_details",
   "weight_per_unit",
   "total_weight",
@@ -930,44 +931,25 @@
    "print_hide": 1
   },
   {
-   "fieldname": "work_breakdown_structure",
-   "fieldtype": "Link",
-   "label": "Work Breakdown Structure",
-   "options": "Work Breakdown Structure"
-  },
-  {
-   "fieldname": "project_name",
-   "fieldtype": "Data",
-   "label": "Project Name",
-   "read_only": 1
-  },
-  {
-   "fieldname": "wbs_name",
-   "fieldtype": "Data",
-   "label": "WBS Name",
-   "read_only": 1
+   "fieldname": "distributed_discount_amount",
+   "fieldtype": "Currency",
+   "label": "Distributed Discount Amount",
+   "options": "currency"
   },
   {
    "default": "0",
-   "fetch_from": "item_code.has_batch_no",
-   "fieldname": "has_batch_no",
+   "fieldname": "delivered_by_supplier",
    "fieldtype": "Check",
-   "label": "Has Batch No",
-   "read_only": 1
-  },
-  {
-   "default": "0",
-   "fetch_from": "item_code.has_serial_no",
-   "fieldname": "has_serial_no",
-   "fieldtype": "Check",
-   "label": "Has Serial No",
+   "hidden": 1,
+   "label": "Delivered by Supplier",
+   "print_hide": 1,
    "read_only": 1
   }
  ],
  "idx": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-04-07 15:41:45.687554",
+ "modified": "2026-05-06 08:08:40.782395",
  "modified_by": "Administrator",
  "module": "Accounts",
  "name": "Purchase Invoice Item",
