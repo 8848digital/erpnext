@@ -525,7 +525,15 @@ def make_payment_request(**args):
 
 	args = frappe._dict(args)
 
-	ref_doc = frappe.get_doc(args.dt, args.dn)
+	if args.dt not in ALLOWED_DOCTYPES_FOR_PAYMENT_REQUEST:
+		frappe.throw(_("Payment Requests cannot be created against: {0}").format(frappe.bold(args.dt)))
+
+	if args.dn and not isinstance(args.dn, str):
+		frappe.throw(_("Invalid parameter. 'dn' should be of type str"))
+
+	ref_doc = args.ref_doc or frappe.get_doc(args.dt, args.dn)
+	if not args.get("company"):
+		args.company = ref_doc.company
 	gateway_account = get_gateway_details(args) or frappe._dict()
 
 	grand_total = get_amount(ref_doc, gateway_account.get("payment_account"))
@@ -823,6 +831,7 @@ def update_payment_requests_as_per_pe_references(references=None, cancel=False):
 	)
 
 	referenced_payment_requests = {pr.name: pr for pr in referenced_payment_requests}
+	doc_updates = {}
 
 	for ref in references:
 		if not ref.payment_request:
@@ -848,7 +857,7 @@ def update_payment_requests_as_per_pe_references(references=None, cancel=False):
 				title=_("Invalid Allocated Amount"),
 			)
 
-		# update status
+		# determine status
 		if new_outstanding_amount == payment_request["grand_total"]:
 			status = "Initiated" if payment_request["payment_request_type"] == "Outward" else "Requested"
 		elif new_outstanding_amount == 0:
@@ -856,12 +865,15 @@ def update_payment_requests_as_per_pe_references(references=None, cancel=False):
 		elif new_outstanding_amount > 0:
 			status = "Partially Paid"
 
-		# update database
-		frappe.db.set_value(
-			"Payment Request",
-			ref.payment_request,
-			{"outstanding_amount": new_outstanding_amount, "status": status},
-		)
+		# prepare bulk update data
+		doc_updates[ref.payment_request] = {
+			"outstanding_amount": new_outstanding_amount,
+			"status": status,
+		}
+
+	# bulk update all payment requests
+	if doc_updates:
+		frappe.db.bulk_update("Payment Request", doc_updates)
 
 
 def get_dummy_message(doc):

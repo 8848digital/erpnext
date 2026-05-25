@@ -86,6 +86,7 @@ status_map = {
 		["To Bill", "eval:self.per_billed < 100 and self.docstatus == 1"],
 		["Completed", "eval:self.per_billed == 100 and self.docstatus == 1"],
 		["Return Issued", "eval:self.per_returned == 100 and self.docstatus == 1"],
+		["Return", "eval:self.is_return == 1 and self.per_billed == 0 and self.docstatus == 1"],
 		["Cancelled", "eval:self.docstatus==2"],
 		["Closed", "eval:self.status=='Closed' and self.docstatus != 2"],
 	],
@@ -343,14 +344,17 @@ class StatusUpdater(Document):
 		):
 			return
 
-		if qty_or_amount == "qty":
-			action_msg = _(
-				'To allow over receipt / delivery, update "Over Receipt/Delivery Allowance" in Stock Settings or the Item.'
-			)
+		if args["target_dt"] != "Quotation Item":
+			if qty_or_amount == "qty":
+				action_msg = _(
+					'To allow over receipt / delivery, update "Over Receipt/Delivery Allowance" in Stock Settings or the Item.'
+				)
+			else:
+				action_msg = _(
+					'To allow over billing, update "Over Billing Allowance" in Accounts Settings or the Item.'
+				)
 		else:
-			action_msg = _(
-				'To allow over billing, update "Over Billing Allowance" in Accounts Settings or the Item.'
-			)
+			action_msg = None
 
 		frappe.throw(
 			_(

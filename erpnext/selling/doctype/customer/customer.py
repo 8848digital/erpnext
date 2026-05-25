@@ -18,7 +18,11 @@ from frappe.utils import cint, cstr, flt, get_formatted_email, today
 from frappe.utils.deprecations import deprecated
 from frappe.utils.user import get_users_with_role
 
-from erpnext.accounts.party import get_dashboard_info, validate_party_accounts
+from erpnext.accounts.party import (
+	get_dashboard_info,
+	validate_party_accounts,
+	validate_party_currency_before_merging,
+)
 from erpnext.controllers.website_list_for_contact import add_role_for_portal_user
 from erpnext.utilities.transaction_base import TransactionBase
 
@@ -97,6 +101,7 @@ class Customer(TransactionBase):
 			set_name_from_naming_options(frappe.get_meta(self.doctype).autoname, self)
 
 	def get_customer_name(self):
+		self.customer_name = self.customer_name.strip()
 		if frappe.db.get_value("Customer", self.customer_name) and not frappe.flags.in_import:
 			count = frappe.db.sql(
 				"""
@@ -360,6 +365,20 @@ class Customer(TransactionBase):
 						"""New credit limit is less than current outstanding amount for the customer. Credit limit has to be atleast {0}"""
 					).format(outstanding_amt)
 				)
+
+	def on_trash(self):
+		if self.customer_primary_contact:
+			self.db_set("customer_primary_contact", None)
+		if self.customer_primary_address:
+			self.db_set("customer_primary_address", None)
+
+		delete_contact_and_address("Customer", self.name)
+		if self.lead_name:
+			frappe.db.sql("update `tabLead` set status='Interested' where name=%s", self.lead_name)
+
+	def before_rename(self, olddn, newdn, merge=False):
+		if merge:
+			validate_party_currency_before_merging("Customer", olddn, newdn)
 
 	def after_rename(self, olddn, newdn, merge=False):
 		if frappe.defaults.get_global_default("cust_master_name") == "Customer Name":
@@ -794,20 +813,28 @@ def make_address(args, is_primary_address=1, is_shipping_address=1):
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
-def get_customer_primary_contact(doctype, txt, searchfield, start, page_len, filters):
+def get_customer_primary(doctype, txt, searchfield, start, page_len, filters):
 	customer = filters.get("customer")
-
-	con = qb.DocType("Contact")
+	type = filters.get("type")
+	type_doctype = qb.DocType(type)
 	dlink = qb.DocType("Dynamic Link")
 
-	return (
-		qb.from_(con)
+	query = (
+		qb.from_(type_doctype)
 		.join(dlink)
-		.on(con.name == dlink.parent)
-		.select(con.name, con.email_id)
-		.where((dlink.link_name == customer) & (con.name.like(f"%{txt}%")))
-		.run()
+		.on(type_doctype.name == dlink.parent)
+		.select(type_doctype.name)
+		.where(
+			(dlink.link_name == customer)
+			& (type_doctype.name.like(f"%{txt}%"))
+			& (dlink.link_doctype == "Customer")
+		)
 	)
+
+	if type == "Contact":
+		query = query.select(type_doctype.email_id)
+
+	return query.run()
 
 
 def parse_full_name(full_name: str) -> tuple[str, str | None, str | None]:

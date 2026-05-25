@@ -57,6 +57,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 	def tearDown(self):
 		frappe.set_user("Administrator")
 
+	@change_settings("Selling Settings", {"allow_negative_rates_for_items": 1})
 	def test_sales_order_with_negative_rate(self):
 		"""
 		Test if negative rate is allowed in Sales Order via doc submission and update items
