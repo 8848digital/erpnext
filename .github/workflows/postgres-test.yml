@@ -2,7 +2,7 @@ name: Postgres ERP Test
 on:
   push:
     branches:
-      - pre-prod
+      - pre-prod-develop
   pull_request:
 concurrency:
   group: postgres-erp-${{ github.event.number }}
@@ -78,18 +78,18 @@ jobs:
       - name: Install Frappe Bench
         run: |
           pip install frappe-bench
-          bench init --skip-redis-config-generation --skip-assets --python "$(which python)" --frappe-path https://github.com/8848digital/frappe --frappe-branch pre-prod ~/frappe-bench
+          bench init --skip-redis-config-generation --skip-assets --python "$(which python)" --frappe-path https://github.com/8848digital/frappe --frappe-branch pre-prod-develop ~/frappe-bench
 
       - name: Install Apps
         working-directory: /home/runner/frappe-bench
         run: |
-          bench get-app erpnext https://github.com/8848digital/erpnext.git --branch pre-prod
-          bench get-app https://Satya8848:${{secrets.GH_PAT}}@github.com/8848digital/ERPNext-India.git --branch pre-prod
-          bench get-app https://github.com/8848digital/india_compliance.git --branch pre-prod
-          bench get-app https://github.com/8848digital/Assets --branch pre-prod
-          bench get-app https://Satya8848:${{secrets.GH_PAT}}@github.com/8848digital/CRM --branch pre-prod
-          bench get-app https://Satya8848:${{secrets.GH_PAT}}@github.com/8848digital/projects.git --branch pre-prod
-          bench get-app https://Satya8848:${{secrets.GH_PAT}}@github.com/8848digital/sales_commission.git --branch pre-prod
+          bench get-app erpnext https://github.com/8848digital/erpnext.git --branch pre-prod-develop
+          bench get-app https://Satya8848:${{secrets.GH_PAT}}@github.com/8848digital/ERPNext-India.git --branch pre-prod-develop
+          bench get-app https://github.com/8848digital/india_compliance.git --branch pre-prod-develop
+          bench get-app https://github.com/8848digital/Assets --branch pre-prod-develop
+          bench get-app https://Satya8848:${{secrets.GH_PAT}}@github.com/8848digital/CRM --branch pre-prod-develop
+          bench get-app https://Satya8848:${{secrets.GH_PAT}}@github.com/8848digital/projects.git --branch pre-prod-develop
+          bench get-app https://Satya8848:${{secrets.GH_PAT}}@github.com/8848digital/sales_commission.git --branch pre-prod-develop
           bench get-app --branch version-15 payments
           bench setup requirements --dev
 
