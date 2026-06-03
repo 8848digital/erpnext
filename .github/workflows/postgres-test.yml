@@ -1,4 +1,4 @@
-name: Postgres ERP Test
+name: Postgres ERP Test 
 on:
   push:
     branches:
