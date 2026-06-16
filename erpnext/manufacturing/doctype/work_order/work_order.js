@@ -211,7 +211,7 @@ frappe.ui.form.on("Work Order", {
 				if (not_completed && not_completed.length) {
 					frm.add_custom_button(__("Create Job Card"), () => {
 						frm.trigger("make_job_card");
-					}).addClass("btn-primary");
+					});
 				}
 			}
 		}
@@ -231,7 +231,8 @@ frappe.ui.form.on("Work Order", {
 		if (
 			frm.doc.docstatus === 1 &&
 			["Closed", "Completed"].includes(frm.doc.status) &&
-			frm.doc.produced_qty > 0
+			frm.doc.produced_qty > 0 &&
+			frm.doc.produced_qty > frm.doc.disassembled_qty
 		) {
 			frm.add_custom_button(
 				__("Disassemble Order"),
@@ -254,7 +255,7 @@ frappe.ui.form.on("Work Order", {
 			if (non_consumed_items && non_consumed_items.length) {
 				frm.add_custom_button(__("Return Components"), function () {
 					frm.trigger("create_stock_return_entry");
-				}).addClass("btn-primary");
+				});
 			}
 		}
 	},
@@ -398,11 +399,14 @@ frappe.ui.form.on("Work Order", {
 		erpnext.work_order
 			.show_prompt_for_qty_input(frm, "Disassemble")
 			.then((data) => {
+				if (flt(data.qty) <= 0) {
+					frappe.msgprint(__("Disassemble Qty cannot be less than or equal to <b>0</b>."));
+					return;
+				}
 				return frappe.xcall("erpnext.manufacturing.doctype.work_order.work_order.make_stock_entry", {
 					work_order_id: frm.doc.name,
 					purpose: "Disassemble",
 					qty: data.qty,
-					target_warehouse: data.target_warehouse,
 				});
 			})
 			.then((stock_entry) => {
@@ -651,7 +655,7 @@ erpnext.work_order = {
 	set_custom_buttons: function (frm) {
 		var doc = frm.doc;
 
-		if (doc.docstatus === 1 && doc.status !== "Closed") {
+		if (doc.docstatus === 1 && !["Closed", "Completed"].includes(doc.status)) {
 			frm.add_custom_button(
 				__("Close"),
 				function () {
@@ -661,9 +665,6 @@ erpnext.work_order = {
 				},
 				__("Status")
 			);
-		}
-
-		if (doc.docstatus === 1 && !["Closed", "Completed"].includes(doc.status)) {
 			if (doc.status != "Stopped" && doc.status != "Completed") {
 				frm.add_custom_button(
 					__("Stop"),
@@ -853,24 +854,6 @@ erpnext.work_order = {
 				},
 			},
 		];
-
-		if (purpose === "Disassemble") {
-			fields.push({
-				fieldtype: "Link",
-				options: "Warehouse",
-				fieldname: "target_warehouse",
-				label: __("Target Warehouse"),
-				default: frm.doc.source_warehouse || frm.doc.wip_warehouse,
-				get_query() {
-					return {
-						filters: {
-							company: frm.doc.company,
-							is_group: 0,
-						},
-					};
-				},
-			});
-		}
 
 		return new Promise((resolve, reject) => {
 			frm.qty_prompt = frappe.prompt(

@@ -149,6 +149,7 @@ class Item(Document):
 	def onload(self):
 		self.set_onload("stock_exists", self.stock_ledger_created())
 		self.set_onload("current_valuation_method", get_valuation_method(self.name))
+		self.set_onload("asset_exists", self.has_submitted_assets())
 
 	def autoname(self):
 		if frappe.db.get_default("item_naming_by") == "Naming Series":
@@ -220,7 +221,24 @@ class Item(Document):
 	def validate_description(self):
 		"""Clean HTML description if set"""
 		if cint(frappe.db.get_single_value("Stock Settings", "clean_description_html")):
+			old_desc = self.description
 			self.description = clean_html(self.description)
+
+			if (
+				old_desc
+				and self.description
+				and "<img src" in old_desc
+				and "<img src" not in self.description
+			):
+				frappe.msgprint(
+					_(
+						'Image in the description has been removed. To disable this behavior, uncheck "{0}" in {1}.'
+					).format(
+						frappe.get_meta("Stock Settings").get_label("clean_description_html"),
+						get_link_to_form("Stock Settings"),
+					),
+					alert=True,
+				)
 
 	def validate_customer_provided_part(self):
 		if self.is_customer_provided_item:
@@ -287,6 +305,23 @@ class Item(Document):
 				)
 
 				stock_entry.add_comment("Comment", _("Opening Stock"))
+
+	def validate_fixed_asset(self):
+		if self.is_fixed_asset:
+			if self.is_stock_item:
+				frappe.throw(_("Fixed Asset Item must be a non-stock item."))
+
+			if not self.asset_category:
+				frappe.throw(_("Asset Category is mandatory for Fixed Asset item"))
+
+			if self.stock_ledger_created():
+				frappe.throw(_("Cannot be a fixed asset item as Stock Ledger is created."))
+
+		if not self.is_fixed_asset and not self.is_new():
+			if self.has_submitted_assets():
+				frappe.throw(
+					_('"Is Fixed Asset" cannot be unchecked, as Asset record exists against the item')
+				)
 
 	def validate_retain_sample(self):
 		if self.retain_sample and not frappe.db.get_single_value(
@@ -506,6 +541,9 @@ class Item(Document):
 				)
 			)
 		return self._stock_ledger_created
+
+	def has_submitted_assets(self):
+		return bool(frappe.db.exists("Asset", {"item_code": self.name, "docstatus": 1}))
 
 	def update_item_price(self):
 		frappe.db.sql(
