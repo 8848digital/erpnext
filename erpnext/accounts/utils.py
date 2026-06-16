@@ -452,7 +452,8 @@ def _build_dimensions_dict_for_exc_gain_loss(
 	dimensions_dict = frappe._dict()
 	if entry and active_dimensions:
 		for dim in active_dimensions:
-			dimensions_dict[dim.fieldname] = entry.get(dim.fieldname)
+			if entry_dimension := entry.get(dim.fieldname):
+				dimensions_dict[dim.fieldname] = entry_dimension
 	return dimensions_dict
 
 
@@ -1935,6 +1936,7 @@ def get_payment_ledger_entries(gl_entries, cancel=0):
 					account=gle.account,
 					party_type=gle.party_type,
 					party=gle.party,
+					project=gle.project,
 					cost_center=gle.cost_center,
 					finance_book=gle.finance_book,
 					due_date=gle.due_date,

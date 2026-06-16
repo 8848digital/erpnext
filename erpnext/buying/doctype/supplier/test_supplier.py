@@ -307,7 +307,16 @@ def create_supplier(**args):
 	if not args.without_supplier_group:
 		doc.supplier_group = args.supplier_group or "Services"
 
-	doc.insert(ignore_permissions=True)
+	if args.get("party_account"):
+		doc.append(
+			"accounts",
+			{
+				"company": frappe.db.get_value("Account", args.get("party_account"), "company"),
+				"account": args.get("party_account"),
+			},
+		)
+
+	doc.insert()
 
 	return doc
 
