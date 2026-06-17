@@ -3189,6 +3189,60 @@ class TestSalesInvoice(FrappeTestCase):
 		self.assertEqual(sales_invoice.items[0].item_tax_template, "_Test Account Excise Duty @ 10 - _TC")
 		self.assertEqual(sales_invoice.items[0].item_tax_rate, item_tax_map)
 
+	def test_item_tax_template_change_with_grand_total_discount(self):
+		"""
+		Test that when item tax template changes due to discount on Grand Total,
+		the tax calculations are consistent.
+		"""
+		item = create_item("Test Item With Multiple Tax Templates")
+
+		item.set("taxes", [])
+		item.append(
+			"taxes",
+			{
+				"item_tax_template": "_Test Account Excise Duty @ 10 - _TC",
+				"minimum_net_rate": 0,
+				"maximum_net_rate": 500,
+			},
+		)
+
+		item.append(
+			"taxes",
+			{
+				"item_tax_template": "_Test Account Excise Duty @ 12 - _TC",
+				"minimum_net_rate": 501,
+				"maximum_net_rate": 1000,
+			},
+		)
+
+		item.save()
+
+		si = create_sales_invoice(item=item.name, rate=700, do_not_save=True)
+		si.append(
+			"taxes",
+			{
+				"charge_type": "On Net Total",
+				"account_head": "_Test Account Excise Duty - _TC",
+				"cost_center": "_Test Cost Center - _TC",
+				"description": "Excise Duty",
+				"rate": 0,
+			},
+		)
+		si.insert()
+
+		self.assertEqual(si.items[0].item_tax_template, "_Test Account Excise Duty @ 12 - _TC")
+
+		si.apply_discount_on = "Grand Total"
+		si.discount_amount = 300
+		si.save()
+
+		# Verify template changed to 10%
+		self.assertEqual(si.items[0].item_tax_template, "_Test Account Excise Duty @ 10 - _TC")
+		self.assertEqual(si.taxes[0].tax_amount, 70)  # 10% of 700
+		self.assertEqual(si.grand_total, 470)  # 700 + 70 - 300
+
+		si.submit()
+
 	@change_settings("Selling Settings", {"enable_discount_accounting": 1})
 	def test_sales_invoice_with_discount_accounting_enabled(self):
 		discount_account = create_account(
@@ -7985,6 +8039,33 @@ def check_gl_entries(doc, voucher_no, expected_gle, posting_date, voucher_type="
 
 		doc.db_set("do_not_use_batchwise_valuation", original_value)
 
+
+	def test_inter_company_transaction_cost_center(self):
+		si = create_sales_invoice(
+			company="Wind Power LLC",
+			customer="_Test Internal Customer",
+			debit_to="Debtors - WP",
+			warehouse="Stores - WP",
+			income_account="Sales - WP",
+			expense_account="Cost of Goods Sold - WP",
+			parent_cost_center="Main - WP",
+			cost_center="Main - WP",
+			currency="USD",
+			do_not_save=1,
+		)
+
+		si.selling_price_list = "_Test Price List Rest of the World"
+		si.submit()
+
+		cost_center = frappe.db.get_value("Company", "_Test Company 1", "cost_center")
+		frappe.db.set_value("Company", "_Test Company 1", "cost_center", None)
+
+		target_doc = make_inter_company_transaction("Sales Invoice", si.name)
+
+		self.assertEqual(target_doc.cost_center, None)
+		self.assertEqual(target_doc.items[0].cost_center, None)
+
+		frappe.db.set_value("Company", "_Test Company 1", "cost_center", cost_center)
 
 
 def make_item_for_si(item_code, properties=None):

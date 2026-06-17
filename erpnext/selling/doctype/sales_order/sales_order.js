@@ -23,7 +23,16 @@ frappe.ui.form.on("Sales Order", {
 
 		// formatter for material request item
 		frm.set_indicator_formatter("item_code", function (doc) {
-			return doc.stock_qty <= doc.delivered_qty ? "green" : "orange";
+			let color;
+			if (!doc.qty && frm.doc.has_unit_price_items) {
+				color = "yellow";
+			} else if (doc.stock_qty <= doc.actual_qty) {
+				color = "green";
+			} else {
+				color = "orange";
+			}
+
+			return color;
 		});
 
 		frm.set_query("bom_no", "items", function (doc, cdt, cdn) {
@@ -46,6 +55,13 @@ frappe.ui.form.on("Sales Order", {
 
 		frm.set_df_property("packed_items", "cannot_add_rows", true);
 		frm.set_df_property("packed_items", "cannot_delete_rows", true);
+	},
+	delivery_date(frm) {
+		if (frm.doc.delivery_date) {
+			frm.doc.items.forEach((d) => {
+				frappe.model.set_value(d.doctype, d.name, "delivery_date", frm.doc.delivery_date);
+			});
+		}
 	},
 
 	refresh: function (frm) {
@@ -134,7 +150,7 @@ frappe.ui.form.on("Sales Order", {
 				});
 			}
 		}
-
+		prevent_past_delivery_dates(frm);
 		// Hide `Reserve Stock` field description in submitted or cancelled Sales Order.
 		if (frm.doc.docstatus > 0) {
 			frm.set_df_property("reserve_stock", "description", null);
@@ -220,13 +236,6 @@ frappe.ui.form.on("Sales Order", {
 			"Unreconcile Payment",
 			"Unreconcile Payment Entries",
 		];
-	},
-
-	delivery_date: function (frm) {
-		$.each(frm.doc.items || [], function (i, d) {
-			if (!d.delivery_date) d.delivery_date = frm.doc.delivery_date;
-		});
-		refresh_field("items");
 	},
 
 	create_stock_reservation_entries(frm) {
@@ -572,6 +581,10 @@ frappe.ui.form.on("Sales Order Item", {
 });
 
 erpnext.selling.SalesOrderController = class SalesOrderController extends erpnext.selling.SellingController {
+	setup(doc) {
+		this.setup_accounting_dimension_triggers();
+		super.setup(doc);
+	}
 	onload(doc, dt, dn) {
 		super.onload(doc, dt, dn);
 	}
@@ -1392,3 +1405,11 @@ erpnext.selling.SalesOrderController = class SalesOrderController extends erpnex
 };
 
 extend_cscript(cur_frm.cscript, new erpnext.selling.SalesOrderController({ frm: cur_frm }));
+
+function prevent_past_delivery_dates(frm) {
+	if (frm.doc.transaction_date) {
+		frm.fields_dict["delivery_date"].datepicker?.update({
+			minDate: new Date(frm.doc.transaction_date),
+		});
+	}
+}

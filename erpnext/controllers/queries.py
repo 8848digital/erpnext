@@ -15,6 +15,7 @@ from frappe.utils import cint, nowdate, today, unique
 from pypika import Case, Order
 
 import erpnext
+from erpnext.accounts.utils import build_qb_match_conditions
 from erpnext.stock.get_item_details import _get_item_tax_template
 
 
@@ -629,43 +630,37 @@ def get_blanket_orders(doctype, txt, searchfield, start, page_len, filters):
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def get_income_account(doctype, txt, searchfield, start, page_len, filters):
-	from erpnext.controllers.queries import get_match_cond
-
 	# income account can be any Credit account,
 	# but can also be a Asset account with account_type='Income Account' in special circumstances.
 	# Hence the first condition is an "OR"
+
 	if not filters:
 		filters = {}
 
-	doctype = "Account"
-	condition = ""
+	dt = "Account"
+
+	acc = qb.DocType(dt)
+	condition = [
+		(acc.report_type.eq("Profit and Loss") | acc.account_type.isin(["Income Account", "Temporary"])),
+		acc.is_group.eq(0),
+		acc.disabled.eq(0),
+	]
+	if txt:
+		condition.append(acc.name.like(f"%{txt}%"))
+
 	if filters.get("company"):
-		condition += " AND account.company = %(company)s"
+		condition.append(acc.company.eq(filters.get("company")))
 
-	condition += f" AND account.disabled = %(disabled)s"
-	match_condition_str = get_match_cond(doctype)
-	if match_condition_str and frappe.db.db_type == "postgres":
-		if "ifnull" in match_condition_str:
-			match_condition_str = match_condition_str.replace("ifnull", "COALESCE")
+	user_perms = build_qb_match_conditions(dt)
+	condition.extend(user_perms)
 
-		# Adjust match condition string to replace 'tabAccount' with alias 'account'
-		match_condition_str = match_condition_str.replace("tabAccount", "account")
-		match_condition_str = match_condition_str.replace("`", "")
-
-	return frappe.db.sql(
-		f"""SELECT account.name
-			FROM "tabAccount" AS account
-			WHERE (account.report_type = 'Profit and Loss'
-					OR account.account_type IN ('Income Account', 'Temporary'))
-				AND account.is_group = 0
-				AND account.{searchfield} LIKE %(txt)s
-				{condition} {match_condition_str}
-			ORDER BY account.idx DESC, account.name""",
-		{
-			"txt": f"%{txt}%",
-			"company": filters.get("company", ""),
-			"disabled": filters.get("disabled", 0),
-		},
+	return (
+		qb.from_(acc)
+		.select(acc.name)
+		.where(Criterion.all(condition))
+		.orderby(acc.idx, order=Order.desc)
+		.orderby(acc.name)
+		.run()
 	)
 
 
@@ -727,34 +722,38 @@ def get_filtered_dimensions(doctype, txt, searchfield, start, page_len, filters,
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def get_expense_account(doctype, txt, searchfield, start, page_len, filters):
-	from erpnext.controllers.queries import get_match_cond
-
 	if not filters:
 		filters = {}
 
-	condition = ""
+	dt = "Account"
+
+	acc = qb.DocType(dt)
+	condition = [
+		(
+			acc.report_type.eq("Profit and Loss")
+			| acc.account_type.isin(
+				[
+					"Expense Account",
+					"Fixed Asset",
+					"Temporary",
+					"Asset Received But Not Billed",
+					"Capital Work in Progress",
+				]
+			)
+		),
+		acc.is_group.eq(0),
+		acc.disabled.eq(0),
+	]
+	if txt:
+		condition.append(acc.name.like(f"%{txt}%"))
+
 	if filters.get("company"):
-		condition += " AND account.company = %(company)s"
+		condition.append(acc.company.eq(filters.get("company")))
 
-	match_condition_str = get_match_cond("Account")
-	if match_condition_str and frappe.db.db_type == "postgres":
-		if "ifnull" in match_condition_str:
-			match_condition_str = match_condition_str.replace("ifnull", "COALESCE")
+	user_perms = build_qb_match_conditions(dt)
+	condition.extend(user_perms)
 
-		match_condition_str = match_condition_str.replace("tabAccount", "account")
-		match_condition_str = match_condition_str.replace("`", "")
-
-	return frappe.db.sql(
-		f"""SELECT account.name
-			FROM tabAccount AS account
-			WHERE (account.report_type = 'Profit and Loss'
-					OR account.account_type IN ('Expense Account', 'Fixed Asset', 'Temporary', 'Asset Received But Not Billed', 'Capital Work in Progress'))
-				AND account.is_group = 0
-				AND account.docstatus != 2
-				AND account.{searchfield} LIKE %(txt)s
-				{condition} {match_condition_str}""",
-		{"company": filters.get("company", ""), "txt": "%" + txt + "%"},
-	)
+	return qb.from_(acc).select(acc.name).where(Criterion.all(condition)).run()
 
 
 @frappe.whitelist()
@@ -1014,3 +1013,26 @@ def get_item_uom_query(doctype, txt, searchfield, start, page_len, filters):
 		limit_page_length=page_len,
 		as_list=1,
 	)
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def get_warehouse_address(doctype: str, txt: str, searchfield: str, start: int, page_len: int, filters: dict):
+	table = frappe.qb.DocType(doctype)
+	child_table = frappe.qb.DocType("Dynamic Link")
+
+	query = (
+		frappe.qb.from_(table)
+		.inner_join(child_table)
+		.on((table.name == child_table.parent) & (child_table.parenttype == doctype))
+		.select(table.name)
+		.where(
+			(child_table.link_name == filters.get("warehouse"))
+			& (table.disabled == 0)
+			& (child_table.link_doctype == "Warehouse")
+			& (table.name.like(f"%{txt}%"))
+		)
+		.offset(start)
+		.limit(page_len)
+	)
+	return query.run(as_list=1)
