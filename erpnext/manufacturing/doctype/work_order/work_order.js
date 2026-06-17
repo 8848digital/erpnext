@@ -211,7 +211,7 @@ frappe.ui.form.on("Work Order", {
 				if (not_completed && not_completed.length) {
 					frm.add_custom_button(__("Create Job Card"), () => {
 						frm.trigger("make_job_card");
-					}).addClass("btn-primary");
+					});
 				}
 			}
 		}
@@ -231,7 +231,8 @@ frappe.ui.form.on("Work Order", {
 		if (
 			frm.doc.docstatus === 1 &&
 			["Closed", "Completed"].includes(frm.doc.status) &&
-			frm.doc.produced_qty > 0
+			frm.doc.produced_qty > 0 &&
+			frm.doc.produced_qty > frm.doc.disassembled_qty
 		) {
 			frm.add_custom_button(
 				__("Disassemble Order"),
@@ -254,7 +255,7 @@ frappe.ui.form.on("Work Order", {
 			if (non_consumed_items && non_consumed_items.length) {
 				frm.add_custom_button(__("Return Components"), function () {
 					frm.trigger("create_stock_return_entry");
-				}).addClass("btn-primary");
+				});
 			}
 		}
 	},
@@ -398,11 +399,14 @@ frappe.ui.form.on("Work Order", {
 		erpnext.work_order
 			.show_prompt_for_qty_input(frm, "Disassemble")
 			.then((data) => {
+				if (flt(data.qty) <= 0) {
+					frappe.msgprint(__("Disassemble Qty cannot be less than or equal to <b>0</b>."));
+					return;
+				}
 				return frappe.xcall("erpnext.manufacturing.doctype.work_order.work_order.make_stock_entry", {
 					work_order_id: frm.doc.name,
 					purpose: "Disassemble",
 					qty: data.qty,
-					target_warehouse: data.target_warehouse,
 				});
 			})
 			.then((stock_entry) => {
@@ -417,10 +421,11 @@ frappe.ui.form.on("Work Order", {
 		var added_min = false;
 
 		// produced qty
-		var title = __("{0} items produced", [frm.doc.produced_qty]);
+		let produced_qty = frm.doc.produced_qty - frm.doc.disassembled_qty;
+		var title = __("{0} items produced", [produced_qty]);
 		bars.push({
 			title: title,
-			width: (frm.doc.produced_qty / frm.doc.qty) * 100 + "%",
+			width: (flt(produced_qty) / frm.doc.qty) * 100 + "%",
 			progress_class: "progress-bar-success",
 		});
 		if (bars[0].width == "0%") {
@@ -438,14 +443,27 @@ frappe.ui.form.on("Work Order", {
 			if (pending_complete > 0) {
 				var width = (pending_complete / frm.doc.qty) * 100 - added_min;
 				title = __("{0} items in progress", [pending_complete]);
+				let progress_class = "progress-bar-warning";
+				if (frm.doc.status == "Closed") {
+					if (frm.doc.required_items.find((d) => d.returned_qty > 0)) {
+						title = __("{0} items returned", [pending_complete]);
+						progress_class = "progress-bar-warning";
+					} else {
+						title = __("{0} items to return", [pending_complete]);
+						progress_class = "progress-bar-info";
+					}
+				}
+
 				bars.push({
 					title: title,
 					width: (width > 100 ? "99.5" : width) + "%",
-					progress_class: "progress-bar-warning",
+					progress_class: progress_class,
 				});
 				message = message + ". " + title;
 			}
 		}
+
+		//process loss qty
 		if (frm.doc.process_loss_qty) {
 			var process_loss_width = (frm.doc.process_loss_qty / frm.doc.qty) * 100;
 			title = __("{0} items lost during process.", [frm.doc.process_loss_qty]);
@@ -456,6 +474,19 @@ frappe.ui.form.on("Work Order", {
 			});
 			message = message + ". " + title;
 		}
+
+		// disassembled qty
+		if (frm.doc.disassembled_qty) {
+			var disassembled_width = (frm.doc.disassembled_qty / frm.doc.qty) * 100;
+			title = __("{0} items disassembled", [frm.doc.disassembled_qty]);
+			bars.push({
+				title: title,
+				width: disassembled_width + "%",
+				progress_class: "progress-bar-secondary",
+			});
+			message = message + ". " + title;
+		}
+
 		frm.dashboard.add_progress(__("Status"), bars, message);
 	},
 
@@ -651,7 +682,7 @@ erpnext.work_order = {
 	set_custom_buttons: function (frm) {
 		var doc = frm.doc;
 
-		if (doc.docstatus === 1 && doc.status !== "Closed") {
+		if (doc.docstatus === 1 && !["Closed", "Completed"].includes(doc.status)) {
 			frm.add_custom_button(
 				__("Close"),
 				function () {
@@ -661,9 +692,6 @@ erpnext.work_order = {
 				},
 				__("Status")
 			);
-		}
-
-		if (doc.docstatus === 1 && !["Closed", "Completed"].includes(doc.status)) {
 			if (doc.status != "Stopped" && doc.status != "Completed") {
 				frm.add_custom_button(
 					__("Stop"),
@@ -853,24 +881,6 @@ erpnext.work_order = {
 				},
 			},
 		];
-
-		if (purpose === "Disassemble") {
-			fields.push({
-				fieldtype: "Link",
-				options: "Warehouse",
-				fieldname: "target_warehouse",
-				label: __("Target Warehouse"),
-				default: frm.doc.source_warehouse || frm.doc.wip_warehouse,
-				get_query() {
-					return {
-						filters: {
-							company: frm.doc.company,
-							is_group: 0,
-						},
-					};
-				},
-			});
-		}
 
 		return new Promise((resolve, reject) => {
 			frm.qty_prompt = frappe.prompt(

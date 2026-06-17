@@ -175,6 +175,13 @@ class PurchaseOrder(BuyingController):
 		self.set_onload("supplier_tds", supplier_tds)
 		self.set_onload("can_update_items", self.can_update_items())
 
+	def before_validate(self):
+		self.set_has_unit_price_items()
+		self.flags.allow_zero_qty = self.has_unit_price_items
+
+		if self.is_subcontracted:
+			self.status_updater[0]["source_field"] = "fg_item_qty"
+
 	def validate(self):
 		super().validate()
 
@@ -767,7 +774,7 @@ def make_purchase_invoice(source_name, target_doc=None, args=None):
 @frappe.whitelist()
 def make_purchase_invoice_from_portal(purchase_order_name):
 	doc = get_mapped_purchase_invoice(purchase_order_name, ignore_permissions=True)
-	if doc.contact_email != frappe.session.user:
+	if frappe.session.user not in frappe.get_all("Portal User", {"parent": doc.supplier}, pluck="user"):
 		frappe.throw(_("Not Permitted"), frappe.PermissionError)
 	doc.save()
 	frappe.db.commit()

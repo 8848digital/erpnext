@@ -380,35 +380,23 @@ class PickList(TransactionBase):
 		picked_items = get_picked_items_qty(packed_items, contains_packed_items=True)
 		self.validate_picked_qty(picked_items)
 
-		picked_qty = frappe._dict()
+		doc_updates = {item: {"picked_qty": 0} for item in set(packed_items)}
 		for d in picked_items:
-			picked_qty[d.product_bundle_item] = d.picked_qty
+			doc_updates[d.product_bundle_item] = {"picked_qty": flt(d.picked_qty)}
 
-		for packed_item in packed_items:
-			frappe.db.set_value(
-				"Packed Item",
-				packed_item,
-				"picked_qty",
-				flt(picked_qty.get(packed_item)),
-				update_modified=False,
-			)
+		if doc_updates:
+			frappe.db.bulk_update("Packed Item", doc_updates, update_modified=False)
 
 	def update_sales_order_item_qty(self, so_items):
 		picked_items = get_picked_items_qty(so_items)
 		self.validate_picked_qty(picked_items)
 
-		picked_qty = frappe._dict()
+		doc_updates = {item: {"picked_qty": 0} for item in set(so_items)}
 		for d in picked_items:
-			picked_qty[d.sales_order_item] = d.picked_qty
+			doc_updates[d.sales_order_item] = {"picked_qty": flt(d.picked_qty)}
 
-		for so_item in so_items:
-			frappe.db.set_value(
-				"Sales Order Item",
-				so_item,
-				"picked_qty",
-				flt(picked_qty.get(so_item)),
-				update_modified=False,
-			)
+		if doc_updates:
+			frappe.db.bulk_update("Sales Order Item", doc_updates, update_modified=False)
 
 	def update_sales_order_picking_status(self) -> None:
 		sales_orders = []
@@ -738,7 +726,10 @@ class PickList(TransactionBase):
 				pi_item.serial_no,
 				(
 					Case()
-					.when((pi_item.picked_qty > 0) & (pi_item.docstatus == 1), pi_item.picked_qty)
+					.when(
+						(pi_item.picked_qty > 0) & (pi_item.docstatus == 1),
+						pi_item.picked_qty - pi_item.delivered_qty,
+					)
 					.else_(pi_item.stock_qty)
 				).as_("picked_qty"),
 			)
@@ -1001,12 +992,11 @@ def validate_picked_materials(item_code, required_qty, locations, picked_item_de
 	if remaining_qty > 0:
 		if picked_item_details:
 			frappe.msgprint(
-				_("{0} units of Item {1} is picked in another Pick List.").format(
-					remaining_qty, get_link_to_form("Item", item_code)
-				),
+				_(
+					"{0} units of Item {1} is not available in any of the warehouses. Other Pick Lists exist for this item."
+				).format(remaining_qty, get_link_to_form("Item", item_code)),
 				title=_("Already Picked"),
 			)
-
 		else:
 			frappe.msgprint(
 				_("{0} units of Item {1} is not available in any of the warehouses.").format(
@@ -1559,7 +1549,7 @@ def update_common_item_properties(item, location):
 	item.s_warehouse = location.warehouse
 	item.qty = location.picked_qty * location.conversion_factor
 	item.transfer_qty = location.picked_qty
-	item.qty = location.qty
+	item.qty = flt(location.picked_qty / (location.conversion_factor or 1), location.precision("qty"))
 	item.uom = location.uom
 	item.conversion_factor = location.conversion_factor
 	item.stock_uom = location.stock_uom
