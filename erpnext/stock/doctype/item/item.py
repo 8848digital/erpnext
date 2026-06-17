@@ -1265,16 +1265,29 @@ def check_stock_uom_with_bin(item, stock_uom):
 
 
 def get_item_defaults(item_code, company):
-	item = frappe.get_cached_doc("Item", item_code)
+    # Get the Item document
+    item = frappe.get_cached_doc("Item", item_code)
 
-	out = item.as_dict()
+    # Start with the Item fields
+    out = {}
+    for fieldname in item.meta.get_fieldnames():
+        out[fieldname] = item.get(fieldname)
 
-	for d in item.item_defaults:
-		if d.company == company:
-			row = d.as_dict(no_private_properties=True)
-			row.pop("name")
-			out.update(row)
-	return out
+    # Loop through item_defaults child table
+    for d in item.item_defaults:
+        if d.company == company:
+            # Convert the child document to a dict manually
+            row = {}
+            for fieldname in d.meta.get_fieldnames():
+                row[fieldname] = d.get(fieldname)
+
+            # Remove the 'name' field
+            row.pop("name", None)
+
+            # Merge the defaults into the main dictionary
+            out.update(row)
+
+    return out
 
 
 def set_item_default(item_code, company, fieldname, value):
