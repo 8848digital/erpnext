@@ -242,7 +242,66 @@ class StockEntry(StockController):
 		
 		self.validate_same_source_target_warehouse_during_material_transfer()
 
+	def set_serial_batch_for_disassembly(self):
+		if self.purpose != "Disassemble":
+			return
+
+		available_materials = get_available_materials(self.work_order, self)
+		for row in self.items:
+			warehouse = row.s_warehouse or row.t_warehouse
+			materials = available_materials.get((row.item_code, warehouse))
+			if not materials:
+				continue
+
+			batches = defaultdict(float)
+			serial_nos = []
+			qty = row.transfer_qty
+			for batch_no, batch_qty in materials.batch_details.items():
+				if qty <= 0:
+					break
+
+				batch_qty = abs(batch_qty)
+				if batch_qty <= qty:
+					batches[batch_no] = batch_qty
+					qty -= batch_qty
+				else:
+					batches[batch_no] = qty
+					qty = 0
+
+			if materials.serial_nos:
+				serial_nos = materials.serial_nos[: int(row.transfer_qty)]
+
+			if not serial_nos and not batches:
+				continue
+
+			bundle_doc = SerialBatchCreation(
+				{
+					"item_code": row.item_code,
+					"warehouse": warehouse,
+					"posting_date": self.posting_date,
+					"posting_time": self.posting_time,
+					"voucher_type": self.doctype,
+					"voucher_no": self.name,
+					"voucher_detail_no": row.name,
+					"qty": row.transfer_qty,
+					"type_of_transaction": "Inward" if row.t_warehouse else "Outward",
+					"company": self.company,
+					"do_not_submit": True,
+				}
+			).make_serial_and_batch_bundle(serial_nos=serial_nos, batch_nos=batches)
+
+			row.serial_and_batch_bundle = bundle_doc.name
+			row.use_serial_batch_fields = 0
+
+			row.db_set(
+				{
+					"serial_and_batch_bundle": bundle_doc.name,
+					"use_serial_batch_fields": 0,
+				}
+			)
+
 	def on_submit(self):
+		self.set_serial_batch_for_disassembly()
 		self.validate_closed_subcontracting_order()
 		self.make_bundle_using_old_serial_batch_fields()
 		self.update_disassembled_order()
@@ -422,6 +481,7 @@ class StockEntry(StockController):
 						"project": self.get("project") if "projects" in frappe.get_installed_apps() else "",
 						"uom": item.uom,
 						"s_warehouse": item.s_warehouse,
+						"is_finished_item": item.is_finished_item,
 					}
 				),
 				for_update=True,
@@ -450,6 +510,9 @@ class StockEntry(StockController):
 				item.transfer_qty = flt(
 					flt(item.qty) * flt(item.conversion_factor), self.precision("transfer_qty", item)
 				)
+
+			if self.purpose == "Manufacture":
+				item.set("expense_account", item_details.get("expense_account"))
 
 	def validate_fg_completed_qty(self):
 		item_wise_qty = {}
@@ -1733,7 +1796,9 @@ class StockEntry(StockController):
 		if self.purpose == "Material Issue":
 			ret["expense_account"] = item.get("expense_account") or item_group_defaults.get("expense_account")
 
-		if self.purpose == "Manufacture" or not ret.get("expense_account"):
+		if (self.purpose == "Manufacture" and not args.get("is_finished_item")) or not ret.get(
+			"expense_account"
+		):
 			ret["expense_account"] = frappe.get_cached_value(
 				"Company", self.company, "stock_adjustment_account"
 			)
@@ -1799,7 +1864,7 @@ class StockEntry(StockController):
 					},
 				)
 
-	def get_items_for_disassembly(self, disassemble_qty, production_item):
+	def get_items_for_disassembly(self):
 		"""Get items for Disassembly Order"""
 
 		if not self.work_order:
@@ -1809,7 +1874,13 @@ class StockEntry(StockController):
 
 		s_warehouse = frappe.db.get_value("Work Order", self.work_order, "fg_warehouse")
 
-		items_dict = get_bom_items_as_dict(self.bom_no, self.company, disassemble_qty)
+		items_dict = get_bom_items_as_dict(
+			self.bom_no,
+			self.company,
+			self.fg_completed_qty,
+			fetch_exploded=self.use_multi_level_bom,
+			fetch_qty_in_stock_uom=False,
+		)
 
 		for row in items:
 			child_row = self.append("items", {})
@@ -1822,11 +1893,11 @@ class StockEntry(StockController):
 				child_row.qty = bom_items.get("qty", child_row.qty)
 				child_row.amount = bom_items.get("amount", child_row.amount)
 
-			if row.item_code == production_item:
-				child_row.qty = disassemble_qty
+			if row.is_finished_item:
+				child_row.qty = self.fg_completed_qty
 
 			child_row.s_warehouse = (self.from_warehouse or s_warehouse) if row.is_finished_item else ""
-			child_row.t_warehouse = self.to_warehouse if not row.is_finished_item else ""
+			child_row.t_warehouse = row.s_warehouse
 			child_row.is_finished_item = 0 if row.is_finished_item else 1
 
 	def get_items_from_manufacture_entry(self):
@@ -1845,6 +1916,8 @@ class StockEntry(StockController):
 				"`tabStock Entry Detail`.`is_finished_item`",
 				"`tabStock Entry Detail`.`batch_no`",
 				"`tabStock Entry Detail`.`serial_no`",
+				"`tabStock Entry Detail`.`s_warehouse`",
+				"`tabStock Entry Detail`.`t_warehouse`",
 				"`tabStock Entry Detail`.`use_serial_batch_fields`",
 			],
 			filters=[
@@ -1857,12 +1930,12 @@ class StockEntry(StockController):
 		)
 
 	@frappe.whitelist()
-	def get_items(self, qty=None, production_item=None):
+	def get_items(self):
 		self.set("items", [])
 		self.validate_work_order()
 
-		if self.purpose == "Disassemble" and qty is not None:
-			return self.get_items_for_disassembly(qty, production_item)
+		if self.purpose == "Disassemble":
+			return self.get_items_for_disassembly()
 
 		if not self.posting_date or not self.posting_time:
 			frappe.throw(_("Posting date and posting time is mandatory"))
@@ -3229,14 +3302,17 @@ def get_items_from_subcontract_order(source_name, target_doc=None):
 	return target_doc
 
 
-def get_available_materials(work_order) -> dict:
-	data = get_stock_entry_data(work_order)
+def get_available_materials(work_order, stock_entry_doc=None) -> dict:
+	data = get_stock_entry_data(work_order, stock_entry_doc=stock_entry_doc)
 
 	available_materials = {}
 	for row in data:
 		key = (row.item_code, row.warehouse)
 		if row.purpose != "Material Transfer for Manufacture":
 			key = (row.item_code, row.s_warehouse)
+
+		if stock_entry_doc and stock_entry_doc.purpose == "Disassemble":
+			key = (row.item_code, row.s_warehouse or row.warehouse)
 
 		if key not in available_materials:
 			available_materials.setdefault(
@@ -3248,7 +3324,9 @@ def get_available_materials(work_order) -> dict:
 
 		item_data = available_materials[key]
 
-		if row.purpose == "Material Transfer for Manufacture":
+		if row.purpose == "Material Transfer for Manufacture" or (
+			stock_entry_doc and stock_entry_doc.purpose == "Disassemble" and row.purpose == "Manufacture"
+		):
 			item_data.qty += row.qty
 			if row.batch_no:
 				item_data.batch_details[row.batch_no] += row.qty
@@ -3288,7 +3366,7 @@ def get_available_materials(work_order) -> dict:
 	return available_materials
 
 
-def get_stock_entry_data(work_order):
+def get_stock_entry_data(work_order, stock_entry_doc=None):
 	from erpnext.stock.doctype.serial_and_batch_bundle.serial_and_batch_bundle import (
 		get_voucher_wise_serial_batch_from_bundle,
 	)
@@ -3320,19 +3398,35 @@ def get_stock_entry_data(work_order):
 			(stock_entry.name == stock_entry_detail.parent)
 			& (stock_entry.work_order == work_order)
 			& (stock_entry.docstatus == 1)
-			& (stock_entry_detail.s_warehouse.isnotnull())
-			& (
-				stock_entry.purpose.isin(
-					[
-						"Manufacture",
-						"Material Consumption for Manufacture",
-						"Material Transfer for Manufacture",
-					]
-				)
-			)
 		)
 		.orderby(stock_entry.creation, stock_entry_detail.item_code, stock_entry_detail.idx)
-	).run(as_dict=1)
+	)
+
+	if stock_entry_doc and stock_entry_doc.purpose == "Disassemble":
+		data = data.where(
+			stock_entry.purpose.isin(
+				[
+					"Disassemble",
+					"Manufacture",
+				]
+			)
+		)
+
+		data = data.where(stock_entry.name != stock_entry_doc.name)
+	else:
+		data = data.where(
+			stock_entry.purpose.isin(
+				[
+					"Manufacture",
+					"Material Consumption for Manufacture",
+					"Material Transfer for Manufacture",
+				]
+			)
+		)
+
+		data = data.where(stock_entry_detail.s_warehouse.isnotnull())
+
+	data = data.run(as_dict=1)
 
 	if not data:
 		return []
@@ -3344,6 +3438,9 @@ def get_stock_entry_data(work_order):
 			key = (row.item_code, row.warehouse, row.name)
 			if row.purpose != "Material Transfer for Manufacture":
 				key = (row.item_code, row.s_warehouse, row.name)
+
+			if stock_entry_doc and stock_entry_doc.purpose == "Disassemble":
+				key = (row.item_code, row.s_warehouse or row.warehouse, row.name)
 
 			if bundle_data.get(key):
 				row.update(bundle_data.get(key))

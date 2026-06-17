@@ -16,6 +16,10 @@ def transaction_processing(data, from_doctype, to_doctype):
 	else:
 		deserialized_data = data
 
+	skipped_records = [d for d in deserialized_data if d.get("status") in ("On Hold", "Closed")]
+
+	deserialized_data = [d for d in deserialized_data if d.get("status") not in ("On Hold", "Closed")]
+
 	length_of_data = len(deserialized_data)
 
 	frappe.msgprint(_("Started a background job to create {1} {0}").format(to_doctype, length_of_data))
