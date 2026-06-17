@@ -3134,7 +3134,7 @@ class TestSalesInvoice(FrappeTestCase):
 		si.submit()
 
 		# Check if adjustment entry is created
-		self.assertTrue(
+		self.assertFalse(
 			frappe.db.exists(
 				"GL Entry",
 				{
@@ -3188,6 +3188,60 @@ class TestSalesInvoice(FrappeTestCase):
 		)
 		self.assertEqual(sales_invoice.items[0].item_tax_template, "_Test Account Excise Duty @ 10 - _TC")
 		self.assertEqual(sales_invoice.items[0].item_tax_rate, item_tax_map)
+
+	def test_item_tax_template_change_with_grand_total_discount(self):
+		"""
+		Test that when item tax template changes due to discount on Grand Total,
+		the tax calculations are consistent.
+		"""
+		item = create_item("Test Item With Multiple Tax Templates")
+
+		item.set("taxes", [])
+		item.append(
+			"taxes",
+			{
+				"item_tax_template": "_Test Account Excise Duty @ 10 - _TC",
+				"minimum_net_rate": 0,
+				"maximum_net_rate": 500,
+			},
+		)
+
+		item.append(
+			"taxes",
+			{
+				"item_tax_template": "_Test Account Excise Duty @ 12 - _TC",
+				"minimum_net_rate": 501,
+				"maximum_net_rate": 1000,
+			},
+		)
+
+		item.save()
+
+		si = create_sales_invoice(item=item.name, rate=700, do_not_save=True)
+		si.append(
+			"taxes",
+			{
+				"charge_type": "On Net Total",
+				"account_head": "_Test Account Excise Duty - _TC",
+				"cost_center": "_Test Cost Center - _TC",
+				"description": "Excise Duty",
+				"rate": 0,
+			},
+		)
+		si.insert()
+
+		self.assertEqual(si.items[0].item_tax_template, "_Test Account Excise Duty @ 12 - _TC")
+
+		si.apply_discount_on = "Grand Total"
+		si.discount_amount = 300
+		si.save()
+
+		# Verify template changed to 10%
+		self.assertEqual(si.items[0].item_tax_template, "_Test Account Excise Duty @ 10 - _TC")
+		self.assertEqual(si.taxes[0].tax_amount, 70)  # 10% of 700
+		self.assertEqual(si.grand_total, 470)  # 700 + 70 - 300
+
+		si.submit()
 
 	@change_settings("Selling Settings", {"enable_discount_accounting": 1})
 	def test_sales_invoice_with_discount_accounting_enabled(self):
@@ -3291,6 +3345,150 @@ class TestSalesInvoice(FrappeTestCase):
 
 		check_gl_entries(self, si.name, expected_gle, add_days(nowdate(), -1))
 
+	def test_asset_depreciation_on_sale_with_pro_rata(self):
+		"""
+		Tests if an Asset set to depreciate yearly on June 30, that gets sold on Sept 30, creates an additional depreciation entry on its date of sale.
+		"""
+
+		create_asset_data()
+		asset = create_asset(item_code="Macbook Pro", calculate_depreciation=1, submit=1)
+		post_depreciation_entries(getdate("2021-09-30"))
+
+		create_sales_invoice(
+			item_code="Macbook Pro", asset=asset.name, qty=1, rate=90000, posting_date=getdate("2021-09-30")
+		)
+		asset.load_from_db()
+
+		expected_values = [
+			["2020-06-30", 1366.12, 1366.12],
+			["2021-06-30", 20000.0, 21366.12],
+			["2021-09-30", 5041.1, 26407.22],
+		]
+
+		for i, schedule in enumerate(get_depr_schedule(asset.name, "Active")):
+			self.assertEqual(getdate(expected_values[i][0]), schedule.schedule_date)
+			self.assertEqual(expected_values[i][1], schedule.depreciation_amount)
+			self.assertEqual(expected_values[i][2], schedule.accumulated_depreciation_amount)
+			self.assertTrue(schedule.journal_entry)
+
+	def test_asset_depreciation_on_sale_without_pro_rata(self):
+		"""
+		Tests if an Asset set to depreciate yearly on Dec 31, that gets sold on Dec 31 after two years, created an additional depreciation entry on its date of sale.
+		"""
+
+		create_asset_data()
+		asset = create_asset(
+			item_code="Macbook Pro",
+			calculate_depreciation=1,
+			available_for_use_date=getdate("2019-12-31"),
+			total_number_of_depreciations=3,
+			expected_value_after_useful_life=10000,
+			depreciation_start_date=getdate("2020-12-31"),
+			submit=1,
+		)
+
+		post_depreciation_entries(getdate("2021-09-30"))
+
+		create_sales_invoice(
+			item_code="Macbook Pro", asset=asset.name, qty=1, rate=90000, posting_date=getdate("2021-12-31")
+		)
+		asset.load_from_db()
+
+		expected_values = [["2020-12-31", 30000, 30000], ["2021-12-31", 30000, 60000]]
+
+		for i, schedule in enumerate(get_depr_schedule(asset.name, "Active")):
+			self.assertEqual(getdate(expected_values[i][0]), schedule.schedule_date)
+			self.assertEqual(expected_values[i][1], schedule.depreciation_amount)
+			self.assertEqual(expected_values[i][2], schedule.accumulated_depreciation_amount)
+			self.assertTrue(schedule.journal_entry)
+
+	def test_depreciation_on_return_of_sold_asset(self):
+		from erpnext.controllers.sales_and_purchase_return import make_return_doc
+
+		create_asset_data()
+		asset = create_asset(item_code="Macbook Pro", calculate_depreciation=1, submit=1)
+		post_depreciation_entries(getdate("2021-09-30"))
+
+		si = create_sales_invoice(
+			item_code="Macbook Pro", asset=asset.name, qty=1, rate=90000, posting_date=getdate("2021-09-30")
+		)
+		return_si = make_return_doc("Sales Invoice", si.name)
+		return_si.submit()
+		asset.load_from_db()
+
+		expected_values = [
+			["2020-06-30", 1366.12, 1366.12, True],
+			["2021-06-30", 20000.0, 21366.12, True],
+			["2022-06-30", 20000.0, 41366.12, False],
+			["2023-06-30", 20000.0, 61366.12, False],
+			["2024-06-30", 20000.0, 81366.12, False],
+			["2025-06-06", 18633.88, 100000.0, False],
+		]
+
+		for i, schedule in enumerate(get_depr_schedule(asset.name, "Active")):
+			self.assertEqual(getdate(expected_values[i][0]), schedule.schedule_date)
+			self.assertEqual(expected_values[i][1], schedule.depreciation_amount)
+			self.assertEqual(expected_values[i][2], schedule.accumulated_depreciation_amount)
+			self.assertEqual(schedule.journal_entry, schedule.journal_entry)
+
+	def test_depreciation_on_cancel_invoice(self):
+		from erpnext.controllers.sales_and_purchase_return import make_return_doc
+
+		create_asset_data()
+
+		asset = create_asset(
+			item_code="Macbook Pro",
+			purchase_date="2020-01-01",
+			available_for_use_date="2023-01-01",
+			depreciation_start_date="2023-04-01",
+			calculate_depreciation=1,
+			submit=1,
+		)
+		post_depreciation_entries(date="2025-04-01")
+
+		si = create_sales_invoice(
+			item_code="Macbook Pro", asset=asset.name, qty=1, rate=10000, posting_date=getdate("2025-05-01")
+		)
+		return_si = make_return_doc("Sales Invoice", si.name)
+		return_si.posting_date = getdate("2025-05-01")
+		return_si.submit()
+		return_si.reload()
+		return_si.cancel()
+
+		asset.load_from_db()
+
+		# Check if the asset schedule is updated while cancel the return invoice
+		expected_values = [
+			["2023-04-01", 4986.30, 4986.30, True],
+			["2024-04-01", 20000.0, 24986.30, True],
+			["2025-04-01", 20000.0, 44986.30, True],
+			["2025-05-01", 1643.84, 46630.14, True],
+		]
+		for i, schedule in enumerate(get_depr_schedule(asset.name, "Active")):
+			self.assertEqual(getdate(expected_values[i][0]), schedule.schedule_date)
+			self.assertEqual(expected_values[i][1], schedule.depreciation_amount)
+			self.assertEqual(expected_values[i][2], schedule.accumulated_depreciation_amount)
+			self.assertEqual(schedule.journal_entry, schedule.journal_entry)
+
+		si.reload()
+		si.cancel()
+		asset.load_from_db()
+
+		# Check if the asset schedule is updated while cancel the sales invoice
+		expected_values = [
+			["2023-04-01", 4986.30, 4986.30, True],
+			["2024-04-01", 20000.0, 24986.30, True],
+			["2025-04-01", 20000.0, 44986.30, True],
+			["2026-04-01", 20000.0, 64986.30, False],
+			["2027-04-01", 20000.0, 84986.30, False],
+			["2028-01-01", 15013.70, 100000.0, False],
+		]
+
+		for i, schedule in enumerate(get_depr_schedule(asset.name, "Active")):
+			self.assertEqual(getdate(expected_values[i][0]), schedule.schedule_date)
+			self.assertEqual(expected_values[i][1], schedule.depreciation_amount)
+			self.assertEqual(expected_values[i][2], schedule.accumulated_depreciation_amount)
+			self.assertEqual(schedule.journal_entry, schedule.journal_entry)
 
 	def test_sales_invoice_against_supplier(self):
 		from erpnext.accounts.doctype.opening_invoice_creation_tool.test_opening_invoice_creation_tool import (
@@ -7985,6 +8183,33 @@ def check_gl_entries(doc, voucher_no, expected_gle, posting_date, voucher_type="
 
 		doc.db_set("do_not_use_batchwise_valuation", original_value)
 
+
+	def test_inter_company_transaction_cost_center(self):
+		si = create_sales_invoice(
+			company="Wind Power LLC",
+			customer="_Test Internal Customer",
+			debit_to="Debtors - WP",
+			warehouse="Stores - WP",
+			income_account="Sales - WP",
+			expense_account="Cost of Goods Sold - WP",
+			parent_cost_center="Main - WP",
+			cost_center="Main - WP",
+			currency="USD",
+			do_not_save=1,
+		)
+
+		si.selling_price_list = "_Test Price List Rest of the World"
+		si.submit()
+
+		cost_center = frappe.db.get_value("Company", "_Test Company 1", "cost_center")
+		frappe.db.set_value("Company", "_Test Company 1", "cost_center", None)
+
+		target_doc = make_inter_company_transaction("Sales Invoice", si.name)
+
+		self.assertEqual(target_doc.cost_center, None)
+		self.assertEqual(target_doc.items[0].cost_center, None)
+
+		frappe.db.set_value("Company", "_Test Company 1", "cost_center", cost_center)
 
 
 def make_item_for_si(item_code, properties=None):

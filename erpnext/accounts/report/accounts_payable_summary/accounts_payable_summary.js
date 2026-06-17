@@ -54,6 +54,17 @@ frappe.query_reports["Accounts Payable Summary"] = {
 			options: "Cost Center",
 		},
 		{
+			fieldname: "project",
+			label: __("Project"),
+			fieldtype: "MultiSelectList",
+			options: "Project",
+			get_data: function (txt) {
+				return frappe.db.get_link_options("Project", txt, {
+					company: frappe.query_report.get_filter_value("company"),
+				});
+			},
+		},
+		{
 			fieldname: "party_type",
 			label: __("Party Type"),
 			fieldtype: "Autocomplete",
@@ -100,6 +111,11 @@ frappe.query_reports["Accounts Payable Summary"] = {
 		{
 			fieldname: "for_revaluation_journals",
 			label: __("Revaluation Journals"),
+			fieldtype: "Check",
+		},
+		{
+			fieldname: "show_gl_balance",
+			label: __("Show GL Balance"),
 			fieldtype: "Check",
 		},
 	],
