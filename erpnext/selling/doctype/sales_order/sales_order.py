@@ -1334,7 +1334,6 @@ def make_purchase_order_for_default_supplier(source_name, selected_items=None, t
 			{
 				"Sales Order": {
 					"doctype": "Purchase Order",
-					"field_map": {"dispatch_address_name": "dispatch_address"},
 					"field_no_map": [
 						"address_display",
 						"contact_display",
@@ -1343,6 +1342,7 @@ def make_purchase_order_for_default_supplier(source_name, selected_items=None, t
 						"contact_person",
 						"taxes_and_charges",
 						"shipping_address",
+						"dispatch_address",
 					],
 					"validation": {"docstatus": ["=", 1]},
 				},
@@ -1472,7 +1472,6 @@ def make_purchase_order(source_name, selected_items=None, target_doc=None):
 		{
 			"Sales Order": {
 				"doctype": "Purchase Order",
-				"field_map": {"dispatch_address_name": "dispatch_address"},
 				"field_no_map": [
 					"address_display",
 					"contact_display",
@@ -1481,6 +1480,7 @@ def make_purchase_order(source_name, selected_items=None, target_doc=None):
 					"contact_person",
 					"taxes_and_charges",
 					"shipping_address",
+					"dispatch_address",
 				],
 				"validation": {"docstatus": ["=", 1]},
 			},
