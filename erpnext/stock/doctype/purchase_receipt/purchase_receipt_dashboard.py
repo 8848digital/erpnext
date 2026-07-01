@@ -37,5 +37,19 @@ def get_data():
 			"Material Request": ["items", "material_request"],
 			"Purchase Order": ["items", "purchase_order"],
 		},
-		"transactions": transactions,
+		"internal_and_external_links": {
+			"Purchase Invoice": ["items", "purchase_invoice"],
+		},
+		"transactions": [
+			{
+				"label": _("Related"),
+				"items": ["Purchase Invoice", "Landed Cost Voucher", "Asset", "Stock Reservation Entry"],
+			},
+			{
+				"label": _("Reference"),
+				"items": ["Material Request", "Purchase Order", "Quality Inspection", "Project"],
+			},
+			{"label": _("Returns"), "items": ["Purchase Receipt"]},
+			{"label": _("Subscription"), "items": ["Auto Repeat"]},
+		],
 	}

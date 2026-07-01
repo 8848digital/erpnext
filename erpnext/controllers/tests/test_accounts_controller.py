@@ -1825,3 +1825,441 @@ class TestAccountsController(FrappeTestCase):
 		exc_je_for_je = self.get_journals_for(journal_as_payment.doctype, journal_as_payment.name)
 		self.assertEqual(exc_je_for_si, [])
 		self.assertEqual(exc_je_for_je, [])
+
+	def test_60_payment_entry_against_journal(self):
+		# Invoices
+		exc_rate1 = 75
+		exc_rate2 = 77
+		amount = 1
+		je1 = self.create_journal_entry(
+			acc1=self.debit_usd,
+			acc1_exc_rate=exc_rate1,
+			acc2=self.cash,
+			acc1_amount=amount,
+			acc2_amount=(amount * 75),
+			acc2_exc_rate=1,
+		)
+		je1.accounts[0].party_type = "Customer"
+		je1.accounts[0].party = self.customer
+		je1 = je1.save().submit()
+
+		je2 = self.create_journal_entry(
+			acc1=self.debit_usd,
+			acc1_exc_rate=exc_rate2,
+			acc2=self.cash,
+			acc1_amount=amount,
+			acc2_amount=(amount * exc_rate2),
+			acc2_exc_rate=1,
+		)
+		je2.accounts[0].party_type = "Customer"
+		je2.accounts[0].party = self.customer
+		je2 = je2.save().submit()
+
+		# Payment
+		pe = self.create_payment_entry(amount=2, source_exc_rate=exc_rate1).save().submit()
+
+		pr = self.create_payment_reconciliation()
+		pr.receivable_payable_account = self.debit_usd
+		pr.get_unreconciled_entries()
+		self.assertEqual(len(pr.invoices), 2)
+		self.assertEqual(len(pr.payments), 1)
+		invoices = [x.as_dict() for x in pr.invoices]
+		payments = [x.as_dict() for x in pr.payments]
+		pr.allocate_entries(frappe._dict({"invoices": invoices, "payments": payments}))
+		pr.reconcile()
+		self.assertEqual(len(pr.invoices), 0)
+		self.assertEqual(len(pr.payments), 0)
+
+		# There should be no outstanding in both currencies
+		self.assert_ledger_outstanding(je1.doctype, je1.name, 0.0, 0.0)
+		self.assert_ledger_outstanding(je2.doctype, je2.name, 0.0, 0.0)
+
+		# Exchange Gain/Loss Journal should've been created only for JE2
+		exc_je_for_je1 = self.get_journals_for(je1.doctype, je1.name)
+		exc_je_for_je2 = self.get_journals_for(je2.doctype, je2.name)
+		self.assertEqual(exc_je_for_je1, [])
+		self.assertEqual(len(exc_je_for_je2), 1)
+
+		# Cancel Payment
+		pe.reload()
+		pe.cancel()
+
+		self.assert_ledger_outstanding(je1.doctype, je1.name, (amount * exc_rate1), amount)
+		self.assert_ledger_outstanding(je2.doctype, je2.name, (amount * exc_rate2), amount)
+
+		# Exchange Gain/Loss Journal should've been cancelled
+		exc_je_for_je1 = self.get_journals_for(je1.doctype, je1.name)
+		exc_je_for_je2 = self.get_journals_for(je2.doctype, je2.name)
+		self.assertEqual(exc_je_for_je1, [])
+		self.assertEqual(exc_je_for_je2, [])
+
+	def test_61_payment_entry_against_journal_for_payable_accounts(self):
+		# Invoices
+		exc_rate1 = 75
+		exc_rate2 = 77
+		amount = 1
+		je1 = self.create_journal_entry(
+			acc1=self.creditors_usd,
+			acc1_exc_rate=exc_rate1,
+			acc2=self.cash,
+			acc1_amount=-amount,
+			acc2_amount=(-amount * 75),
+			acc2_exc_rate=1,
+		)
+		je1.accounts[0].party_type = "Supplier"
+		je1.accounts[0].party = self.supplier
+		je1 = je1.save().submit()
+
+		# Payment
+		pe = create_payment_entry(
+			company=self.company,
+			payment_type="Pay",
+			party_type="Supplier",
+			party=self.supplier,
+			paid_from=self.cash,
+			paid_to=self.creditors_usd,
+			paid_amount=amount,
+		)
+		pe.target_exchange_rate = exc_rate2
+		pe.received_amount = amount
+		pe.paid_amount = amount * exc_rate2
+		pe.save().submit()
+
+		pr = frappe.get_doc(
+			{
+				"doctype": "Payment Reconciliation",
+				"company": self.company,
+				"party_type": "Supplier",
+				"party": self.supplier,
+				"receivable_payable_account": get_party_account("Supplier", self.supplier, self.company),
+			}
+		)
+		pr.from_invoice_date = pr.to_invoice_date = pr.from_payment_date = pr.to_payment_date = nowdate()
+		pr.get_unreconciled_entries()
+		self.assertEqual(len(pr.invoices), 1)
+		self.assertEqual(len(pr.payments), 1)
+		invoices = [x.as_dict() for x in pr.invoices]
+		payments = [x.as_dict() for x in pr.payments]
+		pr.allocate_entries(frappe._dict({"invoices": invoices, "payments": payments}))
+		pr.reconcile()
+		self.assertEqual(len(pr.invoices), 0)
+		self.assertEqual(len(pr.payments), 0)
+
+		# There should be no outstanding in both currencies
+		self.assert_ledger_outstanding(je1.doctype, je1.name, 0.0, 0.0)
+
+		# Exchange Gain/Loss Journal should've been created
+		exc_je_for_je1 = self.get_journals_for(je1.doctype, je1.name)
+		self.assertEqual(len(exc_je_for_je1), 1)
+
+		# Cancel Payment
+		pe.reload()
+		pe.cancel()
+
+		self.assert_ledger_outstanding(je1.doctype, je1.name, (amount * exc_rate1), amount)
+
+		# Exchange Gain/Loss Journal should've been cancelled
+		exc_je_for_je1 = self.get_journals_for(je1.doctype, je1.name)
+		self.assertEqual(exc_je_for_je1, [])
+
+	def test_70_advance_payment_against_sales_invoice_in_foreign_currency(self):
+		"""
+		Customer advance booked under Liability
+		"""
+		self.setup_advance_accounts_in_party_master()
+
+		adv = self.create_payment_entry(amount=1, source_exc_rate=83)
+		adv.save()  # explicit 'save' is needed to trigger set_liability_account()
+		self.assertEqual(adv.paid_from, self.advance_received_usd)
+		adv.submit()
+
+		si = self.create_sales_invoice(qty=1, conversion_rate=80, rate=1, do_not_submit=True)
+		si.debit_to = self.debtors_usd
+		si.save().submit()
+		self.assert_ledger_outstanding(si.doctype, si.name, 80.0, 1.0)
+
+		pr = self.create_payment_reconciliation()
+		pr.receivable_payable_account = self.debtors_usd
+		pr.default_advance_account = self.advance_received_usd
+		pr.get_unreconciled_entries()
+		self.assertEqual(pr.invoices[0].invoice_number, si.name)
+		self.assertEqual(pr.payments[0].reference_name, adv.name)
+
+		# Allocate and Reconcile
+		invoices = [x.as_dict() for x in pr.invoices]
+		payments = [x.as_dict() for x in pr.payments]
+		pr.allocate_entries(frappe._dict({"invoices": invoices, "payments": payments}))
+		pr.reconcile()
+		self.assertEqual(len(pr.invoices), 0)
+		self.assertEqual(len(pr.payments), 0)
+		self.assert_ledger_outstanding(si.doctype, si.name, 0.0, 0.0)
+
+		# Exc Gain/Loss journal should've been creatad
+		exc_je_for_si = self.get_journals_for(si.doctype, si.name)
+		exc_je_for_adv = self.get_journals_for(adv.doctype, adv.name)
+		self.assertEqual(len(exc_je_for_si), 1)
+		self.assertEqual(len(exc_je_for_adv), 1)
+		self.assertEqual(exc_je_for_si, exc_je_for_adv)
+
+		adv.reload()
+		adv.cancel()
+		si.reload()
+		self.assert_ledger_outstanding(si.doctype, si.name, 80.0, 1.0)
+		# Exc Gain/Loss journal should've been cancelled
+		exc_je_for_si = self.get_journals_for(si.doctype, si.name)
+		exc_je_for_adv = self.get_journals_for(adv.doctype, adv.name)
+		self.assertEqual(len(exc_je_for_si), 0)
+		self.assertEqual(len(exc_je_for_adv), 0)
+
+		self.remove_advance_accounts_from_party_master()
+
+	def test_71_advance_payment_against_purchase_invoice_in_foreign_currency(self):
+		"""
+		Supplier advance booked under Asset
+		"""
+		self.setup_advance_accounts_in_party_master()
+
+		usd_amount = 1
+		inr_amount = 85
+		exc_rate = 85
+		adv = create_payment_entry(
+			company=self.company,
+			payment_type="Pay",
+			party_type="Supplier",
+			party=self.supplier,
+			paid_from=self.cash,
+			paid_to=self.advance_paid_usd,
+			paid_amount=inr_amount,
+		)
+		adv.source_exchange_rate = 1
+		adv.target_exchange_rate = exc_rate
+		adv.received_amount = usd_amount
+		adv.paid_amount = exc_rate * usd_amount
+		adv.posting_date = nowdate()
+		adv.save()
+		# Make sure that advance account is still set
+		self.assertEqual(adv.paid_to, self.advance_paid_usd)
+		adv.submit()
+
+		pi = self.create_purchase_invoice(qty=1, conversion_rate=83, rate=1)
+		self.assertEqual(pi.credit_to, self.creditors_usd)
+		self.assert_ledger_outstanding(pi.doctype, pi.name, 83.0, 1.0)
+
+		pr = self.create_payment_reconciliation()
+		pr.party_type = "Supplier"
+		pr.party = self.supplier
+		pr.receivable_payable_account = self.creditors_usd
+		pr.default_advance_account = self.advance_paid_usd
+		pr.get_unreconciled_entries()
+		self.assertEqual(pr.invoices[0].invoice_number, pi.name)
+		self.assertEqual(pr.payments[0].reference_name, adv.name)
+
+		# Allocate and Reconcile
+		invoices = [x.as_dict() for x in pr.invoices]
+		payments = [x.as_dict() for x in pr.payments]
+		pr.allocate_entries(frappe._dict({"invoices": invoices, "payments": payments}))
+		pr.reconcile()
+		self.assertEqual(len(pr.invoices), 0)
+		self.assertEqual(len(pr.payments), 0)
+		self.assert_ledger_outstanding(pi.doctype, pi.name, 0.0, 0.0)
+
+		# Exc Gain/Loss journal should've been creatad
+		exc_je_for_pi = self.get_journals_for(pi.doctype, pi.name)
+		exc_je_for_adv = self.get_journals_for(adv.doctype, adv.name)
+		self.assertEqual(len(exc_je_for_pi), 1)
+		self.assertEqual(len(exc_je_for_adv), 1)
+		self.assertEqual(exc_je_for_pi, exc_je_for_adv)
+
+		adv.reload()
+		adv.cancel()
+		pi.reload()
+		self.assert_ledger_outstanding(pi.doctype, pi.name, 83.0, 1.0)
+		# Exc Gain/Loss journal should've been cancelled
+		exc_je_for_pi = self.get_journals_for(pi.doctype, pi.name)
+		exc_je_for_adv = self.get_journals_for(adv.doctype, adv.name)
+		self.assertEqual(len(exc_je_for_pi), 0)
+		self.assertEqual(len(exc_je_for_adv), 0)
+
+		self.remove_advance_accounts_from_party_master()
+
+	def test_company_validation_in_dimension(self):
+		from projects.projects.doctype.project.test_project import make_project
+		if "projects" not in frappe.get_installed_apps():
+			return
+		si = create_sales_invoice(do_not_submit=True)
+		project = make_project({"project_name": "_Test Demo Project1", "company": "_Test Company 1"})
+		si.project = project.name
+		self.assertRaises(frappe.ValidationError, si.save)
+		si_1 = create_sales_invoice(do_not_submit=True)
+		si_1.items[0].project = project.name
+		self.assertRaises(frappe.ValidationError, si_1.save)
+
+	def test_discount_amount_not_mapped_repeatedly_for_sales_transactions(self):
+		"""
+		Test that additional discount amount is not copied repeatedly
+		when creating multiple delivery notes from a single sales order with discount_amount set
+		"""
+		from erpnext.selling.doctype.sales_order.sales_order import make_delivery_note
+		from erpnext.selling.doctype.sales_order.test_sales_order import make_sales_order
+
+		# Create a sales order with discount amount
+		so = make_sales_order(qty=10, rate=100, do_not_submit=True)
+		so.apply_discount_on = "Net Total"
+		so.discount_amount = 100
+		so.save()
+		so.submit()
+
+		# Create first delivery note from sales order (partial qty)
+		dn1 = make_delivery_note(so.name)
+		dn1.items[0].qty = 5
+		dn1.save()
+		dn1.submit()
+
+		# First delivery note should have full discount amount
+		self.assertEqual(dn1.discount_amount, 100)
+		self.assertEqual(dn1.grand_total, 400)
+
+		# Create second delivery note from the same sales order (remaining qty)
+		dn2 = make_delivery_note(so.name)
+		dn2.items[0].qty = 5
+		dn2.save()
+		dn2.submit()
+
+		# Second delivery note should have discount_amount set to 0
+		# because discount was already fully applied in first delivery note
+		self.assertEqual(dn2.discount_amount, 0)
+		self.assertEqual(dn2.grand_total, 500)
+
+	def test_discount_amount_not_mapped_repeatedly_for_purchase_transactions(self):
+		"""
+		Test that additional discount amount is not copied repeatedly
+		when creating multiple purchase receipts from a single purchase order with discount_amount set
+		"""
+		from erpnext.buying.doctype.purchase_order.purchase_order import make_purchase_receipt
+		from erpnext.buying.doctype.purchase_order.test_purchase_order import create_purchase_order
+
+		# Create a purchase order with discount amount
+		po = create_purchase_order(qty=10, rate=100, do_not_submit=True)
+		po.apply_discount_on = "Net Total"
+		po.discount_amount = 100
+		po.save()
+		po.submit()
+
+		# Create first purchase receipt from purchase order (partial qty)
+		pr1 = make_purchase_receipt(po.name)
+		pr1.items[0].qty = 5
+		pr1.save()
+		pr1.submit()
+
+		# First purchase receipt should have full discount amount
+		self.assertEqual(pr1.discount_amount, 100)
+		self.assertEqual(pr1.grand_total, 400)
+
+		# Create second purchase receipt from the same purchase order (remaining qty)
+		pr2 = make_purchase_receipt(po.name)
+		pr2.items[0].qty = 5
+		pr2.save()
+		pr2.submit()
+
+		# Second purchase receipt should have discount_amount set to 0
+		# because discount was already fully applied in first purchase receipt
+		self.assertEqual(pr2.discount_amount, 0)
+		self.assertEqual(pr2.grand_total, 500)
+
+	def test_discount_amount_partial_application_in_mapped_transactions(self):
+		"""
+		Test that discount amount is partially applied when some discount
+		has already been used in previous mapped transactions
+		"""
+		from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice
+		from erpnext.selling.doctype.sales_order.test_sales_order import make_sales_order
+
+		# Create a sales order with discount amount
+		so = make_sales_order(qty=10, rate=100, do_not_submit=True)
+		so.apply_discount_on = "Net Total"
+		so.discount_amount = 200
+		so.save()
+		so.submit()
+
+		self.assertEqual(so.discount_amount, 200)
+		self.assertEqual(so.grand_total, 800)
+
+		# Create first invoice with partial discount (manually set lower discount)
+		si1 = make_sales_invoice(so.name)
+		si1.items[0].qty = 5
+		si1.discount_amount = 50  # Partial discount application
+		si1.save()
+		si1.submit()
+
+		self.assertEqual(si1.discount_amount, 50)
+		self.assertEqual(si1.grand_total, 450)
+
+		# Create second invoice from the same sales order
+		si2 = make_sales_invoice(so.name)
+		si2.items[0].qty = 5
+		si2.save()
+		si2.submit()
+
+		# Second invoice should have remaining discount (200 - 50 = 150)
+		self.assertEqual(si2.discount_amount, 150)
+		self.assertEqual(si2.grand_total, 350)
+
+	def test_discount_amount_not_mapped_when_percentage_is_set(self):
+		"""
+		Test that discount amount is not adjusted when additional_discount_percentage
+		is set in the source document (as it will be recalculated based on percentage)
+		"""
+		from erpnext.selling.doctype.sales_order.sales_order import make_delivery_note
+		from erpnext.selling.doctype.sales_order.test_sales_order import make_sales_order
+
+		# Create a sales order with discount percentage instead of amount
+		so = make_sales_order(qty=10, rate=100, do_not_submit=True)
+		so.apply_discount_on = "Net Total"
+		so.additional_discount_percentage = 10  # 10% discount
+		so.save()
+		so.submit()
+
+		self.assertEqual(so.discount_amount, 100)  # 10% of 1000
+		self.assertEqual(so.grand_total, 900)
+
+		# Create delivery note from sales order
+		dn = make_delivery_note(so.name)
+		dn.items[0].qty = 5
+		dn.save()
+
+		# Delivery note should have discount amount recalculated based on percentage
+		# and not affected by the repeated mapping logic
+		self.assertEqual(dn.additional_discount_percentage, 10)
+		self.assertEqual(dn.discount_amount, 50)  # 10% of 
+		
+	def test_discount_amount_for_multiple_returns(self):
+		"""
+		Test that discount amount is correctly adjusted when multiple return invoices
+		are created against the same original invoice to prevent over-returning discount
+		"""
+		from erpnext.accounts.doctype.sales_invoice.sales_invoice import make_sales_return
+
+		# Create original sales invoice with discount
+		si = create_sales_invoice(qty=10, rate=100, do_not_submit=True)
+		si.apply_discount_on = "Net Total"
+		si.discount_amount = 100
+		si.save()
+		si.submit()
+
+		# Create first return - Frappe will copy full discount by default, we need to adjust it
+		return_si_1 = make_sales_return(si.name)
+		return_si_1.items[0].qty = -6  # Return 6 out of 10 items
+		# Manually set discount to match the proportion (60% of discount)
+		return_si_1.discount_amount = -60
+		return_si_1.save()
+		return_si_1.submit()
+
+		self.assertEqual(return_si_1.discount_amount, -60)
+
+		# Create second return for remaining items
+		return_si_2 = make_sales_return(si.name)
+		return_si_2.items[0].qty = -4  # Return remaining 4 out of 10 items
+		return_si_2.save()
+
+		# Second return should only get remaining discount (100 - 60 = 40)
+		self.assertEqual(return_si_2.discount_amount, -40)
