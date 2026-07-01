@@ -1618,44 +1618,18 @@
   {
    "default": "1",
    "depends_on": "eval: doc.is_return && doc.return_against",
-   "description": "Debit Note will update it's own outstanding amount, even if 'Return Against' is specified.",
+   "description": "Debit Note will update it's own outstanding amount, even if \"Return Against\" is specified.",
    "fieldname": "update_outstanding_for_self",
    "fieldtype": "Check",
    "label": "Update Outstanding for Self"
-  },
-  {
-   "fieldname": "dispatch_address_display",
-   "fieldtype": "Text Editor",
-   "label": "Dispatch Address",
-   "print_hide": 1,
-   "read_only": 1
-  },
-  {
-   "fieldname": "dispatch_address",
-   "fieldtype": "Link",
-   "label": "Select Dispatch Address ",
-   "options": "Address",
-   "print_hide": 1
-   },
-  {
-   "depends_on": "eval: doc.last_scanned_warehouse",
-   "fieldname": "last_scanned_warehouse",
-   "fieldtype": "Data",
-   "is_virtual": 1,
-   "label": "Last Scanned Warehouse"
   }
  ],
  "grid_page_length": 50,
  "icon": "fa fa-file-text",
  "idx": 204,
  "is_submittable": 1,
- "links": [
-  {
-   "link_doctype": "Budget Entry",
-   "link_fieldname": "voucher_no"
-  }
- ],
- "modified": "2025-04-09 16:49:22.175081",
+ "links": [],
+ "modified": "2024-03-11 14:46:30.298184",
  "modified_by": "Administrator",
  "module": "Accounts",
  "name": "Purchase Invoice",

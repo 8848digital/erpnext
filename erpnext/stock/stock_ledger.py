@@ -1022,28 +1022,10 @@ class update_entries_after:
 		if not frappe.db.exists("Serial and Batch Bundle", sle.serial_and_batch_bundle):
 			return
 
-		if sle.actual_qty < 0 and (
-			sle.voucher_type in ["Stock Reconciliation", "Asset Capitalization"]
-			or not frappe.db.get_value(sle.voucher_type, sle.voucher_no, "is_return")
-		):
-			doc = frappe._dict({})
-			self.update_serial_batch_no_valuation(sle, doc, prev_sle=self.wh_data)
-		else:
-			doc = frappe.get_doc("Serial and Batch Bundle", sle.serial_and_batch_bundle)
-			doc.set_incoming_rate(
-				save=True, allow_negative_stock=self.allow_negative_stock, prev_sle=self.wh_data
-			)
-			doc.calculate_qty_and_amount(save=True)
-		
-		if stock_queue := frappe.get_all(
-			"Serial and Batch Entry",
-			filters={"parent": sle.serial_and_batch_bundle, "stock_queue": ("is", "set")},
-			pluck="stock_queue",
-			order_by="idx desc",
-			limit=1,
-		):
-			self.wh_data.stock_queue = json.loads(stock_queue[0]) if stock_queue else []
+		doc = frappe.get_cached_doc("Serial and Batch Bundle", sle.serial_and_batch_bundle)
 
+		doc.set_incoming_rate(save=True, allow_negative_stock=self.allow_negative_stock)
+		doc.calculate_qty_and_amount(save=True)
 
 		self.wh_data.stock_value = round_off_if_near_zero(self.wh_data.stock_value + doc.total_amount)
 		self.wh_data.qty_after_transaction += flt(doc.total_qty, self.flt_precision)
@@ -1990,7 +1972,7 @@ def get_valuation_rate(
 		solutions += (
 			"<li>"
 			+ _("If not, you can Cancel / Submit this entry")
-			+ " {} ".format(frappe.bold("after"))
+			+ " {0} ".format(frappe.bold(_("after")))
 			+ _("performing either one below:")
 			+ "</li>"
 		)

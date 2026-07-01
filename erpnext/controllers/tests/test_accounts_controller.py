@@ -54,9 +54,7 @@ class TestAccountsController(FrappeTestCase):
 	20 series - Sales Invoice against Journals
 	30 series - Sales Invoice against Credit Notes
 	40 series - Company default Cost center is unset
-	50 series - Journals against Journals
-	60 series - Journals against Payment Entries
-	70 series - Advances in Separate party account. Both Party and Advance account are in Foreign currency.
+	50 series = Journals against Journals
 	90 series - Dimension inheritence
 	"""
 

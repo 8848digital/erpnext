@@ -11,20 +11,36 @@ from pypika.functions import Coalesce
 class DeprecatedSerialNoValuation:
 	@deprecated
 	def calculate_stock_value_from_deprecarated_ledgers(self):
-		serial_nos = []
-		if hasattr(self, "old_serial_nos"):
-			serial_nos = self.old_serial_nos
+		if not frappe.db.get_value(
+			"Stock Ledger Entry", {"serial_no": ("is", "set"), "is_cancelled": 0}, "name"
+		):
+			return
+
+		serial_nos = self.get_filterd_serial_nos()
+		if not serial_nos:
+			return
 
 		if not serial_nos:
 			return
 
 		stock_value_change = 0
-		if not self.sle.is_cancelled:
-			stock_value_change = self.get_incoming_value_for_serial_nos(serial_nos)
+		if actual_qty < 0:
+			if not self.sle.is_cancelled:
+				outgoing_value = self.get_incoming_value_for_serial_nos(serial_nos)
+				stock_value_change = -1 * outgoing_value
 
-		self.stock_value_change += flt(stock_value_change)
+		self.stock_value_change += stock_value_change
 
+	def get_filterd_serial_nos(self):
+		serial_nos = []
+		non_filtered_serial_nos = self.get_serial_nos()
 
+		# If the serial no inwarded using the Serial and Batch Bundle, then the serial no should not be considered
+		for serial_no in non_filtered_serial_nos:
+			if serial_no and serial_no not in self.serial_no_incoming_rate:
+				serial_nos.append(serial_no)
+
+		return serial_nos
 
 	@deprecated
 	def get_incoming_value_for_serial_nos(self, serial_nos):
@@ -33,12 +49,6 @@ class DeprecatedSerialNoValuation:
 		# get rate from serial nos within same company
 		incoming_values = 0.0
 		for serial_no in serial_nos:
-			sn_details = frappe.db.get_value("Serial No", serial_no, ["purchase_rate", "company"], as_dict=1)
-			if sn_details and sn_details.purchase_rate and sn_details.company == self.sle.company:
-				self.serial_no_incoming_rate[serial_no] += flt(sn_details.purchase_rate)
-				incoming_values += self.serial_no_incoming_rate[serial_no]
-				continue
-
 			table = frappe.qb.DocType("Stock Ledger Entry")
 			stock_ledgers = (
 				frappe.qb.from_(table)
@@ -55,10 +65,8 @@ class DeprecatedSerialNoValuation:
 					& (table.serial_and_batch_bundle.isnull())
 					& (table.actual_qty > 0)
 					& (table.is_cancelled == 0)
-					& (
-						table.posting_datetime
-						<= get_combine_datetime(self.sle.posting_date, self.sle.posting_time)
-					)
+					& table.posting_datetime
+					<= get_combine_datetime(self.sle.posting_date, self.sle.posting_time)
 				)
 				.orderby(table.posting_datetime, order=Order.desc)
 				.limit(1)

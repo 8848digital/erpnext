@@ -511,9 +511,8 @@ def reconcile_against_document(
 
 		if voucher_type == "Payment Entry" and doc.book_advance_payments_in_separate_party_account:
 			# both ledgers must be posted to for `Advance` in separate account feature
-			# TODO: find a more efficient way post only for the new linked vouchers
-			for row in reposting_rows:
-				doc.make_advance_gl_entries(entry=row)
+			doc.make_advance_gl_entries(cancel=1)
+			doc.make_advance_gl_entries()
 		else:
 			_delete_pl_entries(voucher_type, voucher_no)
 			gl_map = doc.build_gl_map()
@@ -731,19 +730,7 @@ def update_reference_in_payment_entry(
 	payment_entry.setup_party_account_field()
 	payment_entry.set_missing_values()
 	if not skip_ref_details_update_for_pe:
-		reference_exchange_details = frappe._dict()
-		if d.against_voucher_type == "Journal Entry" and d.exchange_rate:
-			reference_exchange_details.update(
-				{
-					"reference_doctype": d.against_voucher_type,
-					"reference_name": d.against_voucher,
-					"exchange_rate": d.exchange_rate,
-				}
-			)
-		payment_entry.set_missing_ref_details(
-			update_ref_details_only_for=[(d.against_voucher_type, d.against_voucher)],
-			reference_exchange_details=reference_exchange_details,
-		)
+		payment_entry.set_missing_ref_details(ref_exchange_rate=d.exchange_rate or None)
 	payment_entry.set_amounts()
 	payment_entry.make_exchange_gain_loss_journal(
 		frappe._dict({"difference_posting_date": d.difference_posting_date}), dimensions_dict

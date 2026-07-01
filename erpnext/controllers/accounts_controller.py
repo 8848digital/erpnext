@@ -278,8 +278,20 @@ class AccountsController(TransactionBase):
 					_(
 						"Rows: {0} in {1} section are Invalid. Reference Name should point to a valid Payment Entry or Journal Entry."
 					).format(
-						frappe.bold(comma_and([x.idx for x in invalid_advances])),
-						frappe.bold(_("Advance Payments")),
+						frappe.bold(comma_and([x.idx for x in invalid_advances])), frappe.bold(_("Advance Payments"))
+					)
+				)
+
+			if self.get("is_return") and self.get("return_against") and not self.get("is_pos"):
+				document_type = "Credit Note" if self.doctype == "Sales Invoice" else "Debit Note"
+				frappe.msgprint(
+					_(
+						"{0} will be treated as a standalone {0}. If you want {1}'s outstanding to be updated, uncheck {2} checkbox. <br><br> Or you can use {3} tool to reconcile against {1} later."
+					).format(
+						document_type,
+						get_link_to_form(self.doctype, self.get("return_against")),
+						frappe.bold("Update Outstanding for Self"),
+						get_link_to_form("Payment Reconciliation"),
 					)
 				)
 

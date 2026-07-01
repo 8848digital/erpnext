@@ -52,16 +52,13 @@ def execute(filters=None):
 	available_serial_nos = {}
 	inventory_dimension_filters_applied = check_inventory_dimension_filters_applied(filters)
 
-	batch_balance_dict = frappe._dict({})
-	if actual_qty and filters.get("batch_no"):
-		batch_balance_dict[filters.batch_no] = [actual_qty, stock_value]
-
+	batch_balance_dict = defaultdict(float)
 	for sle in sl_entries:
 		item_detail = item_details[sle.item_code]
 
 		sle.update(item_detail)
 		if bundle_info := bundle_details.get(sle.serial_and_batch_bundle):
-			data.extend(get_segregated_bundle_entries(sle, bundle_info, batch_balance_dict, filters))
+			data.extend(get_segregated_bundle_entries(sle, bundle_info, batch_balance_dict))
 			continue
 
 		if filters.get("batch_no") or inventory_dimension_filters_applied:
@@ -103,7 +100,7 @@ def execute(filters=None):
 	return columns, data
 
 
-def get_segregated_bundle_entries(sle, bundle_details, batch_balance_dict, filters):
+def get_segregated_bundle_entries(sle, bundle_details, batch_balance_dict):
 	segregated_entries = []
 	qty_before_transaction = sle.qty_after_transaction - sle.actual_qty
 	stock_value_before_transaction = sle.stock_value - sle.stock_value_difference
@@ -122,19 +119,9 @@ def get_segregated_bundle_entries(sle, bundle_details, batch_balance_dict, filte
 			}
 		)
 
-		if filters.get("batch_no") and row.batch_no:
-			if not batch_balance_dict.get(row.batch_no):
-				batch_balance_dict[row.batch_no] = [0, 0]
-
-			batch_balance_dict[row.batch_no][0] += row.qty
-			batch_balance_dict[row.batch_no][1] += row.stock_value_difference
-
-			new_sle.update(
-				{
-					"qty_after_transaction": batch_balance_dict[row.batch_no][0],
-					"stock_value": batch_balance_dict[row.batch_no][1],
-				}
-			)
+		if row.batch_no:
+			batch_balance_dict[row.batch_no] += row.qty
+			new_sle.update({"qty_after_transaction": batch_balance_dict[row.batch_no]})
 
 		qty_before_transaction += row.qty
 		stock_value_before_transaction += new_sle.stock_value_difference

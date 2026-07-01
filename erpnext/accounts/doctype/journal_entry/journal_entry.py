@@ -510,18 +510,16 @@ class JournalEntry(AccountsController):
 
 	def system_generated_gain_loss(self):
 		return (
-			self.voucher_type == "Exchange Gain Or Loss" and self.multi_currency and self.is_system_generated
+			self.voucher_type == "Exchange Gain Or Loss"
+			and self.multi_currency
+			and self.is_system_generated
 		)
 
 	def validate_against_jv(self):
 		for d in self.get("accounts"):
 			if d.reference_type == "Journal Entry":
 				account_root_type = frappe.get_cached_value("Account", d.account, "root_type")
-				if (
-					account_root_type == "Asset"
-					and flt(d.debit) > 0
-					and not self.system_generated_gain_loss()
-				):
+				if account_root_type == "Asset" and flt(d.debit) > 0 and not self.system_generated_gain_loss():
 					frappe.throw(
 						_(
 							"Row #{0}: For {1}, you can select reference document only if account gets credited"

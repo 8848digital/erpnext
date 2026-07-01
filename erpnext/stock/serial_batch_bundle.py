@@ -5,9 +5,8 @@ from frappe import _, bold
 from frappe.model.naming import NamingSeries, make_autoname, parse_naming_series
 from frappe.query_builder import Case
 from frappe.query_builder.functions import CombineDatetime, Sum, Timestamp
-from frappe.utils import add_days, cint, cstr, flt, get_link_to_form, now, nowtime, today
-from pypika import Order , functions as fn
-from pypika.terms import ExistsCriterion
+from frappe.utils import cint, cstr, flt, get_link_to_form, now, nowtime, today
+from pypika import Order
 
 from erpnext.stock.deprecated_serial_batch import (
 	DeprecatedBatchNoValuation,
@@ -505,6 +504,20 @@ class SerialBatchBundle:
 				.where(sn_table.name.isin(serial_nos))
 			).run()
 
+	def update_batch_qty(self):
+		from erpnext.stock.doctype.batch.batch import get_available_batches
+
+		batches = get_batch_nos(self.sle.serial_and_batch_bundle)
+		if not self.sle.serial_and_batch_bundle and self.sle.batch_no:
+			batches = frappe._dict({self.sle.batch_no: self.sle.actual_qty})
+
+		batches_qty = get_available_batches(
+			frappe._dict({"item_code": self.item_code, "batch_no": list(batches.keys())})
+		)
+
+		for batch_no in batches:
+			frappe.db.set_value("Batch", batch_no, "batch_qty", batches_qty.get(batch_no, 0))
+
 
 def get_serial_nos(serial_and_batch_bundle, serial_nos=None):
 	if not serial_and_batch_bundle:
@@ -595,13 +608,11 @@ class SerialNoValuation(DeprecatedSerialNoValuation):
 		else:
 			self.serial_no_incoming_rate = defaultdict(float)
 			self.stock_value_change = 0.0
-			self.old_serial_nos = []
 
 			serial_nos = self.get_serial_nos()
 			for serial_no in serial_nos:
 				incoming_rate = self.get_incoming_rate_from_bundle(serial_no)
 				if not incoming_rate:
-					self.old_serial_nos.append(serial_no)
 					continue
 
 				self.stock_value_change += incoming_rate
@@ -627,7 +638,7 @@ class SerialNoValuation(DeprecatedSerialNoValuation):
 				& (bundle.item_code == self.sle.item_code)
 				& (bundle_child.warehouse == self.sle.warehouse)
 			)
-			.orderby(_PostgresTimestamp(bundle.posting_date, bundle.posting_time), order=Order.desc)
+			.orderby(Timestamp(bundle.posting_date, bundle.posting_time), order=Order.desc)
 			.limit(1)
 		)
 

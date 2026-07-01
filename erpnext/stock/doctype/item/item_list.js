@@ -16,8 +16,8 @@ frappe.listview_settings["Item"] = {
 
 	reports: [
 		{
-			name: "Stock Summary",
-			route: "/app/stock-balance",
+			name: 'Stock Summary',
+			route: '/app/stock-balance'
 		},
 		{
 			name: "Stock Ledger",

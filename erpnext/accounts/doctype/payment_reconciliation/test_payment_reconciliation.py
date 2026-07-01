@@ -766,35 +766,6 @@ class TestPaymentReconciliation(FrappeTestCase):
 		self.assertEqual(len(pr.get("invoices")), 0)
 		self.assertEqual(len(pr.get("payments")), 0)
 
-	def test_negative_debit_or_credit_journal_against_invoice(self):
-		transaction_date = nowdate()
-		amount = 100
-		si = self.create_sales_invoice(qty=1, rate=amount, posting_date=transaction_date)
-		# credit debtors account to record a payment
-		je = self.create_journal_entry(self.bank, self.debit_to, amount, transaction_date)
-		je.accounts[1].party_type = "Customer"
-		je.accounts[1].party = self.customer
-		je.accounts[1].credit_in_account_currency = 0
-		je.accounts[1].debit_in_account_currency = -1 * amount
-		je.save()
-		je.submit()
-		pr = self.create_payment_reconciliation()
-		pr.get_unreconciled_entries()
-		invoices = [x.as_dict() for x in pr.get("invoices")]
-		payments = [x.as_dict() for x in pr.get("payments")]
-		pr.allocate_entries(frappe._dict({"invoices": invoices, "payments": payments}))
-		# Difference amount should not be calculated for base currency accounts
-		for row in pr.allocation:
-			self.assertEqual(flt(row.get("difference_amount")), 0.0)
-		pr.reconcile()
-		# assert outstanding
-		si.reload()
-		self.assertEqual(si.status, "Paid")
-		self.assertEqual(si.outstanding_amount, 0)
-		# check PR tool output
-		self.assertEqual(len(pr.get("invoices")), 0)
-		self.assertEqual(len(pr.get("payments")), 0)
-
 	def test_payment_against_foreign_currency_journal(self):
 		transaction_date = nowdate()
 
@@ -3244,62 +3215,3 @@ def make_supplier(supplier_name, currency=None):
 		return supplier.name
 	else:
 		return supplier_name
-
-
-def create_fiscal_year(company, year_start_date, year_end_date):
-	fy_docname = frappe.db.exists(
-		"Fiscal Year", {"year_start_date": year_start_date, "year_end_date": year_end_date}
-	)
-	if not fy_docname:
-		fy_doc = frappe.get_doc(
-			{
-				"doctype": "Fiscal Year",
-				"year": f"{getdate(year_start_date).year}-{getdate(year_end_date).year}",
-				"year_start_date": year_start_date,
-				"year_end_date": year_end_date,
-				"companies": [{"company": company}],
-			}
-		).save()
-		return fy_doc
-	else:
-		fy_doc = frappe.get_doc("Fiscal Year", fy_docname)
-		if not frappe.db.exists("Fiscal Year Company", {"parent": fy_docname, "company": company}):
-			fy_doc.append("companies", {"company": company})
-			fy_doc.save()
-		return fy_doc
-
-
-def make_period_closing_voucher(company, cost_center, posting_date=None, submit=True):
-	from erpnext.accounts.doctype.account.test_account import create_account
-
-	parent_account = frappe.db.get_value(
-		"Account", {"company": company, "account_name": "Current Liabilities", "is_group": 1}, "name"
-	)
-	surplus_account = create_account(
-		account_name="Reserve and Surplus",
-		is_group=0,
-		company=company,
-		root_type="Liability",
-		report_type="Balance Sheet",
-		account_currency="INR",
-		parent_account=parent_account,
-		doctype="Account",
-	)
-	fy = get_fiscal_year(posting_date, company=company)
-	pcv = frappe.get_doc(
-		{
-			"doctype": "Period Closing Voucher",
-			"transaction_date": posting_date or today(),
-			"period_start_date": fy[1],
-			"period_end_date": fy[2],
-			"company": company,
-			"fiscal_year": fy[0],
-			"cost_center": cost_center,
-			"closing_account_head": surplus_account,
-			"remarks": "test",
-		}
-	)
-	pcv.insert()
-	if submit:
-		pcv.submit()
-	return pcv

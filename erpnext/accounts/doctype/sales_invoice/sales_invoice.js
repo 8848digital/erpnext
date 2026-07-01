@@ -534,6 +534,10 @@ erpnext.accounts.SalesInvoiceController = class SalesInvoiceController extends (
 		var me = this;
 		super.currency();
 		if (this.frm.doc.timesheets) {
+			this.frm.doc.timesheets.forEach((d) => {
+				let row = frappe.get_doc(d.doctype, d.name)
+				set_timesheet_detail_rate(row.doctype, row.name, me.frm.doc.currency, row.timesheet_detail)
+			});
 			this.frm.trigger("calculate_timesheet_totals");
 		}
 	}
