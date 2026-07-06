@@ -317,6 +317,11 @@ class SellingController(StockController):
 
 			if is_internal_customer or not is_stock_item:
 				continue
+			rate_field = "valuation_rate" if self.doctype in ["Sales Order", "Quotation"] else "incoming_rate"
+			if item.get(rate_field) and item.base_net_rate < (
+				valuation_rate := flt(
+					item.get(rate_field) * (item.conversion_factor or 1), item.precision("base_net_rate")
+				))
 
 			valuation_rate_map[(item.item_code, item.warehouse)] = None
 

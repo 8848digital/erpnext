@@ -202,6 +202,15 @@ website_route_rules = [
 		},
 	}
 ]
+standard_navbar_items = [
+	{
+		"item_label": "Clear Demo Data",
+		"item_type": "Action",
+		"action": "erpnext.demo.clear_demo();",
+		"is_standard": 1,
+		"condition": "eval: frappe.boot.sysdefaults.demo_company",
+	},
+]
 
 standard_portal_menu_items = [
 	{

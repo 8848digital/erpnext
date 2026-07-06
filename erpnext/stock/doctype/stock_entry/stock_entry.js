@@ -857,13 +857,6 @@ frappe.ui.form.on("Stock Entry Detail", {
 			row?.set_basic_rate_manually ? 0 : 1
 		);
 	},
-	qty(frm, cdt, cdn) {
-		frm.events.set_basic_rate(frm, cdt, cdn);
-		let item = frappe.get_doc(cdt, cdn);
-		if (item.is_finished_item) {
-			frm.events.set_fg_completed_qty(frm);
-		}
-	},
 
 	conversion_factor(frm, cdt, cdn) {
 		frm.events.set_basic_rate(frm, cdt, cdn);
