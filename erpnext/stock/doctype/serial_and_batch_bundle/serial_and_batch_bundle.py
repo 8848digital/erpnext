@@ -103,6 +103,7 @@ class SerialandBatchBundle(Document):
 				self.autoname()
 
 	def validate(self):
+		self.validate_allow_to_set_serial_batch()
 		if self.docstatus == 1 and self.voucher_detail_no:
 			self.validate_voucher_detail_no()
 
@@ -128,6 +129,15 @@ class SerialandBatchBundle(Document):
 			self.set_incoming_rate()
 
 		self.calculate_qty_and_amount()
+	
+	def validate_allow_to_set_serial_batch(self):
+		if not frappe.db.get_single_value("Stock Settings", "enable_serial_and_batch_no_for_item"):
+			frappe.throw(
+				_(
+					"Please check the 'Enable Serial and Batch No for Item' checkbox in the {0} to make Serial and Batch Bundle for the item."
+				).format(get_link_to_form("Stock Settings", "Stock Settings")),
+				title=_("Serial and Batch No for Item Disabled"),
+			)
 
 	def validate_voucher_detail_no(self):
 		if self.type_of_transaction not in ["Inward", "Outward"] or self.voucher_type in [

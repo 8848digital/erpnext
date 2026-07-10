@@ -213,6 +213,7 @@ frappe.ui.form.on("Stock Entry", {
 
 	refresh: function (frm) {
 		frm.trigger("get_items_from_transit_entry");
+		erpnext.toggle_serial_batch_fields(frm);
 
 		if (!frm.doc.docstatus) {
 			frm.trigger("validate_purpose_consumption");
