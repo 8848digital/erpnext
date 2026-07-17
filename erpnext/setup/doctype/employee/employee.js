@@ -39,6 +39,92 @@ frappe.ui.form.on("Employee", {
 
 	refresh: function (frm) {
 		frm.fields_dict.date_of_birth.datepicker.update({ maxDate: new Date() });
+		frm.trigger("add_anniversary_indicator");
+	},
+	date_of_birth: function (frm) {
+		frm.trigger("add_anniversary_indicator");
+	},
+
+	date_of_joining: function (frm) {
+		frm.trigger("add_anniversary_indicator");
+	},
+
+	is_employee_birthday: function (frm) {
+		if (!frm.doc.date_of_birth) return false;
+		let today = moment().startOf("day");
+		let dob = moment(frm.doc.date_of_birth);
+		return dob.date() === today.date() && dob.month() === today.month();
+	},
+
+	is_work_anniversary: function (frm) {
+		if (!frm.doc.date_of_joining) return false;
+		let today = moment().startOf("day");
+		let doj = moment(frm.doc.date_of_joining);
+		let years = today.year() - doj.year();
+		return doj.date() === today.date() && doj.month() === today.month() && years > 0;
+	},
+
+	get_work_anniversary_years: function (frm) {
+		let today = moment().startOf("day");
+		let doj = moment(frm.doc.date_of_joining);
+		return today.year() - doj.year();
+	},
+
+	create_milestone_section: function ($sidebar) {
+		let $indicator_section = $sidebar.find(".anniversary-indicator-section");
+		if (!$indicator_section.length) {
+			$indicator_section = $(`
+				<div class="sidebar-section anniversary-indicator-section border-bottom pb-3">
+					<div class="sidebar-label" style="font-weight: var(--weight-regular); color: var(--text-muted);">${__(
+						"Milestones"
+					)}</div>
+					<div class="anniversary-content mt-3"></div>
+				</div>
+			`).insertAfter($sidebar.find(".sidebar-meta-details"));
+		}
+		return $indicator_section;
+	},
+
+	build_anniversary_content: function (frm) {
+		let items = [];
+		if (frm.events.is_employee_birthday(frm)) {
+			items.push(`
+				<div class="form-sidebar-items milestone-item mb-2">
+					<span class="form-sidebar-label">
+						${frappe.utils.icon("cake", "sm")}
+						<span class="ellipsis">${__("Birthday")}</span>
+					</span>
+				</div>`);
+		}
+		if (frm.events.is_work_anniversary(frm)) {
+			let years = frm.events.get_work_anniversary_years(frm);
+			let label =
+				years === 1
+					? __("{0} Year Work Anniversary", [years])
+					: __("{0} Years Work Anniversary", [years]);
+			items.push(`
+				<div class="form-sidebar-items milestone-item mb-2">
+					<span class="form-sidebar-label">
+						${frappe.utils.icon("briefcase", "sm")}
+						<span class="ellipsis">${label}</span>
+					</span>
+				</div>`);
+		}
+		return items.join("");
+	},
+
+	add_anniversary_indicator: function (frm) {
+		if (!frm.sidebar || !frm.sidebar.sidebar) return;
+
+		let $sidebar = frm.sidebar.sidebar;
+		let $indicator_section = frm.events.create_milestone_section($sidebar);
+		let content = frm.events.build_anniversary_content(frm);
+		if (content) {
+			$indicator_section.find(".anniversary-content").html(content);
+			$indicator_section.show();
+		} else {
+			$indicator_section.hide();
+		}
 	},
 	
 	prefered_contact_email: function (frm) {

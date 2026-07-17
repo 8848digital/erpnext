@@ -105,6 +105,7 @@ class SalesOrder(SellingController):
 		from_date: DF.Date | None
 		grand_total: DF.Currency
 		group_same_items: DF.Check
+		ignore_default_payment_terms_template: DF.Check
 		ignore_pricing_rule: DF.Check
 		in_words: DF.Data | None
 		incoterm: DF.Link | None
@@ -170,6 +171,7 @@ class SalesOrder(SellingController):
 		total_qty: DF.Float
 		total_taxes_and_charges: DF.Currency
 		transaction_date: DF.Date
+		transaction_time: DF.Time | None
 	# end: auto-generated types
 
 	def __init__(self, *args, **kwargs):
@@ -1259,12 +1261,14 @@ def make_purchase_order_for_default_supplier(source_name, selected_items=None, t
 
 	def set_missing_values(source, target):
 		target.supplier = supplier
-		target.currency = frappe.db.get_value(
-			"Supplier", filters={"name": supplier}, fieldname=["default_currency"]
-		)
 		company_currency = frappe.db.get_value(
 			"Company", filters={"name": target.company}, fieldname=["default_currency"]
 		)
+		supplier_currency = frappe.db.get_value(
+			"Supplier", filters={"name": supplier}, fieldname=["default_currency"]
+		)
+
+		target.currency = supplier_currency if supplier_currency else company_currency
 
 		target.conversion_rate = get_exchange_rate(target.currency, company_currency, args="for_buying")
 

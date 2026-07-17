@@ -19,6 +19,7 @@
   "order_type",
   "column_break_7",
   "transaction_date",
+  "transaction_time",
   "delivery_date",
   "column_break1",
   "po_no",
@@ -118,6 +119,7 @@
   "company_contact_person",
   "payment_schedule_section",
   "payment_terms_section",
+  "ignore_default_payment_terms_template",
   "payment_terms_template",
   "payment_schedule",
   "terms_section_break",
@@ -1527,6 +1529,22 @@
    "fieldtype": "Data",
    "is_virtual": 1,
    "label": "Last Scanned Warehouse"
+  },
+  {
+   "default": "Now",
+   "depends_on": "is_internal_customer",
+   "fieldname": "transaction_time",
+   "fieldtype": "Time",
+   "label": "Time",
+   "mandatory_depends_on": "is_internal_customer"
+  },
+  {
+   "default": "0",
+   "fieldname": "ignore_default_payment_terms_template",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Ignore Default Payment Terms Template",
+   "read_only": 1
   }
  ],
  "icon": "fa fa-file-text",

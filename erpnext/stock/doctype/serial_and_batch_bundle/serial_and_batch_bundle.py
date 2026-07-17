@@ -103,6 +103,7 @@ class SerialandBatchBundle(Document):
 				self.autoname()
 
 	def validate(self):
+		self.validate_allow_to_set_serial_batch()
 		if self.docstatus == 1 and self.voucher_detail_no:
 			self.validate_voucher_detail_no()
 
@@ -128,6 +129,15 @@ class SerialandBatchBundle(Document):
 			self.set_incoming_rate()
 
 		self.calculate_qty_and_amount()
+	
+	def validate_allow_to_set_serial_batch(self):
+		if not frappe.db.get_single_value("Stock Settings", "enable_serial_and_batch_no_for_item"):
+			frappe.throw(
+				_(
+					"Please check the 'Enable Serial and Batch No for Item' checkbox in the {0} to make Serial and Batch Bundle for the item."
+				).format(get_link_to_form("Stock Settings", "Stock Settings")),
+				title=_("Serial and Batch No for Item Disabled"),
+			)
 
 	def validate_voucher_detail_no(self):
 		if self.type_of_transaction not in ["Inward", "Outward"] or self.voucher_type in [
@@ -627,9 +637,11 @@ class SerialandBatchBundle(Document):
 		if rate is None and child_table in ["Delivery Note Item", "Sales Invoice Item"]:
 			rate = frappe.db.get_value(
 				"Packed Item",
-				self.voucher_detail_no,
+				{"parent_detail_docname": self.voucher_detail_no, "item_code": self.item_code},
 				"incoming_rate",
 			)
+			if rate is None:
+				rate = frappe.db.get_value("Packed Item", self.voucher_detail_no, "incoming_rate")
 
 			if rate is not None:
 				is_packed_item = True
@@ -680,6 +692,9 @@ class SerialandBatchBundle(Document):
 
 		if not self.voucher_detail_no or self.voucher_detail_no != row.name:
 			values_to_set["voucher_detail_no"] = row.name
+		
+		if row.get("doctype") == "Packed Item" and row.get("parent_detail_docname"):
+			values_to_set["voucher_detail_no"] = row.get("parent_detail_docname")
 
 		if parent.get("posting_date") and (not self.posting_date or self.posting_date != parent.posting_date):
 			values_to_set["posting_date"] = parent.posting_date or today()
@@ -1225,7 +1240,20 @@ class SerialandBatchBundle(Document):
 		)
 
 		if not vouchers and self.voucher_type == "Delivery Note":
-			frappe.db.set_value("Packed Item", self.voucher_detail_no, "serial_and_batch_bundle", None)
+			if frappe.db.exists("Packed Item", self.voucher_detail_no):
+				frappe.db.set_value("Packed Item", self.voucher_detail_no, "serial_and_batch_bundle", None)
+			else:
+				packed_items = frappe.get_all(
+					"Packed Item",
+					filters={
+						"parent_detail_docname": self.voucher_detail_no,
+						"serial_and_batch_bundle": self.name,
+					},
+					pluck="name",
+				)
+
+				for packed_item in packed_items:
+					frappe.db.set_value("Packed Item", packed_item, "serial_and_batch_bundle", None)
 			return
 
 		for voucher in vouchers:
