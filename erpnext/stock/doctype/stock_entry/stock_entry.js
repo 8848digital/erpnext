@@ -498,6 +498,10 @@ frappe.ui.form.on("Stock Entry", {
 		frm.cscript.toggle_related_fields(frm.doc);
 	},
 
+	cost_center(frm, cdt, cdn) {
+		erpnext.utils.copy_value_in_all_rows(frm.doc, cdt, cdn, "items", "cost_center");
+	},
+
 	validate_purpose_consumption: function (frm) {
 		frappe
 			.call({
@@ -600,9 +604,35 @@ frappe.ui.form.on("Stock Entry", {
 						}
 
 						fields.forEach((field) => {
-							frappe.model.set_value(cdt, cdn, field, r.message[field] || 0.0);
+							if (frm.fields_dict[child_name].get_field(field)) {
+								frm.fields_dict[child_name].grid.update_docfield_property(field, "hidden", hide_fields);
+
+								frm.fields_dict[child_name].grid.update_docfield_property(
+									field,
+									"in_list_view",
+									hide_fields ? 0 : 1
+								);
+
+								if (
+									frm.doc.doctype === "Subcontracting Receipt" &&
+									!["add_serial_batch_for_rejected_qty", "rejected_serial_and_batch_bundle"].includes(field)
+								) {
+									frm.fields_dict["supplied_items"].grid.update_docfield_property(
+										field,
+										"hidden",
+										hide_fields
+									);
+
+									frm.fields_dict["supplied_items"].grid.update_docfield_property(
+										field,
+										"in_list_view",
+										hide_fields ? 0 : 1
+									);
+
+									frm.fields_dict["supplied_items"].grid.reset_grid();
+								}
+							}
 						});
-						frm.events.calculate_basic_amount(frm, child);
 					}
 				},
 			});
