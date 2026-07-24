@@ -64,22 +64,13 @@ def execute(filters=None):
 
 	available_serial_nos = {}
 
-	batch_balance_dict = frappe._dict({})
-	if actual_qty and filters.get("batch_no"):
-		batch_balance_dict[filters.batch_no] = [actual_qty, stock_value]
-
-	inv_dimension_wise_dict = frappe._dict({})
-	set_opening_row_for_inv_dimension(
-		inv_dimension_wise_dict, filters, inv_dimension_key=inv_dimension_key, opening_row=opening_row
-	)
-
-	item_wh_wise_prev_sle = {}
+	batch_balance_dict = defaultdict(float)
 	for sle in sl_entries:
 		item_detail = item_details[sle.item_code]
 
 		sle.update(item_detail)
 		if bundle_info := bundle_details.get(sle.serial_and_batch_bundle):
-			data.extend(get_segregated_bundle_entries(sle, bundle_info, batch_balance_dict, filters))
+			data.extend(get_segregated_bundle_entries(sle, bundle_info, batch_balance_dict))
 			continue
 
 		if inv_dimension_key:
@@ -139,51 +130,7 @@ def execute(filters=None):
 	return columns, data
 
 
-def set_opening_row_for_inv_dimension(
-	inv_dimension_wise_dict, filters, inv_dimension_key=None, opening_row=None
-):
-	if (
-		not inv_dimension_key
-		or not opening_row
-		or not filters.get("item_code")
-		or not filters.get("warehouse")
-	):
-		return
-
-	if len(filters.get("item_code")) > 1 or len(filters.get("warehouse")) > 1:
-		return
-
-	if inv_dimension_key and opening_row and filters.get("item_code") and filters.get("warehouse"):
-		new_key = copy.deepcopy(inv_dimension_key)
-		new_key.extend([filters.item_code[0], filters.warehouse[0]])
-
-		opening_key = tuple(new_key)
-		inv_dimension_wise_dict[opening_key] = {
-			"qty_after_transaction": flt(opening_row.get("qty_after_transaction")),
-			"dimension_stock_value": flt(opening_row.get("stock_value")),
-		}
-
-
-def set_balance_value_for_inv_dimesion(inv_dimension_key, inv_dimension_wise_dict, sle):
-	new_key = copy.deepcopy(inv_dimension_key)
-	new_key.extend([sle.item_code, sle.warehouse])
-	new_key = tuple(new_key)
-
-	if new_key not in inv_dimension_wise_dict:
-		inv_dimension_wise_dict[new_key] = {"qty_after_transaction": 0, "dimension_stock_value": 0}
-
-	inv_dimesion_value = inv_dimension_wise_dict[new_key]
-	inv_dimesion_value["qty_after_transaction"] += sle.actual_qty
-	inv_dimesion_value["dimension_stock_value"] += sle.stock_value_difference
-	sle.update(
-		{
-			"qty_after_transaction": inv_dimesion_value["qty_after_transaction"],
-			"stock_value": inv_dimesion_value["dimension_stock_value"],
-		}
-	)
-
-
-def get_segregated_bundle_entries(sle, bundle_details, batch_balance_dict, filters):
+def get_segregated_bundle_entries(sle, bundle_details, batch_balance_dict):
 	segregated_entries = []
 	qty_before_transaction = sle.qty_after_transaction - sle.actual_qty
 	stock_value_before_transaction = sle.stock_value - sle.stock_value_difference
@@ -202,19 +149,9 @@ def get_segregated_bundle_entries(sle, bundle_details, batch_balance_dict, filte
 			}
 		)
 
-		if filters.get("batch_no") and row.batch_no:
-			if not batch_balance_dict.get(row.batch_no):
-				batch_balance_dict[row.batch_no] = [0, 0]
-
-			batch_balance_dict[row.batch_no][0] += row.qty
-			batch_balance_dict[row.batch_no][1] += row.stock_value_difference
-
-			new_sle.update(
-				{
-					"qty_after_transaction": batch_balance_dict[row.batch_no][0],
-					"stock_value": batch_balance_dict[row.batch_no][1],
-				}
-			)
+		if row.batch_no:
+			batch_balance_dict[row.batch_no] += row.qty
+			new_sle.update({"qty_after_transaction": batch_balance_dict[row.batch_no]})
 
 		qty_before_transaction += row.qty
 		stock_value_before_transaction += new_sle.stock_value_difference

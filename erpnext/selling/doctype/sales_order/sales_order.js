@@ -196,6 +196,27 @@ frappe.ui.form.on("Sales Order", {
 		);
 	},
 
+	// When multiple companies are set up. in case company name is changed set default company address
+	company: function (frm) {
+		if (frm.doc.company) {
+			frappe.call({
+				method: "erpnext.setup.doctype.company.company.get_default_company_address",
+				args: {
+					name: frm.doc.company,
+					existing_address: frm.doc.company_address || ""
+				},
+				debounce: 2000,
+				callback: function (r) {
+					if (r.message) {
+						frm.set_value("company_address", r.message);
+					} else {
+						frm.set_value("company_address", "");
+					}
+				},
+			});
+		}
+	},
+
 	onload: function (frm) {
 		if (!frm.doc.transaction_date) {
 			frm.set_value("transaction_date", frappe.datetime.get_today());
@@ -824,14 +845,6 @@ erpnext.selling.SalesOrderController = class SalesOrderController extends erpnex
 						child_fieldname: "items",
 						child_columns: ["item_code", "item_name", "qty", "rate", "amount"],
 					});
-
-					setTimeout(() => {
-						d.$parent.append(`
-							<span class='small text-muted'>
-								${__("Note: Please create Sales Orders from individual Quotations to select from among Alternative Items.")}
-							</span>
-					`);
-					}, 200);
 				},
 				__("Get Items From")
 			);

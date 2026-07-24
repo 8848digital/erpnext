@@ -749,26 +749,9 @@ class SerialandBatchBundle(Document):
 
 		precision = frappe.get_precision("Serial and Batch Entry", "incoming_rate")
 		for d in self.entries:
-			if self.is_rejected and not set_valuation_rate_for_rejected_materials:
-				rate = 0.0
-			elif (
-				(flt(d.incoming_rate, precision) == flt(rate, precision))
-				and not stock_queue
-				and d.qty
-				and d.stock_value_difference
-			):
-				continue
-			
-			if is_packed_item and d.incoming_rate:
-				rate = d.incoming_rate
-
-			d.incoming_rate = flt(rate)
+			d.incoming_rate = flt(rate, precision)
 			if d.qty:
-				d.stock_value_difference = flt(d.qty) * d.incoming_rate
-
-			if valuation_method == "FIFO" and d.batch_no in batches and d.incoming_rate is not None:
-				stock_queue.append([d.qty, d.incoming_rate])
-				d.stock_queue = json.dumps(stock_queue)
+				d.stock_value_difference = flt(d.qty) * flt(d.incoming_rate)
 
 			if save:
 				d.db_set(
@@ -2148,6 +2131,13 @@ def get_type_of_transaction(parent_doc, child_row):
 			or child_row.get("doctype") == "Subcontracting Receipt Item"
 		):
 			type_of_transaction = "Outward"
+
+	if parent_doc.get("doctype") == "Subcontracting Receipt":
+		type_of_transaction = "Outward"
+		if child_row.get("doctype") == "Subcontracting Receipt Item":
+			type_of_transaction = "Inward"
+	elif parent_doc.get("doctype") == "Stock Reconciliation":
+		type_of_transaction = "Inward"
 
 	return type_of_transaction
 

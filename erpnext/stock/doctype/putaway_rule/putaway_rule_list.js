@@ -10,8 +10,8 @@ frappe.listview_settings["Putaway Rule"] = {
 
 	reports: [
 		{
-			name: "Warehouse Capacity Summary",
-			route: "/app/warehouse-capacity-summary",
-		},
-	],
+			name: 'Warehouse Capacity Summary',
+			route: '/app/warehouse-capacity-summary'
+		}
+	]
 };

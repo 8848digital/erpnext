@@ -240,7 +240,7 @@ class StockController(AccountsController):
 				# remove extra whitespace and store one serial no on each line
 				row.serial_no = clean_serial_no_string(row.serial_no)
 
-	def make_bundle_using_old_serial_batch_fields(self, table_name=None, via_landed_cost_voucher=False):
+	def make_bundle_using_old_serial_batch_fields(self, table_name=None):
 		if self.get("_action") == "update_after_submit":
 			return
 
@@ -278,7 +278,7 @@ class StockController(AccountsController):
 				not row.serial_and_batch_bundle and not row.get("rejected_serial_and_batch_bundle")
 			):
 				bundle_details = {
-					"item_code": row.get("rm_item_code") or row.item_code,
+					"item_code": row.item_code,
 					"posting_date": self.posting_date,
 					"posting_time": self.posting_time,
 					"voucher_type": self.doctype,
@@ -287,187 +287,18 @@ class StockController(AccountsController):
 					"company": self.company,
 					"is_rejected": 1 if row.get("rejected_warehouse") else 0,
 					"use_serial_batch_fields": row.use_serial_batch_fields,
-					"via_landed_cost_voucher": via_landed_cost_voucher,
-					"do_not_submit": True if not via_landed_cost_voucher else False,
+					"do_not_submit": True,
 				}
 
-				if self.is_internal_transfer() and row.get("from_warehouse") and not self.is_return:
+				if row.qty:
 					self.update_bundle_details(bundle_details, table_name, row)
-					bundle_details["type_of_transaction"] = "Outward"
-					bundle_details["warehouse"] = row.get("from_warehouse")
-					bundle_details["qty"] = row.get("stock_qty") or row.get("qty")
-					self.create_serial_batch_bundle(bundle_details, row)
-					continue
-
-				if row.get("qty") or row.get("consumed_qty") or row.get("stock_qty"):
-					self.update_bundle_details(bundle_details, table_name, row, parent_details=parent_details)
 					self.create_serial_batch_bundle(bundle_details, row)
 
 				if row.get("rejected_qty"):
 					self.update_bundle_details(bundle_details, table_name, row, is_rejected=True)
 					self.create_serial_batch_bundle(bundle_details, row)
 
-
-	def get_parent_details_for_packed_items(self):
-		parent_details = frappe._dict()
-		for row in self.get("items"):
-			parent_details[row.name] = row
-		return parent_details
-
-	def make_bundle_for_sales_purchase_return(self, table_name=None):
-		if not self.get("is_return"):
-			return
-
-		if not table_name:
-			table_name = "items"
-
-		self.make_bundle_for_non_rejected_qty(table_name)
-
-		if self.doctype in ["Purchase Invoice", "Purchase Receipt"]:
-			self.make_bundle_for_rejected_qty(table_name)
-
-	def make_bundle_for_rejected_qty(self, table_name=None):
-		field, reference_ids = self.get_reference_ids(
-			table_name, "rejected_qty", "rejected_serial_and_batch_bundle"
-		)
-
-		if not reference_ids:
-			return
-
-		child_doctype = self.doctype + " Item"
-		if table_name == "packed_items":
-			field = "parent_detail_docname"
-			child_doctype = "Packed Item"
-		available_dict = available_serial_batch_for_return(
-			field, child_doctype, reference_ids, is_rejected=True
-		)
-
-		for row in self.get(table_name):
-			value = row.get(field)
-			if table_name == "packed_items" and row.get("parent_detail_docname"):
-				value = self.get_value_for_packed_item(row)
-				if not value:
-					continue
-
-			if data := available_dict.get(value):
-				qty_field = "rejected_qty"
-				warehouse_field = "rejected_warehouse"
-				if row.get("return_qty_from_rejected_warehouse"):
-					qty_field = "qty"
-					warehouse_field = "warehouse"
-
-				if not data.get("qty"):
-					frappe.throw(
-						_("For the {0}, no stock is available for the return in the warehouse {1}.").format(
-							frappe.bold(row.item_code), row.get(warehouse_field)
-						)
-					)
-
-				data = filter_serial_batches(
-					self, data, row, warehouse_field=warehouse_field, qty_field=qty_field
-				)
-				bundle = make_serial_batch_bundle_for_return(data, row, self, warehouse_field, qty_field)
-				if row.get("return_qty_from_rejected_warehouse"):
-					row.db_set(
-						{
-							"serial_and_batch_bundle": bundle,
-							"batch_no": "",
-							"serial_no": "",
-						}
-					)
-				else:
-					row.db_set(
-						{
-							"rejected_serial_and_batch_bundle": bundle,
-							"batch_no": "",
-							"rejected_serial_no": "",
-						}
-					)
-
-	def make_bundle_for_non_rejected_qty(self, table_name):
-		field, reference_ids = self.get_reference_ids(table_name)
-		if not reference_ids:
-			return
-
-		child_doctype = self.doctype + " Item"
-		available_dict = available_serial_batch_for_return(field, child_doctype, reference_ids)
-
-		for row in self.get(table_name):
-			if data := available_dict.get(row.get(field)):
-				data = filter_serial_batches(self, data, row)
-				bundle = make_serial_batch_bundle_for_return(data, row, self)
-				row.db_set(
-					{
-						"serial_and_batch_bundle": bundle,
-						"batch_no": "",
-						"serial_no": "",
-					}
-				)
-				if self.doctype in ["Sales Invoice", "Delivery Note"]:
-					row.db_set(
-						"incoming_rate", frappe.db.get_value("Serial and Batch Bundle", bundle, "avg_rate")
-					)
-
-
-	def get_value_for_packed_item(self, row):
-		parent_items = self.get("items", {"name": row.parent_detail_docname})
-		if parent_items:
-			ref = parent_items[0].get("dn_detail")
-			return (row.item_code, ref)
-
-		return None
-
-	def get_reference_ids(self, table_name, qty_field=None, bundle_field=None) -> tuple[str, list[str]]:
-		field = {
-			"Sales Invoice": "sales_invoice_item",
-			"Delivery Note": "dn_detail",
-			"Purchase Receipt": "purchase_receipt_item",
-			"Purchase Invoice": "purchase_invoice_item",
-			"POS Invoice": "pos_invoice_item",
-		}.get(self.doctype)
-
-		if not bundle_field:
-			bundle_field = "serial_and_batch_bundle"
-
-		if not qty_field:
-			qty_field = "qty"
-
-		reference_ids = []
-
-		for row in self.get(table_name):
-			if not self.is_serial_batch_item(row.item_code):
-				continue
-
-			if (
-				row.get(field)
-				and (
-					qty_field == "qty"
-					and not row.get("return_qty_from_rejected_warehouse")
-					or qty_field == "rejected_qty"
-					and (row.get("return_qty_from_rejected_warehouse") or row.get("rejected_warehouse"))
-				)
-				and not row.get("use_serial_batch_fields")
-				and not row.get(bundle_field)
-			):
-				reference_ids.append(row.get(field))
-			if table_name == "packed_items" and row.get("parent_detail_docname"):
-				parent_rows = self.get("items", {"name": row.parent_detail_docname}) or []
-				for d in parent_rows:
-					if d.get(field) and not d.get(bundle_field):
-						reference_ids.append(d.get(field))
-
-		return field, reference_ids
-
-	@frappe.request_cache
-	def is_serial_batch_item(self, item_code) -> bool:
-		item_details = frappe.db.get_value("Item", item_code, ["has_serial_no", "has_batch_no"], as_dict=1)
-
-		if item_details.has_serial_no or item_details.has_batch_no:
-			return True
-
-		return False
-
-	def update_bundle_details(self, bundle_details, table_name, row, is_rejected=False, parent_details=None):
+	def update_bundle_details(self, bundle_details, table_name, row, is_rejected=False):
 		from erpnext.stock.doctype.serial_no.serial_no import get_serial_nos
 
 		# Since qty field is different for different doctypes
@@ -478,12 +309,6 @@ class StockController(AccountsController):
 			type_of_transaction = "Inward"
 			if not self.is_return:
 				type_of_transaction = "Outward"
-		elif table_name == "supplied_items":
-			qty = row.consumed_qty
-			warehouse = self.supplier_warehouse
-			type_of_transaction = "Outward"
-			if self.is_return:
-				type_of_transaction = "Inward"
 		else:
 			type_of_transaction = get_type_of_transaction(self, row)
 
@@ -503,19 +328,6 @@ class StockController(AccountsController):
 				frappe.get_precision("Serial and Batch Entry", "qty"),
 			)
 			warehouse = row.get("rejected_warehouse")
-
-		if (
-			self.is_internal_transfer()
-			and self.doctype in ["Sales Invoice", "Delivery Note"]
-			and self.is_return
-		):
-			warehouse = row.get("target_warehouse") or row.get("warehouse")
-			type_of_transaction = "Outward"
-
-		if table_name == "packed_items":
-			if not warehouse:
-				warehouse = parent_details[row.parent_detail_docname].warehouse
-			bundle_details["voucher_detail_no"] = parent_details[row.parent_detail_docname].name
 
 		bundle_details.update(
 			{

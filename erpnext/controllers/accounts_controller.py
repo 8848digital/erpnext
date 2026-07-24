@@ -278,8 +278,20 @@ class AccountsController(TransactionBase):
 					_(
 						"Rows: {0} in {1} section are Invalid. Reference Name should point to a valid Payment Entry or Journal Entry."
 					).format(
-						frappe.bold(comma_and([x.idx for x in invalid_advances])),
-						frappe.bold(_("Advance Payments")),
+						frappe.bold(comma_and([x.idx for x in invalid_advances])), frappe.bold(_("Advance Payments"))
+					)
+				)
+
+			if self.get("is_return") and self.get("return_against") and not self.get("is_pos"):
+				document_type = "Credit Note" if self.doctype == "Sales Invoice" else "Debit Note"
+				frappe.msgprint(
+					_(
+						"{0} will be treated as a standalone {0}. If you want {1}'s outstanding to be updated, uncheck {2} checkbox. <br><br> Or you can use {3} tool to reconcile against {1} later."
+					).format(
+						document_type,
+						get_link_to_form(self.doctype, self.get("return_against")),
+						frappe.bold("Update Outstanding for Self"),
+						get_link_to_form("Payment Reconciliation"),
 					)
 				)
 
@@ -2145,7 +2157,7 @@ class AccountsController(TransactionBase):
 		precision = self.precision(based_on, "items")
 		precision_allowance = 1 / (10**precision)
 
-		role_allowed_to_overbill = frappe.get_single_value("Accounts Settings", "role_allowed_to_over_bill")
+		role_allowed_to_overbill = frappe.db.get_single_value("Accounts Settings", "role_allowed_to_over_bill")
 		is_overbilling_allowed = role_allowed_to_overbill in frappe.get_roles()
 
 		for row in ref_wise_billed_amount.values():

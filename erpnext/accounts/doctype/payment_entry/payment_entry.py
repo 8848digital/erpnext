@@ -485,7 +485,7 @@ class PaymentEntry(AccountsController):
 		self,
 		force: bool = False,
 		update_ref_details_only_for: list | None = None,
-		reference_exchange_details: dict | None = None,
+		ref_exchange_rate: float | None = None,
 	) -> None:
 		for d in self.get("references"):
 			if not d.allocated_amount:
@@ -496,21 +496,11 @@ class PaymentEntry(AccountsController):
 			):
 				continue
 
-			ref_details = get_reference_details(
-				d.reference_doctype,
-				d.reference_name,
-				self.party_account_currency,
-				self.party_type,
-				self.party,
-			)
-
-			# Only update exchange rate when the reference is Journal Entry
-			if (
-				reference_exchange_details
-				and d.reference_doctype == reference_exchange_details.reference_doctype
-				and d.reference_name == reference_exchange_details.reference_name
-			):
-				ref_details.update({"exchange_rate": reference_exchange_details.exchange_rate})
+				ref_details = get_reference_details(
+					d.reference_doctype, d.reference_name, self.party_account_currency
+				)
+				if ref_exchange_rate:
+					ref_details.update({"exchange_rate": ref_exchange_rate})
 
 			for field, value in ref_details.items():
 				if d.exchange_gain_loss:
@@ -1430,7 +1420,8 @@ class PaymentEntry(AccountsController):
 					"Sales Invoice",
 					"Purchase Invoice",
 					"Journal Entry",
-					"Payment Entry",
+					"Sales Order",
+					"Purchase Order",
 				):
 					self.add_advance_gl_for_reference(gl_entries, ref)
 
@@ -1465,31 +1456,17 @@ class PaymentEntry(AccountsController):
 			"voucher_detail_no": invoice.name,
 		}
 
-		posting_date = invoice.reconcile_effect_on
-		if invoice.reconcile_effect_on:
-			posting_date = invoice.reconcile_effect_on
-		else:
-			# For backwards compatibility
-			# Supporting reposting on payment entries reconciled before select field introduction
-			if self.advance_reconciliation_takes_effect_on == "Advance Payment Date":
-				posting_date = self.posting_date
-			elif self.advance_reconciliation_takes_effect_on == "Oldest Of Invoice Or Advance":
-				date_field = "posting_date"
-				if invoice.reference_doctype in ["Sales Order", "Purchase Order"]:
-					date_field = "transaction_date"
-				posting_date = frappe.db.get_value(
-					invoice.reference_doctype, invoice.reference_name, date_field
-				)
-				if getdate(posting_date) < getdate(self.posting_date):
-					posting_date = self.posting_date
-			elif self.advance_reconciliation_takes_effect_on == "Reconciliation Date":
-				posting_date = nowdate()
-			frappe.db.set_value("Payment Entry Reference", invoice.name, "reconcile_effect_on", posting_date)
+		date_field = "posting_date"
+		if invoice.reference_doctype in ["Sales Order", "Purchase Order"]:
+			date_field = "transaction_date"
+		posting_date = frappe.db.get_value(invoice.reference_doctype, invoice.reference_name, date_field)
 
-		dr_or_cr, account = self.get_dr_and_account_for_advances(invoice)
-		base_allocated_amount = self.calculate_base_allocated_amount_for_reference(invoice)
-		args_dict["account"] = account
-		args_dict[dr_or_cr] = base_allocated_amount
+		if getdate(posting_date) < getdate(self.posting_date):
+			posting_date = self.posting_date
+
+		dr_or_cr = "credit" if invoice.reference_doctype == "Sales Invoice" else "debit"
+		args_dict["account"] = invoice.account
+		args_dict[dr_or_cr] = invoice.allocated_amount
 		args_dict[dr_or_cr + "_in_account_currency"] = invoice.allocated_amount
 		args_dict.update(
 			{
@@ -2844,7 +2821,7 @@ def get_reference_details(
 			party_field = "customer" if reference_doctype == "Sales Order" else "supplier"
 			party = ref_doc.get(party_field)
 			account = get_party_account(party_type, party, ref_doc.company)
-	else:  # pragma: no cover
+	else:
 		# Get the exchange rate based on the posting date of the ref doc.
 		exchange_rate = get_exchange_rate(party_account_currency, company_currency, ref_doc.posting_date)
 

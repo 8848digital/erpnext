@@ -435,28 +435,19 @@ erpnext.SerialBatchPackageSelector = class SerialNoBatchBundleUpdate {
 					},
 					get_query: () => {
 						let is_inward = false;
-						if (
-							(["Purchase Receipt", "Purchase Invoice"].includes(this.frm.doc.doctype) &&
-								!this.frm.doc.is_return) ||
-							(this.frm.doc.doctype === "Stock Entry" &&
-								(this.frm.doc.purpose === "Material Receipt" ||
-									(this.frm.doc.purpose === "Manufacture" && this.item.is_finished_item)))
-						) {
+						if ((["Purchase Receipt", "Purchase Invoice"].includes(this.frm.doc.doctype) && !this.frm.doc.is_return)
+							|| (this.frm.doc.doctype === 'Stock Entry' && this.frm.doc.purpose === 'Material Receipt')) {
 							is_inward = true;
 						}
-
-						let include_expired_batches = me.include_expired_batches();
 
 						return {
 							query: "erpnext.controllers.queries.get_batch_no",
 							filters: {
-								item_code: this.item.item_code,
-								warehouse:
-									this.item.s_warehouse || this.item.t_warehouse || this.item.warehouse,
-								is_inward: is_inward,
-								include_expired_batches: include_expired_batches,
-							},
-						};
+								'item_code': this.item.item_code,
+								'warehouse': this.item.s_warehouse || this.item.t_warehouse || this.item.warehouse,
+								'is_inward': is_inward
+							}
+						}
 					},
 				},
 			];

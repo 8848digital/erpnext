@@ -348,7 +348,7 @@ class BuyingController(SubcontractingController):
 				if (
 					not net_rate
 					and item.get("rejected_qty")
-					and frappe.get_single_value(
+					and frappe.db.get_single_value(
 						"Buying Settings", "set_valuation_rate_for_rejected_materials"
 					)
 				):

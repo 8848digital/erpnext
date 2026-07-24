@@ -578,7 +578,11 @@ def make_return_doc(doctype: str, source_name: str, target_doc=None, return_agai
 			if not item_details.has_batch_no and not item_details.has_serial_no:
 				return
 
-			update_non_bundled_serial_nos(source_doc, target_doc, source_parent)
+			for qty_field in ["stock_qty", "rejected_qty"]:
+				if target_doc.get(qty_field) and not target_doc.get("use_serial_batch_fields"):
+					update_serial_batch_no(source_doc, target_doc, source_parent, item_details, qty_field)
+				elif target_doc.get(qty_field) and target_doc.get("use_serial_batch_fields"):
+					update_non_bundled_serial_nos(source_doc, target_doc, source_parent)
 
 	def update_non_bundled_serial_nos(source_doc, target_doc, source_parent):
 		from erpnext.stock.doctype.serial_no.serial_no import get_serial_nos
