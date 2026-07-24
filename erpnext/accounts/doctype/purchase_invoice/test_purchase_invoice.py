@@ -365,6 +365,12 @@ class TestPurchaseInvoice(FrappeTestCase, StockTestMixin):
 			make_purchase_invoice as create_purchase_invoice,
 		)
 
+		original_value = frappe.db.get_single_value(
+			"Buying Settings", "set_landed_cost_based_on_purchase_invoice_rate"
+		)
+
+		frappe.db.set_single_value("Buying Settings", "set_landed_cost_based_on_purchase_invoice_rate", 0)
+
 		pr = make_purchase_receipt(
 			company="_Test Company with perpetual inventory",
 			warehouse="Stores - TCP1",
@@ -385,8 +391,60 @@ class TestPurchaseInvoice(FrappeTestCase, StockTestMixin):
 		amount = frappe.db.get_value(
 			"GL Entry", {"account": exchange_gain_loss_account, "voucher_no": pi.name}, "debit"
 		)
+
 		discrepancy_caused_by_exchange_rate_diff = abs(
 			pi.items[0].base_net_amount - pr.items[0].base_net_amount
+		)
+
+		self.assertEqual(discrepancy_caused_by_exchange_rate_diff, amount)
+
+		frappe.db.set_single_value(
+			"Buying Settings", "set_landed_cost_based_on_purchase_invoice_rate", original_value
+		)
+
+	def test_purchase_invoice_with_exchange_rate_difference_for_non_stock_item(self):
+		from erpnext.stock.doctype.purchase_receipt.purchase_receipt import (
+			make_purchase_invoice as create_purchase_invoice,
+		)
+
+		# Creating Purchase Invoice with USD currency
+		pr = frappe.new_doc("Purchase Receipt")
+		pr.currency = "USD"
+		pr.company = "_Test Company with perpetual inventory"
+		pr.conversion_rate = (70,)
+		pr.supplier = "_Test Supplier USD"
+		pr.append(
+			"items",
+			{
+				"item_code": "_Test Non Stock Item",
+				"qty": 1,
+				"rate": 100,
+			},
+		)
+		pr.append(
+			"items",
+			{"item_code": "_Test Item", "qty": 1, "rate": 5, "warehouse": "Stores - TCP1"},
+		)
+		pr.insert()
+		pr.submit()
+
+		# Createing purchase invoice against Purchase Receipt
+		pi = create_purchase_invoice(pr.name)
+		pi.conversion_rate = 80
+		pi.credit_to = "_Test Payable USD - TCP1"
+		pi.insert()
+		pi.submit()
+
+		# Get exchnage gain and loss account
+		exchange_gain_loss_account = frappe.db.get_value("Company", pi.company, "exchange_gain_loss_account")
+
+		# fetching the latest GL Entry with exchange gain and loss account account
+		amount = frappe.db.get_value(
+			"GL Entry", {"account": exchange_gain_loss_account, "voucher_no": pi.name}, "debit"
+		)
+
+		discrepancy_caused_by_exchange_rate_diff = abs(
+			pi.items[1].base_net_amount - pr.items[1].base_net_amount
 		)
 
 		self.assertEqual(discrepancy_caused_by_exchange_rate_diff, amount)

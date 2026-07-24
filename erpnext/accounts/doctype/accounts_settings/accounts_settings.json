@@ -89,7 +89,6 @@
   "accounts_receivable_payable_tuning_section",
   "receivable_payable_fetch_method",
   "column_break_ntmi",
-  "drop_ar_procedures",
   "legacy_section",
   "ignore_is_opening_check_for_reporting",
   "payment_request_settings",
@@ -204,7 +203,7 @@
    "description": "Payment Terms from orders will be fetched into the invoices as is",
    "fieldname": "automatically_fetch_payment_terms",
    "fieldtype": "Check",
-   "label": "Automatically Fetch Payment Terms from Order"
+   "label": "Automatically Fetch Payment Terms from Order/Quotation"
   },
   {
    "description": "The percentage you are allowed to bill more against the amount ordered. For example, if the order value is $100 for an item and tolerance is set as 10%, then you are allowed to bill up to $110 ",
@@ -528,7 +527,7 @@
    "fieldname": "receivable_payable_fetch_method",
    "fieldtype": "Select",
    "label": "Data Fetch Method",
-   "options": "Buffered Cursor\nUnBuffered Cursor\nRaw SQL"
+   "options": "Buffered Cursor\nUnBuffered Cursor"
   },
   {
    "fieldname": "accounts_receivable_payable_tuning_section",
@@ -591,13 +590,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "depends_on": "eval:doc.receivable_payable_fetch_method == \"Raw SQL\"",
-   "description": "Drops existing SQL Procedures and Function setup by Accounts Receivable report",
-   "fieldname": "drop_ar_procedures",
-   "fieldtype": "Button",
-   "label": "Drop Procedures"
-  },
-  {
    "default": "0",
    "fieldname": "fetch_valuation_rate_for_internal_transaction",
    "fieldtype": "Check",
@@ -632,7 +624,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-10-20 14:06:08.870427",
+ "modified": "2026-05-18 12:16:33.679345",
  "modified_by": "Administrator",
  "module": "Accounts",
  "name": "Accounts Settings",

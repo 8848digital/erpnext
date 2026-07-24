@@ -279,7 +279,15 @@ def get_conditions(filters):
 	if filters.get("party"):
 		conditions.append("party in %(party)s")
 
-	if not (
+	if filters.get("disable_opening_balance_calculation"):
+		if not ignore_is_opening:
+			conditions.append("(posting_date >=%(from_date)s or is_opening = 'Yes')")
+		else:
+			conditions.append("posting_date >=%(from_date)s")
+
+	# opening balance calculation is done only if filtered on account/party
+	# so from_date filter is not applied
+	elif not (
 		filters.get("account")
 		or filters.get("party")
 		or filters.get("categorize_by") in ["Categorize by Account", "Categorize by Party"]
@@ -479,7 +487,7 @@ def get_accountwise_gle(filters, accounting_dimensions, gl_entries, gle_map, tot
 
 	immutable_ledger = frappe.db.get_single_value("Accounts Settings", "enable_immutable_ledger")
 
-	def update_value_in_dict(data, key, gle):
+	def update_value_in_dict(data, key, gle, show_net_values=False):
 		data[key].debit += gle.debit
 		data[key].credit += gle.credit
 
@@ -490,10 +498,14 @@ def get_accountwise_gle(filters, accounting_dimensions, gl_entries, gle_map, tot
 			data[key].debit_in_transaction_currency += gle.debit_in_transaction_currency
 			data[key].credit_in_transaction_currency += gle.credit_in_transaction_currency
 
-		if filters.get("show_net_values_in_party_account") and account_type_map.get(data[key].account) in (
-			"Receivable",
-			"Payable",
-		):
+		if (
+			filters.get("show_net_values_in_party_account")
+			and account_type_map.get(data[key].account)
+			in (
+				"Receivable",
+				"Payable",
+			)
+		) or show_net_values:
 			net_value = data[key].debit - data[key].credit
 			net_value_in_account_currency = (
 				data[key].debit_in_account_currency - data[key].credit_in_account_currency
@@ -521,13 +533,17 @@ def get_accountwise_gle(filters, accounting_dimensions, gl_entries, gle_map, tot
 		group_by_value = gle.get(group_by)
 		gle.voucher_type = gle.voucher_type
 
-		if gle.posting_date < from_date or (cstr(gle.is_opening) == "Yes" and not show_opening_entries):
+		if gle.posting_date < from_date or (
+			cstr(gle.is_opening) == "Yes"
+			and not show_opening_entries
+			and not filters.disable_opening_balance_calculation
+		):
 			if not group_by_voucher_consolidated:
-				update_value_in_dict(gle_map[group_by_value].totals, "opening", gle)
-				update_value_in_dict(gle_map[group_by_value].totals, "closing", gle)
+				update_value_in_dict(gle_map[group_by_value].totals, "opening", gle, True)
+				update_value_in_dict(gle_map[group_by_value].totals, "closing", gle, True)
 
-			update_value_in_dict(totals, "opening", gle)
-			update_value_in_dict(totals, "closing", gle)
+			update_value_in_dict(totals, "opening", gle, True)
+			update_value_in_dict(totals, "closing", gle, True)
 
 		elif gle.posting_date <= to_date or (cstr(gle.is_opening) == "Yes" and show_opening_entries):
 			if not group_by_voucher_consolidated:
