@@ -84,6 +84,7 @@
  ],
  "icon": "fa fa-cog",
  "idx": 1,
+ "hide_toolbar": 0,
  "in_create": 1,
  "issingle": 1,
  "links": [],

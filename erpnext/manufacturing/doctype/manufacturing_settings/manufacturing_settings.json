@@ -250,6 +250,7 @@
     "index_web_pages_for_search": 1,
     "issingle": 1,
     "links": [],
+    "hide_toolbar": 0,
     "modified": "2025-05-16 11:23:16.916512",
     "modified_by": "Administrator",
     "module": "Manufacturing",

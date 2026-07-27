@@ -148,6 +148,7 @@
   {
    "bold": 1,
    "fieldname": "item_name",
+   "allow_in_quick_entry": 1,
    "fieldtype": "Data",
    "in_global_search": 1,
    "label": "Item Name",

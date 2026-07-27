@@ -204,11 +204,12 @@ website_route_rules = [
 ]
 standard_navbar_items = [
 	{
-		"item_label": "Clear Demo Data",
+		"item_label": "Erase Demo Data",
 		"item_type": "Action",
 		"action": "erpnext.demo.clear_demo();",
 		"is_standard": 1,
-		"condition": "eval: frappe.boot.sysdefaults.demo_company",
+		"condition": "eval: frappe.boot.sysdefaults.demo_company && frappe.boot.sysdefaults.demo_company.length > 0",
+		"icon": "trash",
 	},
 ]
 
@@ -419,13 +420,20 @@ naming_series_variables = {
 	"FY": "erpnext.accounts.utils.parse_naming_series_variable",
 }
 
-# On cancel event Payment Entry will be exempted and all linked submittable doctype will get cancelled.
-# to maintain data integrity we exempted payment entry. it will un-link when sales invoice get cancelled.
-# if payment entry not in auto cancel exempted doctypes it will cancel payment entry.
 auto_cancel_exempted_doctypes = [
+	# On cancel event Payment Entry will be exempted and all linked submittable doctype will get cancelled.
+	# to maintain data integrity we exempted payment entry. it will un-link when sales invoice get cancelled.
+	# if payment entry not in auto cancel exempted doctypes it will cancel payment entry.
 	"Payment Entry",
+	# Reverse ledger entries are created instead to ensure ledger immutability.
+	"GL Entry",
+	"Stock Ledger Entry",
+	"Payment Ledger Entry",
+	"Advance Payment Ledger Entry",
+	# May be linked to Period Closing Voucher, but cancelled with custom logic in PCV.
+	# This is better to avoid stale docs when cancelling PCV from backend.
+	"Account Closing Balance",
 ]
-
 scheduler_events = {
 	"cron": {
 		"0/15 * * * *": [
@@ -671,3 +679,7 @@ fixtures =[
         
 	}
 ]
+
+# List of apps whose translatable strings should be excluded from this app's translations.
+ignore_translatable_strings_from = ["frappe"]
+require_type_annotated_api_methods = True
