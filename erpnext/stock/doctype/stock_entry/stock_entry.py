@@ -92,6 +92,7 @@ class StockEntry(StockController):
 		apply_putaway_rule: DF.Check
 		bom_no: DF.Link | None
 		company: DF.Link
+		cost_center: DF.Link | None
 		credit_note: DF.Link | None
 		delivery_note_no: DF.Link | None
 		fg_completed_qty: DF.Float
@@ -196,6 +197,7 @@ class StockEntry(StockController):
 		self.validate_uom_is_integer("uom", "qty")
 		self.validate_uom_is_integer("stock_uom", "transfer_qty")
 		self.validate_warehouse()
+		self.validate_warehouse_of_sabb()
 		self.validate_work_order()
 		self.validate_bom()
 		self.set_process_loss_qty()

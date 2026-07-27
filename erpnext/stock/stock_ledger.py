@@ -897,7 +897,10 @@ class update_entries_after:
 		if (
 			sle.is_adjustment_entry
 			and flt(sle.qty_after_transaction, self.flt_precision) == 0
-			and flt(sle.stock_value, self.currency_precision) != 0
+			and (
+				flt(sle.stock_value, self.currency_precision) != 0
+				or flt(sle.stock_value_difference, self.currency_precision) == 0
+			)
 		):
 			sle.stock_value_difference = (
 				get_stock_value_difference(
@@ -1252,7 +1255,7 @@ class update_entries_after:
 				else:
 					if sle.voucher_type in ("Delivery Note", "Sales Invoice"):
 						ref_doctype = "Packed Item"
-					elif sle == "Subcontracting Receipt":
+					elif sle.voucher_type == "Subcontracting Receipt":
 						ref_doctype = "Subcontracting Receipt Supplied Item"
 					else:
 						ref_doctype = "Purchase Receipt Item Supplied"

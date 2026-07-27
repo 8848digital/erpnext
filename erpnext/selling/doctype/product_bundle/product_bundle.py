@@ -97,7 +97,7 @@ class ProductBundle(Document):
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
-def get_new_item_code(doctype, txt, searchfield, start, page_len, filters):
+def get_new_item_code(doctype: str, txt: str, searchfield: str, start: int, page_len: int, filters: dict):
 	product_bundles = frappe.db.get_list("Product Bundle", {"disabled": 0}, pluck="name")
 	if not searchfield or searchfield == "name":
 		searchfield = frappe.get_meta("Item").get("search_fields")

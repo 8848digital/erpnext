@@ -23,19 +23,13 @@ from erpnext.utilities.regional import temporary_flag
 class calculate_taxes_and_totals:
 	def __init__(self, doc: Document):
 		self.doc = doc
-		frappe.flags.round_off_applicable_accounts = []
-		frappe.flags.round_row_wise_tax = frappe.db.get_single_value(
-			"Accounts Settings", "round_row_wise_tax"
+		frappe.flags.round_off_applicable_accounts = (
+			get_round_off_applicable_accounts(self.doc.company, []) or []
 		)
-
-		if doc.get("round_off_applicable_accounts_for_tax_withholding"):
-			frappe.flags.round_off_applicable_accounts.append(
-				doc.round_off_applicable_accounts_for_tax_withholding
-			)
+		frappe.flags.round_row_wise_tax = frappe.get_single_value("Accounts Settings", "round_row_wise_tax")
 
 		self._items = self.filter_rows() if self.doc.doctype == "Quotation" else self.doc.get("items")
 
-		get_round_off_applicable_accounts(self.doc.company, frappe.flags.round_off_applicable_accounts)
 		self.calculate()
 
 	def filter_rows(self):

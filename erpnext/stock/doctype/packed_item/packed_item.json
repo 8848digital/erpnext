@@ -34,6 +34,7 @@
   "projected_qty",
   "ordered_qty",
   "packed_qty",
+  "requested_qty",
   "column_break_16",
   "incoming_rate",
   "picked_qty",
@@ -52,6 +53,15 @@
    "options": "Item",
    "read_only": 1
   },
+  {
+   "default": "0",
+   "fieldname": "requested_qty",
+   "fieldtype": "Float",
+   "label": "Requested Qty",
+   "non_negative": 1,
+   "print_hide": 1,
+   "read_only": 1
+  }
   {
    "fieldname": "item_code",
    "fieldtype": "Link",

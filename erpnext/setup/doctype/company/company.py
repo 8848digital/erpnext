@@ -5,6 +5,7 @@
 import json
 
 import frappe
+from typing import Literal
 import frappe.defaults
 from frappe import _
 from frappe.cache_manager import clear_defaults_cache
@@ -772,7 +773,7 @@ def cache_companies_monthly_sales_history():
 
 
 @frappe.whitelist()
-def get_children(doctype, parent=None, company=None, is_root=False):
+def get_children(doctype: str, parent: str | None = None, company: str | None = None, is_root: bool = False):
 	if parent is None or parent == "All Companies":
 		parent = ""
 
@@ -886,7 +887,11 @@ def get_timeline_data(doctype, name):
 
 
 @frappe.whitelist()
-def get_default_company_address(name, sort_key="is_primary_address", existing_address=None):
+def get_default_company_address(
+	name: str,
+	sort_key: Literal["is_shipping_address", "is_primary_address"] = "is_primary_address",
+	existing_address: str | None = None,
+):
 	if sort_key not in ["is_shipping_address", "is_primary_address"]:
 		return None
 
@@ -912,14 +917,16 @@ def get_default_company_address(name, sort_key="is_primary_address", existing_ad
 		return None
 
 @frappe.whitelist()
-def get_billing_shipping_address(name, billing_address=None, shipping_address=None):
+def get_billing_shipping_address(
+	name: str, billing_address: str | None = None, shipping_address: str | None = None
+):
 	primary_address = get_default_company_address(name, "is_primary_address", billing_address)
 	shipping_address = get_default_company_address(name, "is_shipping_address", shipping_address)
 	return {"primary_address": primary_address, "shipping_address": shipping_address}
 
 
 @frappe.whitelist()
-def create_transaction_deletion_request(company):
+def create_transaction_deletion_request(company: str):
 	from erpnext.setup.doctype.transaction_deletion_record.transaction_deletion_record import (
 		is_deletion_doc_running,
 	)

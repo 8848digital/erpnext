@@ -491,7 +491,8 @@
    "fieldtype": "Link",
    "label": "Reference Purchase Receipt",
    "options": "Purchase Receipt",
-   "read_only": 1
+   "read_only": 1,
+   "search_index": 1
   },
   {
    "fieldname": "po_detail",

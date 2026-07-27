@@ -442,6 +442,7 @@ erpnext.TransactionController = class TransactionController extends erpnext.taxe
 		this.validate_has_items();
 		erpnext.utils.view_serial_batch_nos(this.frm);
 		this.set_route_options_for_new_doc();
+		erpnext.toggle_serial_batch_fields(this.frm);
 	}
 
 	set_route_options_for_new_doc() {
@@ -1050,6 +1051,7 @@ erpnext.TransactionController = class TransactionController extends erpnext.taxe
 		if (this.frm.doc.transaction_date) {
 			this.frm.transaction_date = this.frm.doc.transaction_date;
 			frappe.ui.form.trigger(this.frm.doc.doctype, "currency");
+			this.recalculate_terms();
 		}
 	}
 

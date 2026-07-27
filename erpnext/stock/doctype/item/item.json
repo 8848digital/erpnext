@@ -148,6 +148,7 @@
   {
    "bold": 1,
    "fieldname": "item_name",
+   "allow_in_quick_entry": 1,
    "fieldtype": "Data",
    "in_global_search": 1,
    "label": "Item Name",
@@ -404,6 +405,7 @@
    "fieldname": "batch_number_series",
    "fieldtype": "Data",
    "label": "Batch Number Series",
+   "show_description_on_click": 1,
    "translatable": 1
   },
   {
@@ -445,7 +447,8 @@
    "description": "Example: ABCD.#####\nIf series is set and Serial No is not mentioned in transactions, then automatic serial number will be created based on this series. If you always want to explicitly mention Serial Nos for this item. leave this blank.",
    "fieldname": "serial_no_series",
    "fieldtype": "Data",
-   "label": "Serial Number Series"
+   "label": "Serial Number Series",
+   "show_description_on_click": 1
   },
   {
    "collapsible": 1,

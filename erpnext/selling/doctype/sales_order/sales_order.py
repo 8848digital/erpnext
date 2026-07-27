@@ -105,6 +105,7 @@ class SalesOrder(SellingController):
 		from_date: DF.Date | None
 		grand_total: DF.Currency
 		group_same_items: DF.Check
+		ignore_default_payment_terms_template: DF.Check
 		ignore_pricing_rule: DF.Check
 		in_words: DF.Data | None
 		incoterm: DF.Link | None
@@ -170,6 +171,7 @@ class SalesOrder(SellingController):
 		total_qty: DF.Float
 		total_taxes_and_charges: DF.Currency
 		transaction_date: DF.Date
+		transaction_time: DF.Time | None
 	# end: auto-generated types
 
 	def __init__(self, *args, **kwargs):
@@ -781,13 +783,18 @@ def close_or_unclose_sales_orders(names, status):
 
 def get_requested_item_qty(sales_order):
 	result = {}
-	for d in frappe.db.get_all(
-		"Material Request Item",
-		filters={"docstatus": 1, "sales_order": sales_order},
-		fields=["sales_order_item", "sum(qty) as qty", "sum(received_qty) as received_qty"],
-		group_by="sales_order_item",
-	):
-		result[d.sales_order_item] = frappe._dict({"qty": d.qty, "received_qty": d.received_qty})
+	so = frappe.get_doc("Sales Order", sales_order)
+
+	for item in so.items:
+		if is_product_bundle(item.item_code):
+			for packed_item in so.get("packed_items"):
+				if (
+					packed_item.parent_item == item.item_code
+					and packed_item.parent_detail_docname == item.name
+				):
+					result[packed_item.name] = frappe._dict({"qty": packed_item.requested_qty})
+		else:
+			result[item.name] = frappe._dict({"qty": item.requested_qty})
 
 	return result
 
@@ -806,34 +813,43 @@ def make_material_request(source_name, target_doc=None):
 			flt(so_item.qty)
 			- flt(requested_item_qty.get(so_item.name, {}).get("qty"))
 			- max(
-				flt(so_item.get("delivered_qty"))
-				- flt(requested_item_qty.get(so_item.name, {}).get("received_qty")),
+				flt(so_item.get("delivered_qty")),
+				0,
+			)
+		)
+	def get_remaining_packed_item_qty(so_item):
+		delivered_qty = frappe.db.get_value(
+			"Sales Order Item", {"name": so_item.parent_detail_docname}, ["delivered_qty"]
+		)
+
+		bundle_item_qty = frappe.db.get_value(
+			"Product Bundle Item", {"parent": so_item.parent_item, "item_code": so_item.item_code}, ["qty"]
+		)
+
+		return flt(
+			flt(so_item.qty)
+			- flt(requested_item_qty.get(so_item.name, {}).get("qty"))
+			- max(
+				flt(delivered_qty) * flt(bundle_item_qty),
 				0,
 			)
 		)
 
 	def update_item(source, target, source_parent):
-		def get_billed_qty(so_item_name):
-			from frappe.query_builder.functions import Sum
-
-			table = frappe.qb.DocType("Sales Invoice Item")
-			query = (
-				frappe.qb.from_(table)
-				.select(Sum(table.qty).as_("qty"))
-				.where((table.docstatus == 1) & (table.so_detail == so_item_name))
-			)
-			return query.run(pluck="qty")[0] or 0
 		# qty is for packed items, because packed items don't have stock_qty field
-		if "project" in frappe.get_installed_apps():
-			target.project = source_parent.project
-		target.qty = get_remaining_qty(source)
+		target.project = source_parent.project
+		target.qty = (
+			get_remaining_packed_item_qty(source)
+			if source.parentfield == "packed_items"
+			else get_remaining_qty(source)
+		)
 		target.stock_qty = flt(target.qty) * flt(target.conversion_factor)
 		target.actual_qty = get_bin_details(
 			target.item_code, target.warehouse, source_parent.company, True
 		).get("actual_qty", 0)
 
-		args = target.as_dict().copy()
-		args.update(
+		ctx = ItemDetailsCtx(target.as_dict().copy())
+		ctx.update(
 			{
 				"company": source_parent.get("company"),
 				"price_list": frappe.db.get_single_value("Buying Settings", "buying_price_list"),
@@ -843,7 +859,7 @@ def make_material_request(source_name, target_doc=None):
 		)
 
 		target.rate = flt(
-			get_price_list_rate(args=args, item_doc=frappe.get_cached_doc("Item", target.item_code)).get(
+			get_price_list_rate(ctx, item_doc=frappe.get_cached_doc("Item", target.item_code)).get(
 				"price_list_rate"
 			)
 		)
@@ -856,7 +872,8 @@ def make_material_request(source_name, target_doc=None):
 			"Sales Order": {"doctype": "Material Request", "validation": {"docstatus": ["=", 1]}},
 			"Packed Item": {
 				"doctype": "Material Request Item",
-				"field_map": {"parent": "sales_order", "uom": "stock_uom"},
+				"field_map": {"parent": "sales_order", "uom": "stock_uom", "name": "packed_item"},
+				"condition": lambda item: get_remaining_packed_item_qty(item) > 0,
 				"postprocess": update_item,
 			},
 			"Sales Order Item": {
@@ -877,8 +894,10 @@ def make_material_request(source_name, target_doc=None):
 		target_doc,
 		postprocess,
 	)
-
-	return doc
+	if doc and doc.items:
+		return doc
+	else:
+		frappe.throw(_("Material Request already created for the ordered quantity"))
 
 
 @frappe.whitelist()
@@ -1259,12 +1278,14 @@ def make_purchase_order_for_default_supplier(source_name, selected_items=None, t
 
 	def set_missing_values(source, target):
 		target.supplier = supplier
-		target.currency = frappe.db.get_value(
-			"Supplier", filters={"name": supplier}, fieldname=["default_currency"]
-		)
 		company_currency = frappe.db.get_value(
 			"Company", filters={"name": target.company}, fieldname=["default_currency"]
 		)
+		supplier_currency = frappe.db.get_value(
+			"Supplier", filters={"name": supplier}, fieldname=["default_currency"]
+		)
+
+		target.currency = supplier_currency if supplier_currency else company_currency
 
 		target.conversion_rate = get_exchange_rate(target.currency, company_currency, args="for_buying")
 

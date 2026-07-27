@@ -18,6 +18,7 @@
   "get_items_from_open_material_requests",
   "column_break_7",
   "transaction_date",
+  "transaction_time",
   "schedule_date",
   "column_break1",
   "company",
@@ -1285,6 +1286,14 @@
    "fieldtype": "Data",
    "is_virtual": 1,
    "label": "Last Scanned Warehouse"
+  },
+  {
+   "default": "Now",
+   "depends_on": "is_internal_supplier",
+   "fieldname": "transaction_time",
+   "fieldtype": "Time",
+   "label": "Time",
+   "mandatory_depends_on": "is_internal_supplier"
   }
  ],
  "grid_page_length": 50,
