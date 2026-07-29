@@ -1,17 +1,16 @@
-import unittest
-
 import frappe
+from frappe.tests import IntegrationTestCase
 
 from erpnext.tests.utils import ReportFilters, ReportName, execute_script_report
 
-class TestManufacturingReports(unittest.TestCase):
+
+class TestManufacturingReports(IntegrationTestCase):
 	def setUp(self):
 		self.setup_default_filters()
 
-
 	def tearDown(self):
 		frappe.db.rollback()
-	
+
 	def setup_default_filters(self):
 		self.last_bom = frappe.get_last_doc("BOM").name
 		self.DEFAULT_FILTERS = {
@@ -56,7 +55,6 @@ class TestManufacturingReports(unittest.TestCase):
 			"item": "_Test Item",
 			"item_group": "_Test Item Group",
 		}
-
 
 	def test_execute_all_manufacturing_reports(self):
 		"""Test that all script report in manufacturing modules are executable with supported filters"""

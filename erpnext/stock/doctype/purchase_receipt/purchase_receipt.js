@@ -11,31 +11,15 @@ erpnext.buying.setup_buying_controller();
 
 frappe.ui.form.on("Purchase Receipt", {
 	setup: (frm) => {
-		frm.make_methods = {
-			"Landed Cost Voucher": () => {
-				let lcv = frappe.model.get_new_doc("Landed Cost Voucher");
-				lcv.company = frm.doc.company;
-
-				let lcv_receipt = frappe.model.get_new_doc("Landed Cost Purchase Receipt");
-				lcv_receipt.receipt_document_type = "Purchase Receipt";
-				lcv_receipt.receipt_document = frm.doc.name;
-				lcv_receipt.supplier = frm.doc.supplier;
-				lcv_receipt.grand_total = frm.doc.grand_total;
-				lcv.purchase_receipts = [lcv_receipt];
-
-				frappe.set_route("Form", lcv.doctype, lcv.name);
-			},
-		};
-
 		frm.custom_make_buttons = {
 			"Stock Entry": "Return",
 			"Purchase Invoice": "Purchase Invoice",
+			"Landed Cost Voucher": "Landed Cost Voucher",
 		};
 
-		frm.set_query("expense_account", "items", function () {
+		frm.set_query("wip_composite_asset", "items", function () {
 			return {
-				query: "erpnext.controllers.queries.get_expense_account",
-				filters: { company: frm.doc.company },
+				filters: { asset_type: "Composite Asset", docstatus: 0 },
 			};
 		});
 
@@ -44,25 +28,6 @@ frappe.ui.form.on("Purchase Receipt", {
 				filters: { company: frm.doc.company },
 			};
 		});
-
-		frm.set_query("subcontracting_receipt", function () {
-			return {
-				filters: {
-					docstatus: 1,
-					supplier: frm.doc.supplier,
-				},
-			};
-		});
-
-		var list = frm.fields_dict['items'].grid.get_field('work_breakdown_structure').get_query = function (doc, cdt, cdn) {
-			var child = locals[cdt][cdn];
-			return {
-				filters: {
-					project : child.project,
-					is_group: 0
-				}
-			};
-		};
 	},
 	onload: function (frm) {
 		erpnext.queries.setup_queries(frm, "Warehouse", function () {
@@ -118,7 +83,33 @@ frappe.ui.form.on("Purchase Receipt", {
 			}
 		}
 
+		if (frm.doc.docstatus === 1) {
+			frm.add_custom_button(
+				__("Landed Cost Voucher"),
+				() => {
+					frm.events.make_lcv(frm);
+				},
+				__("Create")
+			);
+		}
+
 		frm.events.add_custom_buttons(frm);
+	},
+
+	make_lcv(frm) {
+		frappe.call({
+			method: "erpnext.stock.doctype.purchase_receipt.purchase_receipt.make_lcv",
+			args: {
+				doctype: frm.doc.doctype,
+				docname: frm.doc.name,
+			},
+			callback: (r) => {
+				if (r.message) {
+					var doc = frappe.model.sync(r.message);
+					frappe.set_route("Form", doc[0].doctype, doc[0].name);
+				}
+			},
+		});
 	},
 
 	add_custom_buttons: function (frm) {
@@ -160,24 +151,6 @@ frappe.ui.form.on("Purchase Receipt", {
 		erpnext.accounts.dimensions.update_dimension(frm, frm.doctype);
 	},
 
-	subcontracting_receipt: (frm) => {
-		if (
-			frm.doc.is_subcontracted === 1 &&
-			frm.doc.is_old_subcontracting_flow === 0 &&
-			frm.doc.subcontracting_receipt
-		) {
-			frm.set_value("items", null);
-
-			erpnext.utils.map_current_doc({
-				method: "erpnext.subcontracting.doctype.subcontracting_receipt.subcontracting_receipt.make_purchase_receipt",
-				source_name: frm.doc.subcontracting_receipt,
-				target_doc: frm,
-				freeze: true,
-				freeze_message: __("Mapping Purchase Receipt ..."),
-			});
-		}
-	},
-
 	toggle_display_account_head: function (frm) {
 		var enabled = erpnext.is_perpetual_inventory_enabled(frm.doc.company);
 		frm.fields_dict["items"].grid.set_column_disp(["cost_center"], enabled);
@@ -188,8 +161,19 @@ erpnext.stock.PurchaseReceiptController = class PurchaseReceiptController extend
 	erpnext.buying.BuyingController
 ) {
 	setup(doc) {
+		this.setup_accounting_dimension_triggers();
 		this.setup_posting_date_time_check();
 		super.setup(doc);
+
+		this.frm.set_query("expense_account", "items", () => {
+			return {
+				query: "erpnext.controllers.queries.get_expense_account",
+				filters: {
+					company: this.frm.doc.company,
+					disabled: 0,
+				},
+			};
+		});
 	}
 
 	refresh() {
@@ -203,6 +187,28 @@ erpnext.stock.PurchaseReceiptController = class PurchaseReceiptController extend
 			this.show_stock_ledger();
 			//removed for temporary
 			this.show_general_ledger();
+
+			this.frm.add_custom_button(
+				__("Asset"),
+				function () {
+					frappe.route_options = {
+						purchase_receipt: me.frm.doc.name,
+					};
+					frappe.set_route("List", "Asset");
+				},
+				__("View")
+			);
+
+			this.frm.add_custom_button(
+				__("Asset Movement"),
+				function () {
+					frappe.route_options = {
+						reference_name: me.frm.doc.name,
+					};
+					frappe.set_route("List", "Asset Movement");
+				},
+				__("View")
+			);
 		}
 
 		if (!this.frm.doc.is_return && this.frm.doc.status != "Closed") {
@@ -260,7 +266,7 @@ erpnext.stock.PurchaseReceiptController = class PurchaseReceiptController extend
 					);
 				}
 				cur_frm.add_custom_button(
-					__("Retention Stock Entry"),
+					__("Sample Retention Stock Entry"),
 					this.make_retention_stock_entry,
 					__("Create")
 				);
@@ -359,6 +365,15 @@ erpnext.stock.PurchaseReceiptController = class PurchaseReceiptController extend
 	apply_putaway_rule() {
 		if (this.frm.doc.apply_putaway_rule) erpnext.apply_putaway_rule(this.frm);
 	}
+
+	items_add(doc, cdt, cdn) {
+		const row = frappe.get_doc(cdt, cdn);
+		this.frm.script_manager.copy_from_first_row("items", row, [
+			"expense_account",
+			"cost_center",
+			"project",
+		]);
+	}
 };
 
 // for backward compatibility: combine new and previous states
@@ -428,61 +443,6 @@ frappe.ui.form.on("Purchase Receipt Item", {
 	batch_no: function (frm, cdt, cdn) {
 		validate_sample_quantity(frm, cdt, cdn);
 	},
-	project: function(frm,cdt,cdn) {
-		let child = locals[cdt][cdn];
-		frappe.db.get_value("Project", child.project, "project_name")
-		.then(response => {
-			if (response.message && response.message.project_name) {
-				let project_name = response.message.project_name;
-				child.project_name = project_name;
-			} else {
-				child.project_name = null;
-			}
-			let row = frm.fields_dict['items'].grid.get_row(cdn);
-            row.refresh_field('project_name');
-		})
-	},
-	work_breakdown_structure: function(frm,cdt,cdn) {
-		let child = locals[cdt][cdn];
-		frappe.db.get_value("Work Breakdown Structure", child.work_breakdown_structure, ["wbs_name", 'locked', 'gl_account'])
-		.then(response => {
-			if (response.message && response.message.wbs_name) {
-				let wbs_name = response.message.wbs_name;
-				if (response.message.locked == 1) {
-					frappe.msgprint(__(`WBS "${child.work_breakdown_structure}" is locked`));
-					child.work_breakdown_structure = null;
-				} else {
-					child.wbs_name = wbs_name;
-				}
-				if (response.message.gl_account) {
-					child.expense_account = response.message.gl_account;
-				}
-			} else {
-				child.wbs_name = null;
-			}
-			let row = frm.fields_dict['items'].grid.get_row(cdn);
-			row.refresh_field('work_breakdown_structure')
-            row.refresh_field('wbs_name');
-			row.refresh_field('expense_account');
-		})
-	},
-	expense_account: function(frm,cdt,cdn) {
-		var child = locals[cdt][cdn];
-		if (child.work_breakdown_structure && child.expense_account) {
-			frappe.db.get_value("Work Breakdown Structure",child.work_breakdown_structure,'gl_account')
-			.then(response => {
-				if (response.message && response.message.gl_account) {
-					if (child.expense_account != response.message.gl_account) {
-						frappe.msgprint(__(`${child.expense_account} is not a GL Account of WBS ${child.work_breakdown_structure}`));
-						child.expense_account = null;
-						let row = frm.fields_dict['items'].grid.get_row(cdn);
-						row.refresh_field('expense_account');
-						row.refresh_field('work_breakdown_structure');
-					}
-				}
-			});
-		}
-	}
 });
 
 cur_frm.cscript._make_purchase_return = function () {

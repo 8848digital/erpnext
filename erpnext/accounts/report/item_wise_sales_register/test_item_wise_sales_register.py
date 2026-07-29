@@ -67,9 +67,15 @@ class TestItemWiseSalesRegister(AccountsTestMixin, FrappeTestCase):
 			report_output = {k: v for k, v in report[1][0].items() if k in expected_result}
 		self.assertDictEqual(report_output, expected_result)
 
-	def test_group_by_item_flow_TC_ACC_423(self):
-		"""Covers: group_by, add_total_row, add_sub_total_row, get_display_value, get_group_by_and_display_fields"""
-		from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_sales_invoice
+	def test_grouped_report_handles_different_tax_descriptions(self):
+		self.create_item(
+			item_name="_Test Item Tax Description A", company="_Test Company", warehouse="Stores - _TC"
+		)
+		first_item = self.item
+		self.create_item(
+			item_name="_Test Item Tax Description B", company="_Test Company", warehouse="Stores - _TC"
+		)
+		second_item = self.item
 
 		si = create_sales_invoice(
 			item=frappe.get_doc("Item", {"item_code": "Test Item"}),  # fallback item

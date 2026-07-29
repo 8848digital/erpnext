@@ -545,7 +545,8 @@
   {
    "fieldname": "production_plan_sub_assembly_item",
    "fieldtype": "Data",
-   "label": "Production Plan Sub-assembly Item",
+   "hidden": 1,
+   "label": "Production Plan Sub Assembly Item",
    "no_copy": 1,
    "print_hide": 1,
    "read_only": 1

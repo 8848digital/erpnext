@@ -558,7 +558,11 @@
    "label": "Enable Serial / Batch No for Item"
   }
  ],
+<<<<<<< Updated upstream
  "hide_toolbar": 1,
+=======
+ "hide_toolbar": 0,
+>>>>>>> Stashed changes
  "icon": "icon-cog",
  "idx": 1,
  "index_web_pages_for_search": 1,

@@ -1,16 +1,17 @@
 # Copyright (c) 2022, Frappe Technologies Pvt. Ltd. and contributors
 # For license information, please see license.txt
 
-from frappe.tests.utils import FrappeTestCase
+import frappe
 
 from erpnext.manufacturing.doctype.production_plan.test_production_plan import make_bom
 from erpnext.manufacturing.report.bom_stock_calculated.bom_stock_calculated import (
 	execute as bom_stock_calculated_report,
 )
 from erpnext.stock.doctype.item.test_item import make_item
+from erpnext.tests.utils import ERPNextTestSuite
 
 
-class TestBOMStockCalculated(FrappeTestCase):
+class TestBOMStockCalculated(ERPNextTestSuite):
 	def setUp(self):
 		self.fg_item, self.rm_items = create_items()
 		self.boms = create_boms(self.fg_item, self.rm_items)
@@ -57,6 +58,7 @@ def create_items():
 			"standard_rate": 100,
 			"opening_stock": 100,
 			"last_purchase_rate": 100,
+			"item_defaults": [{"company": "_Test Company", "default_warehouse": "Stores - _TC"}],
 		}
 	).name
 	rm_item2 = make_item(
@@ -65,6 +67,7 @@ def create_items():
 			"standard_rate": 200,
 			"opening_stock": 200,
 			"last_purchase_rate": 200,
+			"item_defaults": [{"company": "_Test Company", "default_warehouse": "Stores - _TC"}],
 		}
 	).name
 
@@ -102,6 +105,7 @@ def get_expected_data(bom, qty_to_make):
 			[
 				bom.items[idx].item_code,
 				bom.items[idx].item_code,
+				bom.name,
 				"",
 				"",
 				float(bom.items[idx].stock_qty / bom.quantity),

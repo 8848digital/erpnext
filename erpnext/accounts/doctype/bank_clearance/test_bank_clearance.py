@@ -18,9 +18,9 @@ from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
 from erpnext.tests.utils import if_lending_app_installed, if_lending_app_not_installed
 
 
-class TestBankClearance(unittest.TestCase):
-	@classmethod
-	def setUpClass(cls):
+class TestBankClearance(ERPNextTestSuite):
+	def setUp(self):
+		frappe.clear_cache()
 		create_warehouse(
 			warehouse_name="_Test Warehouse",
 			properties={"parent_warehouse": "All Warehouses - _TC"},

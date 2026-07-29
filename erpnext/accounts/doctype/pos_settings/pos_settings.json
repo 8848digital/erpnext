@@ -24,6 +24,7 @@
  ],
  "issingle": 1,
  "links": [],
+ "hide_toolbar": 0,
  "modified": "2021-04-19 14:56:24.465218",
  "modified_by": "Administrator",
  "module": "Accounts",

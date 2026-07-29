@@ -17,6 +17,7 @@
  "in_create": 1,
  "issingle": 1,
  "links": [],
+ "hide_toolbar": 0,
  "modified": "2024-06-06 13:56:37.908879",
  "modified_by": "Administrator",
  "module": "Accounts",

@@ -658,7 +658,9 @@ def get_opening_balance(filters, columns, sl_entries):
 			"warehouse_condition": get_warehouse_condition(filters.warehouse),
 			"posting_date": filters.from_date,
 			"posting_time": "00:00:00",
-		}
+			"project": project,
+		},
+		for_report=True,
 	)
 
 	# check if any SLEs are actually Opening Stock Reconciliation

@@ -32,6 +32,7 @@
  ],
  "issingle": 1,
  "links": [],
+ "hide_toolbar": 0,
  "modified": "2020-06-23 09:13:44.292792",
  "modified_by": "Administrator",
  "module": "Accounts",
