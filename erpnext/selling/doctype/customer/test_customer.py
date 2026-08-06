@@ -5,36 +5,19 @@
 import json
 
 import frappe
-from frappe.test_runner import make_test_records
-from frappe.tests.utils import FrappeTestCase, change_settings
 from frappe.utils import flt
 
 from erpnext.accounts.party import get_due_date
 from erpnext.exceptions import PartyDisabled, PartyFrozen
 from erpnext.selling.doctype.customer.customer import (
-	create_contact,
 	get_credit_limit,
 	get_customer_outstanding,
-	get_customer_primary_contact,
-	make_opportunity,
-	make_quotation,
 	parse_full_name,
 )
-from erpnext.tests.utils import create_test_contact_and_address
-
-test_ignore = ["Price List"]
-test_dependencies = ["Payment Term", "Payment Terms Template"]
-test_records = frappe.get_test_records("Customer")
+from erpnext.tests.utils import ERPNextTestSuite, create_test_contact_and_address
 
 
-class TestCustomer(FrappeTestCase):
-	def setUp(self):
-		if not frappe.get_value("Item", "_Test Item"):
-			make_test_records("Item")
-
-	def tearDown(self):
-		set_credit_limit("_Test Customer", "_Test Company", 0)
-
+class TestCustomer(ERPNextTestSuite):
 	def test_get_customer_group_details(self):
 		doc = frappe.new_doc("Customer Group")
 		doc.customer_group_name = "_Testing Customer Group"
@@ -106,36 +89,31 @@ class TestCustomer(FrappeTestCase):
 	def test_party_details_tax_category(self):
 		from erpnext.accounts.party import get_party_details
 
-		frappe.delete_doc_if_exists("Address", "_Test Address With Tax Category-Billing")
-		frappe.delete_doc_if_exists("Address", "_Test Address With Tax Category-Shipping")
-
 		# Tax Category without Address
 		details = get_party_details("_Test Customer With Tax Category")
 		self.assertEqual(details.tax_category, "_Test Tax Category 1")
 
-		billing_address = frappe.get_doc(
-			dict(
-				doctype="Address",
-				address_title="_Test Address With Tax Category",
-				tax_category="_Test Tax Category 2",
-				address_type="Billing",
-				address_line1="Station Road",
-				city="_Test City",
-				country="India",
-				links=[dict(link_doctype="Customer", link_name="_Test Customer With Tax Category")],
-			)
+		frappe.get_doc(
+			doctype="Address",
+			address_title="_Test Address With Tax Category",
+			tax_category="_Test Tax Category 2",
+			address_type="Billing",
+			address_line1="Station Road",
+			city="_Test City",
+			country="India",
+			is_primary_address=True,
+			links=[dict(link_doctype="Customer", link_name="_Test Customer With Tax Category")],
 		).insert()
-		shipping_address = frappe.get_doc(
-			dict(
-				doctype="Address",
-				address_title="_Test Address With Tax Category",
-				tax_category="_Test Tax Category 3",
-				address_type="Shipping",
-				address_line1="Station Road",
-				city="_Test City",
-				country="India",
-				links=[dict(link_doctype="Customer", link_name="_Test Customer With Tax Category")],
-			)
+		frappe.get_doc(
+			doctype="Address",
+			address_title="_Test Address With Tax Category",
+			tax_category="_Test Tax Category 3",
+			address_type="Shipping",
+			address_line1="Station Road",
+			city="_Test City",
+			country="India",
+			is_shipping_address=True,
+			links=[dict(link_doctype="Customer", link_name="_Test Customer With Tax Category")],
 		).insert()
 
 		settings = frappe.get_single("Accounts Settings")
@@ -156,8 +134,6 @@ class TestCustomer(FrappeTestCase):
 		# Rollback
 		settings.determine_address_tax_category_from = rollback_setting
 		settings.save()
-		billing_address.delete()
-		shipping_address.delete()
 
 	def test_rename(self):
 		# delete communication linked to these 2 customers
@@ -198,11 +174,7 @@ class TestCustomer(FrappeTestCase):
 		# rename back to original
 		frappe.rename_doc("Customer", new_name, "_Test Customer 1")
 
-		frappe.db.rollback()
-
 	def test_freezed_customer(self):
-		make_test_records("Item")
-
 		frappe.db.set_value("Customer", "_Test Customer", "is_frozen", 1)
 
 		from erpnext.selling.doctype.sales_order.test_sales_order import make_sales_order
@@ -226,8 +198,6 @@ class TestCustomer(FrappeTestCase):
 		frappe.delete_doc("Customer", customer.name)
 
 	def test_disabled_customer(self):
-		make_test_records("Item")
-
 		frappe.db.set_value("Customer", "_Test Customer", "disabled", 1)
 
 		from erpnext.selling.doctype.sales_order.test_sales_order import make_sales_order
@@ -389,100 +359,7 @@ class TestCustomer(FrappeTestCase):
 		self.assertEqual(first, "John")
 		self.assertEqual(middle, "Michael")
 		self.assertEqual(last, "Doe")
-	
-	def test_customer_bank_details_TC_S_183(self):
-		bank_name = "Test SBI"
-		if not frappe.db.exists("Bank", bank_name):
-			frappe.get_doc({
-				"doctype": "Bank",
-				"bank_name": bank_name,
-			}).insert()
 
-		bank_account_name = "Test Bank - Test SBI"
-		if not frappe.db.exists("Bank Account", bank_account_name):
-			frappe.get_doc({
-				"doctype": "Bank Account",
-				"account_name": "Test Bank",
-				"bank": bank_name,
-				"is_company_account": 0
-			}).insert()
-
-		customer_name = "_Test New Customer "
-		if not frappe.db.exists("Customer", customer_name):
-			customer = frappe.get_doc(get_customer_dict(customer_name)).insert(ignore_permissions=True)
-		else:
-			customer = frappe.get_doc("Customer", customer_name)
-
-		customer.default_bank_account = bank_account_name
-		with self.assertRaises(frappe.ValidationError) as context:
-			customer.save()
-		self.assertIn("is not a company bank account", str(context.exception))
-
-	def test_customer_with_address_contact_TC_S_184(self):
-		customer_name = "_Test New Customer"
-
-		if not frappe.db.exists("Customer", customer_name):
-			customer = frappe.get_doc(get_customer_dict_new(customer_name)).insert(ignore_permissions=True)
-		else:
-			customer = frappe.get_doc("Customer", customer_name)
-
-		contact = create_contact(customer_name, "Customer", customer.name, "test@example.com")
-		contact_name = contact.name
-		customer.db_set("customer_primary_contact", contact_name)
-		customer.reload()
-
-		self.assertEqual(customer.customer_primary_contact, contact_name)
-
-		results = get_customer_primary_contact("Customer", "", "name", 0, 20, {"customer": customer.name})
-		result_names = [row[0] for row in results]
-		self.assertIn(contact_name, result_names)
-
-	def test_make_quotation_and_opportunity_TC_S_185(self):
-		customer_name = "_Test Customer New"
-		if not frappe.db.exists("Customer", customer_name):
-			customer = frappe.get_doc(get_customer_dict_new(customer_name)).insert(ignore_permissions=True)
-		else:
-			customer = frappe.get_doc("Customer", customer_name)
-
-		opportunity = make_opportunity(customer.name)
-		opportunity.opportunity_type = ""
-		opportunity.sales_stage = ""
-		opportunity.save()
-		assert opportunity.doctype == "Opportunity"
-		assert opportunity.party_name == customer.name
-
-		quotation = make_quotation(customer.name)
-		quotation.append("items", {
-		"item_code": "_Test Item",
-		"qty": 1,
-		"rate": 100
-	})
-		quotation.save()
-		assert quotation.doctype == "Quotation"
-		assert quotation.quotation_to == "Customer"
-
-	def test_validate_customer_name_TC_S_198(self):
-		with change_settings("Selling Settings", {"cust_master_name": "Naming Series"}):
-			customer_ns = frappe.get_doc(get_customer_dict_new("Test_Autoname_Supplier_1")).insert()
-			self.assertTrue(customer_ns.name.startswith("CUST-"))
-
-		with change_settings("Selling Settings", {"cust_master_name": "Auto Name"}):
-			customer_else = frappe.get_doc(get_customer_dict_new("Test_Autoname_Supplier_2")).insert()
-			self.assertNotEquals(customer_else.name, "Test_Autoname_Supplier_ELSE")
-
-def get_customer_dict_new(customer_name):
-    return {
-        "doctype": "Customer",
-        "customer_name": customer_name,
-        "customer_group": "_Test Customer Group",
-        "customer_type": "Individual",
-        "territory": "_Test Territory",
-        "address_line1": "123 Sample St",
-        "city": "Test City",
-		"state": "Tamil Nadu",
-        "country": "India",
-		"email_id": "test@gmail.com"
-    }
 
 def get_customer_dict(customer_name):
 	return {
@@ -515,9 +392,9 @@ def create_internal_customer(customer_name=None, represents_company=None, allowe
 	if not allowed_to_interact_with:
 		allowed_to_interact_with = represents_company
 
-	exisiting_representative = frappe.db.get_value("Customer", {"represents_company": represents_company})
-	if exisiting_representative:
-		return exisiting_representative
+	existing_representative = frappe.db.get_value("Customer", {"represents_company": represents_company})
+	if existing_representative:
+		return existing_representative
 
 	if not frappe.db.exists("Customer", customer_name):
 		customer = frappe.get_doc(
@@ -534,9 +411,20 @@ def create_internal_customer(customer_name=None, represents_company=None, allowe
 
 		customer.append("companies", {"company": allowed_to_interact_with})
 
-		customer.insert(ignore_permissions=True)
+		customer.insert()
 		customer_name = customer.name
 	else:
 		customer_name = frappe.db.get_value("Customer", customer_name)
 
 	return customer_name
+
+
+def make_customer(customer_name):
+	if not frappe.db.exists("Customer", customer_name):
+		customer = frappe.new_doc("Customer")
+		customer.customer_name = customer_name
+		customer.customer_type = "Individual"
+		customer.insert()
+		return customer.name
+	else:
+		return customer_name

@@ -2,7 +2,6 @@
 # MIT License. See license.txt
 
 import frappe
-from frappe.tests.utils import FrappeTestCase
 from frappe.utils import add_to_date, today
 
 from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_payment_entry
@@ -14,9 +13,10 @@ from erpnext.accounts.doctype.tax_withholding_category.test_tax_withholding_cate
 from erpnext.accounts.report.tax_withholding_details.tax_withholding_details import execute
 from erpnext.accounts.test.accounts_mixin import AccountsTestMixin
 from erpnext.accounts.utils import get_fiscal_year
+from erpnext.tests.utils import ERPNextTestSuite
 
 
-class TestTaxWithholdingDetails(AccountsTestMixin, FrappeTestCase):
+class TestTaxWithholdingDetails(ERPNextTestSuite, AccountsTestMixin):
 	def setUp(self):
 		self.create_company()
 		self.clear_old_entries()
@@ -85,7 +85,6 @@ class TestTaxWithholdingDetails(AccountsTestMixin, FrappeTestCase):
 			rate=1000, posting_date=add_to_date(fiscal_year[1], days=1), do_not_save=True, do_not_submit=True
 		)
 		inv_1.set_posting_time = 1
-
 		inv_1.apply_tds = 1
 		inv_1.tax_withholding_category = tds_doc.name
 		inv_1.save()
@@ -93,7 +92,6 @@ class TestTaxWithholdingDetails(AccountsTestMixin, FrappeTestCase):
 
 		inv_2 = make_purchase_invoice(rate=1000, posting_date=from_date, do_not_save=True, do_not_submit=True)
 		inv_2.set_posting_time = 1
-
 		inv_2.apply_tds = 1
 		inv_2.tax_withholding_category = tds_doc.name
 		inv_2.save()
@@ -127,9 +125,6 @@ class TestTaxWithholdingDetails(AccountsTestMixin, FrappeTestCase):
 				voucher.grand_total,
 			)
 			self.assertSequenceEqual(voucher_actual_values, voucher_expected_values)
-
-	def tearDown(self):
-		self.clear_old_entries()
 
 
 def create_tax_accounts():

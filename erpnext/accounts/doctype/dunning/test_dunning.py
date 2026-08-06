@@ -4,7 +4,7 @@ import json
 
 import frappe
 from frappe.model import mapper
-from frappe.tests.utils import FrappeTestCase
+from frappe.tests import IntegrationTestCase
 from frappe.utils import add_days, nowdate, today
 
 from erpnext import get_default_cost_center
@@ -19,10 +19,8 @@ from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import (
 	create_sales_invoice_against_cost_center,
 )
 
-test_dependencies = ["Company", "Cost Center"]
 
-
-class TestDunning(FrappeTestCase):
+class TestDunning(IntegrationTestCase):
 	@classmethod
 	def setUpClass(cls):
 		super().setUpClass()
@@ -59,7 +57,7 @@ class TestDunning(FrappeTestCase):
 		pe = get_payment_entry("Dunning", dunning.name)
 		pe.reference_no = "1"
 		pe.reference_date = nowdate()
-		pe.insert(ignore_permissions=True)
+		pe.insert()
 		pe.submit()
 
 		for overdue_payment in dunning.overdue_payments:
@@ -122,7 +120,7 @@ class TestDunning(FrappeTestCase):
 		dunning.submit()
 		pe = get_payment_entry("Dunning", dunning.name)
 		pe.reference_no, pe.reference_date = "2", nowdate()
-		pe.insert(ignore_permissions=True)
+		pe.insert()
 		pe.submit()
 		sales_invoice.load_from_db()
 		dunning.load_from_db()

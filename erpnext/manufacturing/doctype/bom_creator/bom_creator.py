@@ -518,3 +518,21 @@ def edit_qty(doctype, docname, qty, parent):
 	doc.save()
 
 	return doc
+
+@frappe.whitelist()
+def edit_bom_creator(doctype: str, docname: str, data: str | dict, parent: str):
+	if not frappe.has_permission(doctype=doctype, ptype="write", parent_doctype="BOM Creator"):
+		frappe.throw(_("You do not have permission to edit this document"), frappe.PermissionError)
+
+	if isinstance(data, str):
+		data = frappe.parse_json(data)
+
+	frappe.db.set_value(doctype, docname, data)
+
+	doc = frappe.get_doc("BOM Creator", parent)
+	doc.set_rate_for_items()
+	doc.save()
+
+	frappe.msgprint(_("Updated successfully"), alert=True)
+
+	return doc

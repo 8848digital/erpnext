@@ -1,23 +1,20 @@
 import frappe
-from frappe.tests.utils import FrappeTestCase, change_settings
 from frappe.utils import today
 
 from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
 from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_sales_invoice
 from erpnext.accounts.report.accounts_receivable_summary.accounts_receivable_summary import execute
 from erpnext.accounts.test.accounts_mixin import AccountsTestMixin
+from erpnext.tests.utils import ERPNextTestSuite
 
 
-class TestAccountsReceivable(AccountsTestMixin, FrappeTestCase):
+class TestAccountsReceivable(ERPNextTestSuite, AccountsTestMixin):
 	def setUp(self):
 		self.maxDiff = None
 		self.create_company()
 		self.create_customer()
 		self.create_item()
 		self.clear_old_entries()
-
-	def tearDown(self):
-		frappe.db.rollback()
 
 	def test_01_receivable_summary_output(self):
 		"""
@@ -27,10 +24,7 @@ class TestAccountsReceivable(AccountsTestMixin, FrappeTestCase):
 			"company": self.company,
 			"customer": self.customer,
 			"posting_date": today(),
-			"range1": 30,
-			"range2": 60,
-			"range3": 90,
-			"range4": 120,
+			"range": "30, 60, 90, 120",
 		}
 
 		si = create_sales_invoice(
@@ -115,16 +109,13 @@ class TestAccountsReceivable(AccountsTestMixin, FrappeTestCase):
 		self.assertEqual(len(rpt_output), 1)
 		self.assertDictEqual(rpt_output[0], expected_data)
 
-	@change_settings("Selling Settings", {"cust_master_name": "Naming Series"})
+	@ERPNextTestSuite.change_settings("Selling Settings", {"cust_master_name": "Naming Series"})
 	def test_02_various_filters_and_output(self):
 		filters = {
 			"company": self.company,
 			"customer": self.customer,
 			"posting_date": today(),
-			"range1": 30,
-			"range2": 60,
-			"range3": 90,
-			"range4": 120,
+			"range": "30, 60, 90, 120",
 		}
 
 		si = create_sales_invoice(

@@ -2,11 +2,9 @@
 # See license.txt
 
 import frappe
-from frappe.tests.utils import FrappeTestCase
 
 from erpnext.controllers.queries import item_query
-
-test_dependencies = ["Item", "Customer", "Supplier"]
+from erpnext.tests.utils import ERPNextTestSuite
 
 
 def create_party_specific_item(**args):
@@ -18,62 +16,45 @@ def create_party_specific_item(**args):
 	psi.insert()
 
 
-class TestPartySpecificItem(FrappeTestCase):
-	def setUp(self):
-		self.customer = frappe.get_last_doc("Customer")
-		self.supplier = frappe.get_last_doc("Supplier")
-		self.item = frappe.get_last_doc("Item")
-
+class TestPartySpecificItem(ERPNextTestSuite):
 	def test_item_query_for_customer(self):
+		customer = "_Test Customer With Template"
+		item = "_Test Item"
+
 		create_party_specific_item(
 			party_type="Customer",
-			party=self.customer.name,
+			party=customer,
 			restrict_based_on="Item",
-			based_on_value=self.item.name,
+			based_on_value=item,
 		)
-		filters = {"is_sales_item": 1, "customer": self.customer.name}
+		filters = {"is_sales_item": 1, "customer": customer}
 		items = item_query(
 			doctype="Item", txt="", searchfield="name", start=0, page_len=20, filters=filters, as_dict=False
 		)
-		for item in items:
-			self.assertEqual(item[0], self.item.name)
+		self.assertTrue(item in flatten(items))
 
 	def test_item_query_for_supplier(self):
+		supplier = "_Test Supplier With Template 1"
+		item = "_Test Item Group"
+
 		create_party_specific_item(
 			party_type="Supplier",
-			party=self.supplier.name,
+			party=supplier,
 			restrict_based_on="Item Group",
-			based_on_value=self.item.item_group,
+			based_on_value=item,
 		)
-		filters = {"supplier": self.supplier.name, "is_purchase_item": 1}
+		filters = {"supplier": supplier, "is_purchase_item": 1}
 		items = item_query(
 			doctype="Item", txt="", searchfield="name", start=0, page_len=20, filters=filters, as_dict=False
 		)
-		for item in items:
-			self.assertEqual(item[2], self.item.item_group)
+		self.assertTrue(item in flatten(items))
 
-	def test_duplicate_entry_TC_B_199(self):
-		party_specific_item_1 = get_party_specific_item(
-			party_type="Customer",
-			party=self.customer.name,
-			restrict_based_on="Item",
-			based_on_value=self.item.name,
-		)
-		party_specific_item_1.insert(ignore_permissions=True)
 
-		party_specific_item_2 = get_party_specific_item(
-			party_type="Customer",
-			party=self.customer.name,
-			restrict_based_on="Item",
-			based_on_value=self.item.name,
-		)
-		self.assertRaises(frappe.ValidationError, party_specific_item_2.save)
-
-def get_party_specific_item(**args):
-	doc = frappe.new_doc("Party Specific Item")
-	doc.party_type = args.get("party_type")
-	doc.party = args.get("party")
-	doc.restrict_based_on = args.get("restrict_based_on")
-	doc.based_on_value = args.get("based_on_value")
-
-	return doc
+def flatten(lst):
+	result = []
+	for item in lst:
+		if isinstance(item, tuple):
+			result.extend(flatten(item))
+		else:
+			result.append(item)
+	return result

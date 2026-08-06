@@ -1,20 +1,19 @@
 # Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors and Contributors
 # See license.txt
 
-import unittest
-
 import frappe
 from frappe.utils import cint
+
 from erpnext.accounts.doctype.pos_profile.pos_profile import (
 	get_child_nodes,
 )
 from erpnext.stock.get_item_details import get_pos_profile
+from erpnext.tests.utils import ERPNextTestSuite
 
-test_dependencies = ["Item"]
 
-
-class TestPOSProfile(unittest.TestCase):
+class TestPOSProfile(ERPNextTestSuite):
 	def test_pos_profile(self):
+		frappe.set_user("Administrator")
 		make_pos_profile()
 
 		pos_profile = get_pos_profile("_Test Company") or {}
@@ -36,8 +35,6 @@ class TestPOSProfile(unittest.TestCase):
 			self.assertEqual(len(items), products_count[0][0])
 			self.assertEqual(len(customers), customers_count[0][0])
 
-		frappe.db.sql("delete from `tabPOS Profile`")
-
 	def test_disabled_pos_profile_creation(self):
 		make_pos_profile(name="_Test POS Profile 001", disabled=1)
 
@@ -51,7 +48,6 @@ class TestPOSProfile(unittest.TestCase):
 		from erpnext.accounts.doctype.pos_opening_entry.test_pos_opening_entry import create_opening_entry
 
 		test_user, pos_profile = init_user_and_profile()
-		frappe.db.delete("POS Opening Entry", {"pos_profile": pos_profile.name})
 
 		if pos_profile:
 			create_opening_entry(pos_profile, test_user.name)
@@ -83,6 +79,7 @@ class TestPOSProfile(unittest.TestCase):
 
 			self.assertEqual(pos_profile.disabled, 1)
 
+
 def get_customers_list(pos_profile=None):
 	if pos_profile is None:
 		pos_profile = {}
@@ -94,12 +91,11 @@ def get_customers_list(pos_profile=None):
 			customer_groups.extend(
 				[d.get("name") for d in get_child_nodes("Customer Group", d.get("customer_group"))]
 			)
-		cond = "customer_group in (%s)" % (", ".join(["%s"] * len(customer_groups)))
+		cond = "customer_group in ({})".format(", ".join(["%s"] * len(customer_groups)))
 
 	return (
 		frappe.db.sql(
-			f""" select name, customer_name, customer_group,
-		territory, customer_pos_id from tabCustomer where disabled = 0
+			f""" select name, customer_name, customer_group, territory from tabCustomer where disabled = 0
 		and {cond}""",
 			tuple(customer_groups),
 			as_dict=1,
@@ -116,27 +112,26 @@ def get_items_list(pos_profile, company):
 		for d in pos_profile.get("item_groups"):
 			args_list.extend([d.name for d in get_child_nodes("Item Group", d.item_group)])
 		if args_list:
-			cond = "and i.item_group in (%s)" % (", ".join(["%s"] * len(args_list)))
-	base_query = f"""
-	select
-		i.name, i.item_code, i.item_name, i.description, i.item_group, i.has_batch_no,
-		i.has_serial_no, i.is_stock_item, i.brand, i.stock_uom, i.image,
-		id.expense_account, id.selling_cost_center, id.default_warehouse,
-		i.sales_uom, c.conversion_factor
-	from
-		`tabItem` i
-	left join `tabItem Default` id on id.parent = i.name and id.company = %s
-	left join `tabUOM Conversion Detail` c on i.name = c.parent and i.sales_uom = c.uom
-	where
-		i.disabled = 0 and i.has_variants = 0 and i.is_sales_item = 1
-	"""
+			cond = "and i.item_group in ({})".format(", ".join(["%s"] * len(args_list)))
 
-	if frappe.db.has_column("Item", "is_fixed_asset"):
-		base_query += " and i.is_fixed_asset = 0"
-
-	query = base_query + f"{cond}"
-
-	return frappe.db.sql(query, tuple([company, *args_list]), as_dict=1)
+	return frappe.db.sql(
+		f"""
+		select
+			i.name, i.item_code, i.item_name, i.description, i.item_group, i.has_batch_no,
+			i.has_serial_no, i.is_stock_item, i.brand, i.stock_uom, i.image,
+			id.expense_account, id.selling_cost_center, id.default_warehouse,
+			i.sales_uom, c.conversion_factor
+		from
+			`tabItem` i
+		left join `tabItem Default` id on id.parent = i.name and id.company = %s
+		left join `tabUOM Conversion Detail` c on i.name = c.parent and i.sales_uom = c.uom
+		where
+			i.disabled = 0 and i.has_variants = 0 and i.is_sales_item = 1 and i.is_fixed_asset = 0
+			{cond}
+		""",
+		tuple([company, *args_list]),
+		as_dict=1,
+	)
 
 
 def make_pos_profile(**args):

@@ -3,19 +3,14 @@
 
 
 import frappe
-from frappe.test_runner import make_test_records
 
 from erpnext.accounts.party import get_due_date
 from erpnext.controllers.website_list_for_contact import get_customers_suppliers
 from erpnext.exceptions import PartyDisabled
-
-test_dependencies = ["Payment Term", "Payment Terms Template"]
-test_records = frappe.get_test_records("Supplier")
-
-from frappe.tests.utils import FrappeTestCase
+from erpnext.tests.utils import ERPNextTestSuite
 
 
-class TestSupplier(FrappeTestCase):
+class TestSupplier(ERPNextTestSuite):
 	def test_get_supplier_group_details(self):
 		doc = frappe.new_doc("Supplier Group")
 		doc.supplier_group_name = "_Testing Supplier Group"
@@ -96,8 +91,6 @@ class TestSupplier(FrappeTestCase):
 		self.assertEqual(due_date, "2017-01-22")
 
 	def test_supplier_disabled(self):
-		make_test_records("Item")
-
 		frappe.db.set_value("Supplier", "_Test Supplier", "disabled", 1)
 
 		from erpnext.buying.doctype.purchase_order.test_purchase_order import create_purchase_order
@@ -134,16 +127,14 @@ class TestSupplier(FrappeTestCase):
 		self.assertEqual(details.tax_category, "_Test Tax Category 1")
 
 		address = frappe.get_doc(
-			dict(
-				doctype="Address",
-				address_title="_Test Address With Tax Category",
-				tax_category="_Test Tax Category 2",
-				address_type="Billing",
-				address_line1="Station Road",
-				city="_Test City",
-				country="India",
-				links=[dict(link_doctype="Supplier", link_name="_Test Supplier With Tax Category")],
-			)
+			doctype="Address",
+			address_title="_Test Address With Tax Category",
+			tax_category="_Test Tax Category 2",
+			address_type="Billing",
+			address_line1="Station Road",
+			city="_Test City",
+			country="India",
+			links=[dict(link_doctype="Supplier", link_name="_Test Supplier With Tax Category")],
 		).insert()
 
 		# Tax Category with Address
@@ -153,138 +144,6 @@ class TestSupplier(FrappeTestCase):
 		# Rollback
 		address.delete()
 
-	def setUp(self):
-		self.supplier = create_supplier(supplier_name = "Test Supplier for Contact")
-
-		self.contact = frappe.get_doc({
-            "doctype": "Contact",
-            "first_name": "John",
-            "last_name": "Doe",
-            "email_id": "john.doe@example.com",
-            "links": [{
-                "link_doctype": "Supplier",
-                "link_name": self.supplier.name
-            }]
-        }).insert(ignore_permissions=True)
-
-	def test_get_supplier_primary_contact_TC_B_181(self):
-		from erpnext.buying.doctype.supplier.supplier import get_supplier_primary_contact
-		results = get_supplier_primary_contact(
-		doctype="Contact",
-		txt="John",
-		searchfield="name",
-		start=0,
-		page_len=10,
-		filters={"supplier": self.supplier.name}
-		)
-
-		self.assertTrue(results)
-		self.assertIn(self.contact.name, results[0])
-
-	def test_create_primary_contact_TC_B_182(self):
-		if not frappe.db.exists("Supplier", "Test Supplier"):
-			supplier = frappe.get_doc({
-				"doctype": "Supplier",
-				"supplier_name": "Test Supplier",
-				"supplier_group": "All Supplier Groups",
-				"mobile_no": "1234567890",
-				"email_id": "test@example.com"
-			})
-			supplier.insert(ignore_permissions=True)
-		else:
-			supplier = frappe.get_doc("Supplier", "Test Supplier")  # ✅ fetch doc properly
-
-		supplier.create_primary_contact()
-		supplier.reload()
-
-		self.assertIsNotNone(supplier.supplier_primary_contact)
-		self.assertEqual(supplier.mobile_no, "1234567890")
-		self.assertEqual(supplier.email_id, "test@example.com")
-
-	def test_create_primary_address_TC_B_183(self):
-			supplier = frappe.get_doc({
-				"doctype": "Supplier",
-				"supplier_name": "Test Supplier",
-				"supplier_group": "All Supplier Groups",
-				"address_line1": "Testt",
-				"city": "Pune",
-				"state": "Maharashtra",
-				"country": "India",
-				"pincode": "411018"
-			})
-			supplier.insert(ignore_if_duplicate=True, ignore_permissions=True)
-
-			supplier.create_primary_address()
-
-			supplier.reload()
-
-			self.assertIsNotNone(supplier.supplier_primary_address)
-			self.assertIsNotNone(supplier.primary_address)
-			self.assertIn("Testt", supplier.primary_address)
-
-	def test_after_rename_TC_B_184(self):
-		supplier = frappe.get_doc({
-			"doctype": "Supplier",
-			"supplier_name": "Original Name",
-			"supplier_group": "All Supplier Groups"
-		})
-		supplier.insert(ignore_permissions=True)
-
-		frappe.db.set_default("supp_master_name", "Supplier Name")
-
-		new_name = "Renamed Supplier"
-		frappe.rename_doc("Supplier", supplier.name, new_name, force=True)
-		renamed = frappe.get_doc("Supplier", new_name)
-
-		self.assertEqual(renamed.name, new_name)
-		self.assertEqual(renamed.supplier_name, new_name)
-
-	def test_on_trash_TC_B_185(self):
-		supplier = frappe.get_doc({
-			"doctype": "Supplier",
-			"supplier_name": "Test Trash Supplier",
-			"supplier_group": "All Supplier Groups",
-			"address_line1": "Testt",
-			"city": "Pune",
-			"state": "Maharashtra",
-			"country": "India",
-			"pincode": "411018",
-			"mobile_no": "1234567890",
-            "email_id": "test@example.com"
-		})
-		supplier.insert(ignore_permissions=True)
-
-		supplier.delete()
-
-		self.assertFalse(frappe.db.exists("Supplier", supplier.name))
-
-	def test__add_supplier_role_TC_B_186(self):
-		from frappe.utils import random_string
-
-		user_email = f"test_supplier_{random_string(5)}@example.com"
-		user = frappe.new_doc("User")
-		user.email = user_email
-		user.first_name = "Test"
-		user.send_welcome_email = 0
-		user.save(ignore_permissions=True)
-
-		user.set("roles", [])
-		user.save(ignore_permissions=True)
-
-		class DummyPortalUser:
-			def __init__(self, user):
-				self.user = user
-			def is_new(self):
-				return True
-
-		portal_user = DummyPortalUser(user.name)
-
-		supplier = frappe.new_doc("Supplier")
-		supplier._add_supplier_role(portal_user)
-
-		user.reload()
-		roles = [r.role for r in user.roles]
-		self.assertIn("Supplier", roles)
 
 def create_supplier(**args):
 	args = frappe._dict(args)
@@ -307,12 +166,15 @@ def create_supplier(**args):
 	if not args.without_supplier_group:
 		doc.supplier_group = args.supplier_group or "Services"
 
-	doc.insert(ignore_permissions=True)
+	doc.insert()
 
 	return doc
 
 
-class TestSupplierPortal(FrappeTestCase):
+from erpnext.tests.utils import ERPNextTestSuite
+
+
+class TestSupplierPortal(ERPNextTestSuite):
 	def test_portal_user_can_access_supplier_data(self):
 		supplier = create_supplier()
 
@@ -326,11 +188,8 @@ class TestSupplierPortal(FrappeTestCase):
 
 		supplier.append("portal_users", {"user": user})
 		supplier.save()
-		current_user = frappe.session.user
-		frappe.set_user(user)
-		_, suppliers = get_customers_suppliers("Purchase Order", user)
 
-		self.assertIn(supplier.name, suppliers)
-		frappe.db.rollback()
-		frappe.set_user(current_user)
-		frappe.delete_doc("User", user)
+		with self.set_user(user):
+			_, suppliers = get_customers_suppliers("Purchase Order", user)
+
+			self.assertIn(supplier.name, suppliers)

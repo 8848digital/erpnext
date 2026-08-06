@@ -1547,25 +1547,10 @@ class TestAccountsController(FrappeTestCase):
 
 		frappe.db.set_value("Company", self.company, "cost_center", cc)
 
-	def setup_dimensions(self):
-		# create dimension
-		from erpnext.accounts.doctype.accounting_dimension.test_accounting_dimension import (
-			create_dimension,
-		)
-
-		create_dimension()
-		# make it non-mandatory
-		loc = frappe.get_doc("Accounting Dimension", "Location")
-		for x in loc.dimension_defaults:
-			x.mandatory_for_bs = False
-			x.mandatory_for_pl = False
-		loc.save()
-
 	def test_90_dimensions_filter(self):
 		"""
 		Test workings of dimension filters
 		"""
-		self.setup_dimensions()
 		rate_in_account_currency = 1
 
 		# Invoices
@@ -1633,7 +1618,6 @@ class TestAccountsController(FrappeTestCase):
 		self.assertEqual(len(pr.payments), 1)
 
 	def test_91_cr_note_should_inherit_dimension(self):
-		self.setup_dimensions()
 		rate_in_account_currency = 1
 
 		# Invoice
@@ -1678,7 +1662,6 @@ class TestAccountsController(FrappeTestCase):
 
 	def test_92_dimension_inhertiance_exc_gain_loss(self):
 		# Sales Invoice in Foreign Currency
-		self.setup_dimensions()
 		rate_in_account_currency = 1
 		dpt = "Research & Development - _TC"
 
@@ -1714,7 +1697,6 @@ class TestAccountsController(FrappeTestCase):
 		)
 
 	def test_93_dimension_inheritance_on_advance(self):
-		self.setup_dimensions()
 		dpt = "Research & Development - _TC"
 
 		adv = self.create_payment_entry(amount=1, source_exc_rate=85)

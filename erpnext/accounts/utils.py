@@ -2,15 +2,19 @@
 # License: GNU General Public License v3. See license.txt
 
 
+from collections import defaultdict
+from datetime import date, datetime
 from json import loads
 from typing import TYPE_CHECKING, Optional
-from pypika.functions import Coalesce
+
 import frappe
 import frappe.defaults
 from frappe import _, qb, throw
+from frappe.desk.reportview import build_match_conditions
 from frappe.model.meta import get_field_precision
-from frappe.query_builder import AliasedQuery, Case, Criterion, Table
-from frappe.query_builder.functions import Count, Max, Sum
+from frappe.model.naming import determine_consecutive_week_number
+from frappe.query_builder import AliasedQuery, Case, Criterion, Field, Table
+from frappe.query_builder.functions import Count, IfNull, Max, Round, Sum
 from frappe.query_builder.utils import DocType
 from frappe.utils import (
 	add_days,
@@ -23,12 +27,14 @@ from frappe.utils import (
 	get_number_format_info,
 	getdate,
 	now,
-	nowdate,
+	now_datetime,
+	nowdate
 )
+from frappe.utils.caching import site_cache
 from pypika import Order
+from pypika.functions import Coalesce
 from pypika.terms import ExistsCriterion
-from pypika.functions import Min
-from collections import defaultdict
+
 import erpnext
 
 # imported to enable erpnext.accounts.utils.get_account_currency
@@ -36,7 +42,6 @@ from erpnext.accounts.doctype.account.account import get_account_currency
 from erpnext.accounts.doctype.accounting_dimension.accounting_dimension import get_dimensions
 from erpnext.stock import get_warehouse_account_map
 from erpnext.stock.utils import get_stock_value_on
-from frappe.utils.caching import site_cache
 
 if TYPE_CHECKING:
 	from erpnext.stock.doctype.repost_item_valuation.repost_item_valuation import RepostItemValuation
@@ -747,7 +752,7 @@ def get_reconciliation_effect_date(against_voucher_type, against_voucher, compan
 		"Company", company, "reconciliation_takes_effect_on"
 	)
 
-	reconcile_on = posting_dat
+	reconcile_on = posting_date
 
 	if reconciliation_takes_effect_on == "Advance Payment Date":
 		reconcile_on = posting_date
@@ -1426,14 +1431,34 @@ def get_autoname_with_number(number_value, doc_title, company):
 
 
 def parse_naming_series_variable(doc, variable):
-	if variable == "FY":
+	if variable in ["FY", "TFY"]:
 		if doc:
 			date = doc.get("posting_date") or doc.get("transaction_date") or getdate()
 			company = doc.get("company")
 		else:
 			date = getdate()
 			company = None
-		return get_fiscal_year(date=date, company=company)[0]
+		return get_fiscal_year(date=date, company=company, truncate=variable == "TFY")[0]
+
+	elif variable == "ABBR":
+		if doc:
+			company = doc.get("company") or frappe.db.get_default("company")
+		else:
+			company = frappe.db.get_default("company")
+
+		return frappe.db.get_value("Company", company, "abbr") if company else ""
+
+	else:
+		data = {"YY": "%y", "YYYY": "%Y", "MM": "%m", "DD": "%d", "JJJ": "%j"}
+		date = (
+			(
+				getdate(doc.get("posting_date") or doc.get("transaction_date") or doc.get("posting_datetime"))
+				or now_datetime()
+			)
+			if doc and frappe.get_single_value("Global Defaults", "use_posting_datetime_for_naming_documents")
+			else now_datetime()
+		)
+		return date.strftime(data[variable]) if variable in data else determine_consecutive_week_number(date)
 
 
 @frappe.whitelist()

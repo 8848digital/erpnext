@@ -211,39 +211,46 @@ class WorkOrder(Document):
 	def validate_sales_order(self):
 		if self.sales_order:
 			self.check_sales_order_on_hold_or_close()
-			is_projects_installed = "projects" in frappe.get_installed_apps()
-			project_column = ", so.project" if is_projects_installed else ""
-			so = frappe.db.sql(
-				"""
-				select so.name, so_item.delivery_date{0}
-				from `tabSales Order` so
-				inner join `tabSales Order Item` so_item on so_item.parent = so.name
-				left join `tabProduct Bundle Item` pk_item on so_item.item_code = pk_item.parent
-				where so.name=%s and so.docstatus = 1
-					and so.skip_delivery_note  = 0 and (
-					so_item.item_code=%s or
-					pk_item.item_code=%s )
-			""".format(project_column),
-				(self.sales_order, self.production_item, self.production_item),
-				as_dict=1,
+			SalesOrder = frappe.qb.DocType("Sales Order")
+			SalesOrderItem = frappe.qb.DocType("Sales Order Item")
+			PackedItem = frappe.qb.DocType("Packed Item")
+			ProductBundleItem = frappe.qb.DocType("Product Bundle Item")
+
+			so = (
+				frappe.qb.from_(SalesOrder)
+				.inner_join(SalesOrderItem)
+				.on(SalesOrderItem.parent == SalesOrder.name)
+				.left_join(ProductBundleItem)
+				.on(ProductBundleItem.parent == SalesOrderItem.item_code)
+				.select(SalesOrder.name, SalesOrder.project, SalesOrderItem.delivery_date)
+				.where(
+					(SalesOrder.skip_delivery_note == 0)
+					& (SalesOrder.docstatus == 1)
+					& (SalesOrder.name == self.sales_order)
+					& (
+						(SalesOrderItem.item_code == self.production_item)
+						| (ProductBundleItem.item_code == self.production_item)
+					)
+				)
+				.run(as_dict=1)
 			)
 
 			if not so:
-				so = frappe.db.sql(
-					"""
-					select
-						so.name, so_item.delivery_date{0}
-					from
-						`tabSales Order` so, `tabSales Order Item` so_item, `tabPacked Item` packed_item
-					where so.name=%s
-						and so.name=so_item.parent
-						and so.name=packed_item.parent
-						and so.skip_delivery_note = 0
-						and so_item.item_code = packed_item.parent_item
-						and so.docstatus = 1 and packed_item.item_code=%s
-				""".format(project_column),
-					(self.sales_order, self.production_item),
-					as_dict=1,
+				so = (
+					frappe.qb.from_(SalesOrder)
+					.inner_join(SalesOrderItem)
+					.on(SalesOrderItem.parent == SalesOrder.name)
+					.inner_join(PackedItem)
+					.on(PackedItem.parent == SalesOrder.name)
+					.select(SalesOrder.name, SalesOrder.project, SalesOrderItem.delivery_date)
+					.where(
+						(SalesOrder.name == self.sales_order)
+						& (SalesOrder.skip_delivery_note == 0)
+						& (SalesOrderItem.item_code == PackedItem.parent_item)
+						& (SalesOrder.docstatus == 1)
+						& (PackedItem.item_code == self.production_item)
+					)
+					.run(as_dict=1)
 				)
 
 			if len(so):
@@ -361,7 +368,7 @@ class WorkOrder(Document):
 		if self.docstatus == 0:
 			status = "Draft"
 		elif self.docstatus == 1:
-			if status != "Stopped":
+			if status not in ["Closed", "Stopped"]:
 				status = "Not Started"
 				if flt(self.material_transferred_for_manufacturing) > 0:
 					status = "In Process"
@@ -416,7 +423,7 @@ class WorkOrder(Document):
 
 			from erpnext.selling.doctype.sales_order.sales_order import update_produced_qty_in_so_item
 
-			if self.sales_order and self.sales_order_item:
+			if self.sales_order and self.sales_order_item and not self.production_plan_sub_assembly_item:
 				update_produced_qty_in_so_item(self.sales_order, self.sales_order_item)
 
 		if self.production_plan:
@@ -436,15 +443,25 @@ class WorkOrder(Document):
 		self.db_set("disassembled_qty", self.disassembled_qty)
 
 	def get_transferred_or_manufactured_qty(self, purpose):
-		table = frappe.qb.DocType("Stock Entry")
-		query = frappe.qb.from_(table).where(
-			(table.work_order == self.name) & (table.docstatus == 1) & (table.purpose == purpose)
+		parent = frappe.qb.DocType("Stock Entry")
+
+		query = frappe.qb.from_(parent).where(
+			(parent.work_order == self.name)
+			& (parent.docstatus == 1)
+			& (parent.purpose == purpose)
+			& (parent.is_additional_transfer_entry == cint(fieldname == "additional_transferred_qty"))
 		)
 
 		if purpose == "Manufacture":
-			query = query.select(Sum(table.fg_completed_qty) - Sum(table.process_loss_qty))
+			child = frappe.qb.DocType("Stock Entry Detail")
+			query = (
+				query.join(child)
+				.on(parent.name == child.parent)
+				.select(Sum(child.transfer_qty))
+				.where(child.is_finished_item == 1)
+			)
 		else:
-			query = query.select(Sum(table.fg_completed_qty))
+			query = query.select(Sum(parent.fg_completed_qty))
 
 		return flt(query.run()[0][0])
 
@@ -815,7 +832,7 @@ class WorkOrder(Document):
 			doc.db_set("status", doc.status)
 
 	def update_work_order_qty_in_so(self):
-		if not self.sales_order and not self.sales_order_item:
+		if (not self.sales_order and not self.sales_order_item) or self.production_plan_sub_assembly_item:
 			return
 
 		total_bundle_qty = 1
