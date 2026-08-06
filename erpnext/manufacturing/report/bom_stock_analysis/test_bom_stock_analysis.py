@@ -4,23 +4,23 @@
 import frappe
 
 from erpnext.manufacturing.doctype.production_plan.test_production_plan import make_bom
-from erpnext.manufacturing.report.bom_stock_calculated.bom_stock_calculated import (
-	execute as bom_stock_calculated_report,
+from erpnext.manufacturing.report.bom_stock_analysis.bom_stock_analysis import (
+	execute as bom_stock_analysis_report,
 )
 from erpnext.stock.doctype.item.test_item import make_item
 from erpnext.tests.utils import ERPNextTestSuite
 
 
-class TestBOMStockCalculated(ERPNextTestSuite):
+class TestBOMStockAnalysis(ERPNextTestSuite):
 	def setUp(self):
 		self.fg_item, self.rm_items = create_items()
 		self.boms = create_boms(self.fg_item, self.rm_items)
 
-	def test_bom_stock_calculated(self):
+	def test_bom_stock_analysis(self):
 		qty_to_make = 10
 
 		# Case 1: When Item(s) Qty and Stock Qty are equal.
-		data = bom_stock_calculated_report(
+		data = bom_stock_analysis_report(
 			filters={
 				"qty_to_make": qty_to_make,
 				"bom": self.boms[0].name,
@@ -30,7 +30,7 @@ class TestBOMStockCalculated(ERPNextTestSuite):
 		self.assertSetEqual(set(tuple(x) for x in data), set(tuple(x) for x in expected_data))
 
 		# Case 2: When Item(s) Qty and Stock Qty are different and BOM Qty is 1.
-		data = bom_stock_calculated_report(
+		data = bom_stock_analysis_report(
 			filters={
 				"qty_to_make": qty_to_make,
 				"bom": self.boms[1].name,
@@ -40,7 +40,7 @@ class TestBOMStockCalculated(ERPNextTestSuite):
 		self.assertSetEqual(set(tuple(x) for x in data), set(tuple(x) for x in expected_data))
 
 		# Case 3: When Item(s) Qty and Stock Qty are different and BOM Qty is greater than 1.
-		data = bom_stock_calculated_report(
+		data = bom_stock_analysis_report(
 			filters={
 				"qty_to_make": qty_to_make,
 				"bom": self.boms[2].name,

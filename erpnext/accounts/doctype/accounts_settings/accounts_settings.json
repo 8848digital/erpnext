@@ -16,9 +16,15 @@
   "invoicing_features_section",
   "check_supplier_invoice_uniqueness",
   "automatically_fetch_payment_terms",
+  "enable_subscription",
   "column_break_17",
   "enable_common_party_accounting",
   "allow_multi_currency_invoices_against_single_party_account",
+  "confirm_before_resetting_posting_date",
+  "analytics_section",
+  "enable_accounting_dimensions",
+  "column_break_vtnr",
+  "enable_discounts_and_margin",
   "journals_section",
   "merge_similar_account_heads",
   "deferred_accounting_settings_section",
@@ -50,15 +56,16 @@
   "allow_pegged_currencies_exchange_rates",
   "column_break_yuug",
   "stale_days",
+  "payments_tab",
   "section_break_jpd0",
   "auto_reconcile_payments",
   "auto_reconciliation_job_trigger",
   "reconciliation_queue_size",
   "column_break_resa",
   "exchange_gain_loss_posting_date",
-  "payment_entry_settings",
-  "show_account_balance",
-  "show_party_balance",
+  "payment_options_section",
+  "enable_loyalty_point_program",
+  "column_break_ctam",
   "invoicing_settings_tab",
   "accounts_transactions_settings_section",
   "over_billing_allowance",
@@ -66,21 +73,17 @@
   "role_allowed_to_over_bill",
   "credit_controller",
   "make_payment_via_journal_entry",
-  "pos_tab",
-  "pos_setting_section",
-  "post_change_gl_entries",
+  "assets_tab",
+  "asset_settings_section",
+  "calculate_depr_using_total_days",
+  "column_break_gjcc",
+  "book_asset_depreciation_entry_automatically",
+  "role_to_notify_on_depreciation_failure",
   "closing_settings_tab",
   "period_closing_settings_section",
-  "acc_frozen_upto",
   "ignore_account_closing_balance",
   "use_legacy_controller_for_pcv",
   "column_break_25",
-  "frozen_accounts_modifier",
-  "tab_break_dpet",
-  "show_balance_in_coa",
-  "banking_tab",
-  "enable_party_matching",
-  "enable_fuzzy_matching",
   "reports_tab",
   "remarks_section",
   "general_ledger_remarks_length",
@@ -88,30 +91,23 @@
   "receivable_payable_remarks_length",
   "accounts_receivable_payable_tuning_section",
   "receivable_payable_fetch_method",
+  "default_ageing_range",
   "column_break_ntmi",
   "drop_ar_procedures",
   "legacy_section",
   "ignore_is_opening_check_for_reporting",
-  "payment_request_settings",
+  "tab_break_dpet",
+  "chart_of_accounts_section",
+  "show_balance_in_coa",
+  "banking_section",
+  "enable_party_matching",
+  "enable_fuzzy_matching",
+  "payment_request_section",
   "create_pr_in_draft_status",
-  "column_break_xrnd"
+  "budget_section",
+  "use_legacy_budget_controller"
  ],
  "fields": [
-  {
-   "description": "Accounting entries are frozen up to this date. Nobody can create or modify entries except users with the role specified below",
-   "fieldname": "acc_frozen_upto",
-   "fieldtype": "Date",
-   "in_list_view": 1,
-   "label": "Accounts Frozen Till Date"
-  },
-  {
-   "description": "Users with this role are allowed to set frozen accounts and create / modify accounting entries against frozen accounts",
-   "fieldname": "frozen_accounts_modifier",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Role Allowed to Set Frozen Accounts and Edit Frozen Entries",
-   "options": "Role"
-  },
   {
    "default": "Billing Address",
    "description": "Address used to determine Tax Category in transactions",
@@ -152,6 +148,12 @@
    "fieldname": "unlink_advance_payment_on_cancelation_of_order",
    "fieldtype": "Check",
    "label": "Unlink Advance Payment on Cancellation of Order"
+  },
+  {
+   "default": "1",
+   "fieldname": "book_asset_depreciation_entry_automatically",
+   "fieldtype": "Check",
+   "label": "Book Asset Depreciation Entry Automatically"
   },
   {
    "default": "1",
@@ -287,15 +289,8 @@
    "fieldtype": "Column Break"
   },
   {
-   "default": "1",
-   "description": "If enabled, ledger entries will be posted for change amount in POS transactions",
-   "fieldname": "post_change_gl_entries",
-   "fieldtype": "Check",
-   "label": "Create Ledger Entries for Change Amount"
-  },
-  {
    "default": "0",
-   "description": "Learn about <a href=\"https://docs.erpnext.com/docs/v13/user/manual/en/accounts/articles/common_party_accounting#:~:text=Common%20Party%20Accounting%20in%20ERPNext,Invoice%20against%20a%20primary%20Supplier.\">Common Party</a>",
+   "description": "Learn about <a href=\"https://docs.frappe.io/erpnext/user/manual/en/common_party_accounting\" rel=\"noopener noreferrer\">Common Party</a>",
    "fieldname": "enable_common_party_accounting",
    "fieldtype": "Check",
    "label": "Enable Common Party Accounting"
@@ -314,19 +309,24 @@
    "fieldtype": "Column Break"
   },
   {
+   "fieldname": "asset_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Asset Settings"
+  },
+  {
    "fieldname": "invoicing_settings_tab",
    "fieldtype": "Tab Break",
    "label": "Credit Limits"
   },
   {
+   "fieldname": "assets_tab",
+   "fieldtype": "Tab Break",
+   "label": "Assets"
+  },
+  {
    "fieldname": "closing_settings_tab",
    "fieldtype": "Tab Break",
    "label": "Accounts Closing"
-  },
-  {
-   "fieldname": "pos_setting_section",
-   "fieldtype": "Section Break",
-   "label": "POS Setting"
   },
   {
    "fieldname": "invoice_and_billing_tab",
@@ -343,11 +343,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "pos_tab",
-   "fieldtype": "Tab Break",
-   "label": "POS"
-  },
-  {
    "default": "0",
    "description": "Enabling this will allow creation of multi-currency invoices against single party account in company currency",
    "fieldname": "allow_multi_currency_invoices_against_single_party_account",
@@ -357,7 +352,7 @@
   {
    "fieldname": "tab_break_dpet",
    "fieldtype": "Tab Break",
-   "label": "Chart Of Accounts"
+   "label": "Others"
   },
   {
    "default": "1",
@@ -400,11 +395,6 @@
    "fieldname": "show_taxes_as_table_in_print",
    "fieldtype": "Check",
    "label": "Show Taxes as Table in Print"
-  },
-  {
-   "fieldname": "banking_tab",
-   "fieldtype": "Tab Break",
-   "label": "Banking"
   },
   {
    "default": "0",
@@ -471,13 +461,19 @@
    "label": "Enable Immutable Ledger"
   },
   {
-   "description": "Payment Request created from Sales Order or Purchase Order will be in Draft status. When disabled document will be in unsaved state.",
-   "fieldname": "payment_request_settings",
-   "fieldtype": "Tab Break",
-   "label": "Payment Request"
+   "fieldname": "column_break_gjcc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "Enable this option to calculate daily depreciation by considering the total number of days in the entire depreciation period, (including leap years) while using daily pro-rata based depreciation",
+   "fieldname": "calculate_depr_using_total_days",
+   "fieldtype": "Check",
+   "label": "Calculate daily depreciation using total days in depreciation period"
   },
   {
    "default": "1",
+   "description": "Payment Requests made from Sales / Purchase Invoice will be put in Draft explicitly",
    "fieldname": "create_pr_in_draft_status",
    "fieldtype": "Check",
    "label": "Create in Draft Status"
@@ -520,10 +516,6 @@
    "options": "Invoice\nPayment\nReconciliation Date"
   },
   {
-   "fieldname": "column_break_xrnd",
-   "fieldtype": "Column Break"
-  },
-  {
    "default": "Buffered Cursor",
    "fieldname": "receivable_payable_fetch_method",
    "fieldtype": "Select",
@@ -561,6 +553,13 @@
    "fieldtype": "Link",
    "label": "Role Allowed to Override Stop Action",
    "options": "Role"
+  },
+  {
+   "default": "1",
+   "description": "If enabled, user will be alerted before resetting posting date to current date in relevant transactions",
+   "fieldname": "confirm_before_resetting_posting_date",
+   "fieldtype": "Check",
+   "label": "Confirm before resetting posting date"
   },
   {
    "fieldname": "item_price_settings_section",
@@ -604,35 +603,109 @@
    "label": "Fetch Valuation Rate for Internal Transaction"
   },
   {
+   "default": "0",
+   "fieldname": "use_legacy_budget_controller",
+   "fieldtype": "Check",
+   "label": "Use Legacy Budget Controller"
+  },
+  {
    "default": "1",
    "fieldname": "use_legacy_controller_for_pcv",
    "fieldtype": "Check",
    "label": "Use Legacy Controller For Period Closing Voucher"
-   },
+  },
   {
-   "fieldname": "payment_entry_settings",
+   "description": "Users with this role will be notified if the asset depreciation gets failed",
+   "fieldname": "role_to_notify_on_depreciation_failure",
+   "fieldtype": "Link",
+   "label": "Role to Notify on Depreciation Failure",
+   "options": "Role"
+  },
+  {
+   "default": "30, 60, 90, 120",
+   "fieldname": "default_ageing_range",
+   "fieldtype": "Data",
+   "label": "Default Ageing Range"
+  },
+  {
+   "fieldname": "chart_of_accounts_section",
    "fieldtype": "Section Break",
-   "label": "Payment Entry Settings"
+   "label": "Chart Of Accounts"
+  },
+  {
+   "fieldname": "banking_section",
+   "fieldtype": "Section Break",
+   "label": "Banking"
+  },
+  {
+   "fieldname": "payment_request_section",
+   "fieldtype": "Section Break",
+   "label": "Payment Request"
+  },
+  {
+   "fieldname": "budget_section",
+   "fieldtype": "Section Break",
+   "label": "Budget"
+  },
+  {
+   "fieldname": "analytics_section",
+   "fieldtype": "Section Break",
+   "label": "Analytical Accounting"
+  },
+  {
+   "fieldname": "column_break_vtnr",
+   "fieldtype": "Column Break"
   },
   {
    "default": "0",
-   "fieldname": "show_account_balance",
+   "description": "Apply discounts and margins on products",
+   "fieldname": "enable_discounts_and_margin",
    "fieldtype": "Check",
-   "label": "Show Account Balance"
+   "label": "Enable Discounts and Margin"
+  },
+  {
+   "fieldname": "payments_tab",
+   "fieldtype": "Tab Break",
+   "label": "Payments"
+  },
+  {
+   "fieldname": "payment_options_section",
+   "fieldtype": "Section Break",
+   "label": "Payment Options"
   },
   {
    "default": "0",
-   "fieldname": "show_party_balance",
+   "fieldname": "enable_loyalty_point_program",
    "fieldtype": "Check",
-   "label": "Show Party Balance"
+   "label": "Enable Loyalty Point Program"
+  },
+  {
+   "fieldname": "column_break_ctam",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "Enable cost center, projects and other custom accounting dimensions",
+   "fieldname": "enable_accounting_dimensions",
+   "fieldtype": "Check",
+   "label": "Enable Accounting Dimensions"
+  },
+  {
+   "default": "1",
+   "description": "Enable Subscription tracking in invoice",
+   "fieldname": "enable_subscription",
+   "fieldtype": "Check",
+   "label": "Enable Subscription"
   }
  ],
+ "grid_page_length": 50,
+ "hide_toolbar": 0,
  "icon": "icon-cog",
  "idx": 1,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-10-20 14:06:08.870427",
+ "modified": "2026-02-27 01:04:09.415288",
  "modified_by": "Administrator",
  "module": "Accounts",
  "name": "Accounts Settings",
@@ -658,7 +731,7 @@
  ],
  "quick_entry": 1,
  "row_format": "Dynamic",
- "sort_field": "modified",
+ "sort_field": "creation",
  "sort_order": "ASC",
  "states": [],
  "track_changes": 1

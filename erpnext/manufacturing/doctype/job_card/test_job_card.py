@@ -27,13 +27,8 @@ from erpnext.tests.utils import ERPNextTestSuite
 
 
 class TestJobCard(ERPNextTestSuite):
-	@classmethod
-	def setUpClass(cls):
-		super().setUpClass()
-		cls.load_test_records("BOM")
-
 	def setUp(self):
-		self.make_employees()  # used in job card time log
+		self.load_test_records("BOM")
 		self.make_bom_for_jc_tests()
 		self.transfer_material_against: Literal["Work Order", "Job Card"] = "Work Order"
 		self.source_warehouse = None
@@ -91,7 +86,7 @@ class TestJobCard(ERPNextTestSuite):
 			quantity=1,
 			with_operations=1,
 			track_semi_finished_goods=1,
-			company=self.companies[9].name,
+			company="_Test Company",
 		)
 		final_bom.append("items", {"item_code": raw.name, "qty": 1})
 		final_bom.append(
@@ -101,6 +96,7 @@ class TestJobCard(ERPNextTestSuite):
 				"workstation": "_Test Workstation 1",
 				"bom_no": cut_bom,
 				"skip_material_transfer": 1,
+				"time_in_mins": 60,
 			},
 		)
 		final_bom.append(
@@ -110,6 +106,7 @@ class TestJobCard(ERPNextTestSuite):
 				"workstation": "_Test Workstation 1",
 				"bom_no": stitch_bom,
 				"skip_material_transfer": 1,
+				"time_in_mins": 60,
 			},
 		)
 		final_bom.append(
@@ -120,16 +117,17 @@ class TestJobCard(ERPNextTestSuite):
 				"bom_no": final_bom.name,
 				"is_final_finished_good": 1,
 				"skip_material_transfer": 1,
+				"time_in_mins": 60,
 			},
 		)
 		final_bom.append("items", {"item_code": stitch_fg.name, "qty": 1, "operation_row_id": 3})
 		final_bom.insert()
 		final_bom.submit()
 		work_order = make_work_order(final_bom.name, final.name, 1, variant_items=[], use_multi_level_bom=0)
-		work_order.company = self.companies[9].name
-		work_order.wip_warehouse = "Work In Progress - WP"
-		work_order.fg_warehouse = "Finished Goods - WP"
-		work_order.scrap_warehouse = "All Warehouses - WP"
+		work_order.company = "_Test Company"
+		work_order.wip_warehouse = "Work In Progress - _TC"
+		work_order.fg_warehouse = "Finished Goods - _TC"
+		work_order.scrap_warehouse = "All Warehouses - _TC"
 		for operation in work_order.operations:
 			operation.time_in_mins = 60
 
@@ -192,7 +190,7 @@ class TestJobCard(ERPNextTestSuite):
 		jc1 = frappe.get_last_doc("Job Card", {"work_order": self.work_order.name})
 		jc2 = frappe.get_last_doc("Job Card", {"work_order": wo2.name})
 
-		employee = self.employees[0].name
+		employee = frappe.db.get_all("Employee", {"first_name": "_Test Employee"})[0].name
 
 		jc1.append(
 			"time_logs",
@@ -932,6 +930,7 @@ class TestJobCard(ERPNextTestSuite):
 			"bom_no": sfg_bom.name,
 			"finished_good_qty": 1,
 			"sequence_id": 1,
+			"time_in_mins": 60,
 		}
 		operation2 = {
 			"operation": "Test Operation B",
@@ -941,6 +940,7 @@ class TestJobCard(ERPNextTestSuite):
 			"finished_good_qty": 1,
 			"is_final_finished_good": 1,
 			"sequence_id": 2,
+			"time_in_mins": 60,
 		}
 
 		make_workstation(operation1)

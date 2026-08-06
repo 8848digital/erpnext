@@ -8,6 +8,7 @@ from typing import Any, NewType
 import frappe
 from frappe import _
 from frappe.core.doctype.report.report import get_report_module_dotted_path
+from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from frappe.tests.utils import load_test_records_for
 from frappe.utils import now_datetime, today
 
@@ -121,35 +122,12 @@ def if_lending_app_not_installed(function):
 	return wrapper
 
 
-class ERPNextTestSuite(unittest.TestCase):
-	@classmethod
-	def registerAs(cls, _as):
-		def decorator(cm_func):
-			setattr(cls, cm_func.__name__, _as(cm_func))
-			return cm_func
+class BootStrapTestData:
+	def __init__(self):
+		self.make_presets()
+		self.make_master_data()
 
-		return decorator
-
-	@classmethod
-	def setUpClass(cls):
-		# initilize global test records attribute
-		if not hasattr(cls, "globalTestRecords"):
-			cls.globalTestRecords = {}
-
-		cls.make_presets()
-		cls.make_persistent_master_data()
-
-	def tearDown(self):
-		frappe.db.rollback()
-
-	@classmethod
-	def load_test_records(cls, doctype):
-		if doctype not in cls.globalTestRecords:
-			records = load_test_records_for(doctype)
-			cls.globalTestRecords[doctype] = records[doctype]
-
-	@classmethod
-	def make_presets(cls):
+	def make_presets(self):
 		from frappe.desk.page.setup_wizard.install_fixtures import update_genders, update_salutations
 
 		from erpnext.setup.setup_wizard.operations.install_fixtures import (
@@ -213,69 +191,80 @@ class ERPNextTestSuite(unittest.TestCase):
 			if not frappe.db.exists("Supplier Scorecard Standing", {"name": x.get("standing_name")}):
 				frappe.get_doc(x).insert()
 
-		frappe.db.commit()
+		frappe.db.commit()  # nosemgrep
 
-	@classmethod
-	def make_persistent_master_data(cls):
-		cls.make_fiscal_year()
-		cls.make_holiday_list()
-		cls.make_company()
-		cls.make_test_account()
-		cls.make_supplier_group()
-		cls.make_payment_term()
-		cls.make_payment_terms_template()
-		cls.make_tax_category()
-		cls.make_account()
-		cls.make_supplier()
-		cls.make_role()
-		cls.make_department()
-		cls.make_territory()
-		cls.make_customer_group()
-		cls.make_customer()
-		cls.make_user()
-		cls.make_cost_center()
-		cls.make_warehouse()
-		cls.make_uom()
-		cls.make_item_tax_template()
-		cls.make_item_group()
-		cls.make_item_attribute()
-		cls.make_asset_maintenance_team()
-		cls.make_asset_category()
-		cls._make_item()
-		cls.make_product_bundle()
-		cls.make_location()
-		cls.make_price_list()
-		cls.make_item_price()
-		cls.make_loyalty_program()
-		cls.make_shareholder()
-		cls.make_sales_taxes_template()
-		cls.make_workstation()
-		cls.make_operation()
-		cls.make_bom()
-		cls.make_quality_inspection_param()
-		cls.make_quality_inspection_template()
-		cls.make_employees()
-		cls.make_brand()
-		cls.make_monthly_distribution()
-		cls.make_projects()
-		cls.make_dunning_type()
-		cls.make_finance_book()
-		cls.make_leads()
-		cls.make_sales_person()
-		cls.make_activity_type()
-		cls.make_address()
-		cls.update_selling_settings()
-		cls.update_stock_settings()
-		cls.update_system_settings()
+	def make_master_data(self):
+		self.make_fiscal_year()
+		self.make_holiday_list()
+		self.make_company()
+		self.make_test_account()
+		self.make_supplier_group()
+		self.make_payment_term()
+		self.make_payment_terms_template()
+		self.make_tax_category()
+		self.make_account()
+		self.make_supplier()
+		self.make_role()
+		self.make_department()
+		self.make_territory()
+		self.make_customer_group()
+		self.make_customer()
+		self.make_user()
+		self.make_cost_center()
+		self.make_warehouse()
+		self.make_uom()
+		self.make_item_tax_template()
+		self.make_item_group()
+		self.make_item_attribute()
+		self.make_asset_maintenance_team()
+		self.make_asset_category()
+		self.make_item()
+		self.make_product_bundle()
+		self.make_location()
+		self.make_price_list()
+		self.make_item_price()
+		self.make_loyalty_program()
+		self.make_shareholder()
+		self.make_sales_taxes_template()
+		self.make_workstation()
+		self.make_operation()
+		self.make_bom()
+		self.make_quality_inspection_param()
+		self.make_quality_inspection_template()
+		self.make_employees()
+		self.make_brand()
+		self.make_monthly_distribution()
+		self.make_projects()
+		self.make_dunning_type()
+		self.make_finance_book()
+		self.make_leads()
+		self.make_sales_person()
+		self.make_activity_type()
+		self.make_address()
+		self.update_support_settings()
+		self.update_selling_settings()
+		self.update_stock_settings()
+		self.update_system_settings()
 
-		frappe.db.commit()
+		frappe.db.commit()  # nosemgrep
+
+		# DDL commands have implicit commit
+		# Dimensions
+		self.make_dimensions()
 
 		# custom doctype
-		# DDL commands have implicit commit
-		cls.make_custom_doctype()
+		self.make_custom_doctype()
 
-	@classmethod
-	def update_system_settings(cls):
+		# data on custom doctype
+		self.make_shelf()
+		self.make_rack()
+		self.make_inv_site()
+		self.make_store()
+
+		# custom field
+		self.make_custom_field()
+
+	def update_system_settings(self):
 		system_settings = frappe.get_doc("System Settings")
 		system_settings.time_zone = "Asia/Kolkata"
 		system_settings.language = "en"
@@ -283,14 +272,17 @@ class ERPNextTestSuite(unittest.TestCase):
 		system_settings.rounding_method = "Banker's Rounding"
 		system_settings.save()
 
-	@classmethod
-	def update_selling_settings(cls):
+	def update_support_settings(self):
+		support_settings = frappe.get_doc("Support Settings")
+		support_settings.track_service_level_agreement = True
+		support_settings.save()
+
+	def update_selling_settings(self):
 		selling_settings = frappe.get_doc("Selling Settings")
 		selling_settings.selling_price_list = "Standard Selling"
 		selling_settings.save()
 
-	@classmethod
-	def update_stock_settings(cls):
+	def update_stock_settings(self):
 		stock_settings = frappe.get_doc("Stock Settings")
 		stock_settings.item_naming_by = "Item Code"
 		stock_settings.valuation_method = "FIFO"
@@ -303,8 +295,21 @@ class ERPNextTestSuite(unittest.TestCase):
 		stock_settings.enable_serial_and_batch_no_for_item = 1
 		stock_settings.save()
 
-	@classmethod
-	def make_price_list(cls):
+	def make_records(self, key, records):
+		doctype = records[0].get("doctype")
+
+		def get_filters(record):
+			filters = {}
+			for x in key:
+				filters[x] = record.get(x)
+			return filters
+
+		for x in records:
+			filters = get_filters(x)
+			if not frappe.db.exists(doctype, filters):
+				frappe.get_doc(x).insert()
+
+	def make_price_list(self):
 		records = [
 			{
 				"doctype": "Price List",
@@ -372,35 +377,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				"selling": 0,
 			},
 		]
-		cls.price_list = []
-		for x in records:
-			if not frappe.db.exists(
-				"Price List",
-				{
-					"price_list_name": x.get("price_list_name"),
-					"enabled": x.get("enabled"),
-					"selling": x.get("selling"),
-					"buying": x.get("buying"),
-					"currency": x.get("currency"),
-				},
-			):
-				cls.price_list.append(frappe.get_doc(x).insert())
-			else:
-				cls.price_list.append(
-					frappe.get_doc(
-						"Price List",
-						{
-							"price_list_name": x.get("price_list_name"),
-							"enabled": x.get("enabled"),
-							"selling": x.get("selling"),
-							"buying": x.get("buying"),
-							"currency": x.get("currency"),
-						},
-					)
-				)
+		self.make_records(["price_list_name", "enabled", "selling", "buying", "currency"], records)
 
-	@classmethod
-	def make_monthly_distribution(cls):
+	def make_monthly_distribution(self):
 		records = [
 			{
 				"doctype": "Monthly Distribution",
@@ -422,17 +401,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				],
 			}
 		]
-		cls.monthly_distribution = []
-		for x in records:
-			if not frappe.db.exists("Monthly Distribution", {"distribution_id": x.get("distribution_id")}):
-				cls.monthly_distribution.append(frappe.get_doc(x).insert())
-			else:
-				cls.monthly_distribution.append(
-					frappe.get_doc("Monthly Distribution", {"distribution_id": x.get("distribution_id")})
-				)
+		self.make_records(["distribution_id"], records)
 
-	@classmethod
-	def make_projects(cls):
+	def make_projects(self):
 		records = [
 			{
 				"doctype": "Project",
@@ -441,16 +412,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				"status": "Open",
 			}
 		]
+		self.make_records(["project_name"], records)
 
-		cls.projects = []
-		for x in records:
-			if not frappe.db.exists("Project", {"project_name": x.get("project_name")}):
-				cls.projects.append(frappe.get_doc(x).insert())
-			else:
-				cls.projects.append(frappe.get_doc("Project", {"project_name": x.get("project_name")}))
-
-	@classmethod
-	def make_customer_group(cls):
+	def make_customer_group(self):
 		records = [
 			{
 				"customer_group_name": "_Test Customer Group",
@@ -465,17 +429,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				"parent_customer_group": "All Customer Groups",
 			},
 		]
-		cls.customer_group = []
-		for x in records:
-			if not frappe.db.exists("Customer Group", {"customer_group_name": x.get("customer_group_name")}):
-				cls.customer_group.append(frappe.get_doc(x).insert())
-			else:
-				cls.customer_group.append(
-					frappe.get_doc("Customer Group", {"customer_group_name": x.get("customer_group_name")})
-				)
+		self.make_records(["customer_group_name"], records)
 
-	@classmethod
-	def make_territory(cls):
+	def make_territory(self):
 		records = [
 			{
 				"doctype": "Territory",
@@ -508,17 +464,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				"territory_name": "_Test Territory United States",
 			},
 		]
-		cls.territories = []
-		for x in records:
-			if not frappe.db.exists("Territory", {"territory_name": x.get("territory_name")}):
-				cls.territories.append(frappe.get_doc(x).insert())
-			else:
-				cls.territories.append(
-					frappe.get_doc("Territory", {"territory_name": x.get("territory_name")})
-				)
+		self.make_records(["territory_name"], records)
 
-	@classmethod
-	def make_department(cls):
+	def make_department(self):
 		records = [
 			{
 				"doctype": "Department",
@@ -533,17 +481,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				"parent_department": "All Departments",
 			},
 		]
-		cls.department = []
-		for x in records:
-			if not frappe.db.exists("Department", {"department_name": x.get("department_name")}):
-				cls.department.append(frappe.get_doc(x).insert())
-			else:
-				cls.department.append(
-					frappe.get_doc("Department", {"department_name": x.get("department_name")})
-				)
+		self.make_records(["department_name"], records)
 
-	@classmethod
-	def make_role(cls):
+	def make_role(self):
 		records = [
 			{"doctype": "Role", "role_name": "_Test Role", "desk_access": 1},
 			{"doctype": "Role", "role_name": "_Test Role 2", "desk_access": 1},
@@ -551,15 +491,9 @@ class ERPNextTestSuite(unittest.TestCase):
 			{"doctype": "Role", "role_name": "_Test Role 4", "desk_access": 0},
 			{"doctype": "Role", "role_name": "Technician"},
 		]
-		cls.roles = []
-		for x in records:
-			if not frappe.db.exists("Role", {"role_name": x.get("role_name")}):
-				cls.roles.append(frappe.get_doc(x).insert())
-			else:
-				cls.roles.append(frappe.get_doc("Role", {"role_name": x.get("role_name")}))
+		self.make_records(["role_name"], records)
 
-	@classmethod
-	def make_user(cls):
+	def make_user(self):
 		records = [
 			{
 				"doctype": "User",
@@ -654,17 +588,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				"roles": [{"doctype": "Has Role", "role": "Technician"}],
 			},
 		]
-		cls.users = []
-		for x in records:
-			if not frappe.db.exists("User", {"email": x.get("email")}):
-				user = frappe.get_doc(x)
-				user.flags.no_welcome_mail = True
-				cls.users.append(user.insert())
-			else:
-				cls.users.append(frappe.get_doc("User", {"email": x.get("email")}))
+		self.make_records(["email"], records)
 
-	@classmethod
-	def make_employees(cls):
+	def make_employees(self):
 		records = [
 			{
 				"company": "_Test Company",
@@ -703,15 +629,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				"user_id": "test2@example.com",
 			},
 		]
-		cls.employees = []
-		for x in records:
-			if not frappe.db.exists("Employee", {"first_name": x.get("first_name")}):
-				cls.employees.append(frappe.get_doc(x).insert())
-			else:
-				cls.employees.append(frappe.get_doc("Employee", {"first_name": x.get("first_name")}))
+		self.make_records(["first_name"], records)
 
-	@classmethod
-	def make_sales_person(cls):
+	def make_sales_person(self):
 		records = [
 			{
 				"doctype": "Sales Person",
@@ -735,17 +655,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				"sales_person_name": "_Test Sales Person 2",
 			},
 		]
-		cls.sales_person = []
-		for x in records:
-			if not frappe.db.exists("Sales Person", {"sales_person_name": x.get("sales_person_name")}):
-				cls.sales_person.append(frappe.get_doc(x).insert())
-			else:
-				cls.sales_person.append(
-					frappe.get_doc("Sales Person", {"sales_person_name": x.get("sales_person_name")})
-				)
+		self.make_records(["sales_person_name"], records)
 
-	@classmethod
-	def make_leads(cls):
+	def make_leads(self):
 		records = [
 			{
 				"doctype": "Lead",
@@ -785,15 +697,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				"naming_series": "_T-Lead-",
 			},
 		]
-		cls.leads = []
-		for x in records:
-			if not frappe.db.exists("Lead", {"email_id": x.get("email_id")}):
-				cls.leads.append(frappe.get_doc(x).insert())
-			else:
-				cls.leads.append(frappe.get_doc("Lead", {"email_id": x.get("email_id")}))
+		self.make_records(["email_id"], records)
 
-	@classmethod
-	def make_holiday_list(cls):
+	def make_holiday_list(self):
 		records = [
 			{
 				"doctype": "Holiday List",
@@ -807,203 +713,13 @@ class ERPNextTestSuite(unittest.TestCase):
 				"holiday_list_name": "_Test Holiday List",
 			}
 		]
-		cls.holiday_list = []
-		for x in records:
-			if not frappe.db.exists("Holiday List", {"holiday_list_name": x.get("holiday_list_name")}):
-				cls.holiday_list.append(frappe.get_doc(x).insert())
-			else:
-				cls.holiday_list.append(
-					frappe.get_doc("Holiday List", {"holiday_list_name": x.get("holiday_list_name")})
-				)
+		self.make_records(["holiday_list_name"], records)
 
-	@classmethod
-	def make_company(cls):
-		records = [
-			{
-				"abbr": "_TC",
-				"company_name": "_Test Company",
-				"country": "India",
-				"default_currency": "INR",
-				"doctype": "Company",
-				"domain": "Manufacturing",
-				"chart_of_accounts": "Standard",
-				"default_holiday_list": cls.holiday_list[0].name,
-				"enable_perpetual_inventory": 0,
-				"allow_account_creation_against_child_company": 1,
-			},
-			{
-				"abbr": "_TC1",
-				"company_name": "_Test Company 1",
-				"country": "United States",
-				"default_currency": "USD",
-				"doctype": "Company",
-				"domain": "Retail",
-				"chart_of_accounts": "Standard",
-				"default_holiday_list": cls.holiday_list[0].name,
-				"enable_perpetual_inventory": 0,
-			},
-			{
-				"abbr": "_TC2",
-				"company_name": "_Test Company 2",
-				"default_currency": "EUR",
-				"country": "Germany",
-				"doctype": "Company",
-				"domain": "Retail",
-				"chart_of_accounts": "Standard",
-				"default_holiday_list": cls.holiday_list[0].name,
-				"enable_perpetual_inventory": 0,
-			},
-			{
-				"abbr": "_TC3",
-				"company_name": "_Test Company 3",
-				"is_group": 1,
-				"country": "Pakistan",
-				"default_currency": "INR",
-				"doctype": "Company",
-				"domain": "Manufacturing",
-				"chart_of_accounts": "Standard",
-				"default_holiday_list": cls.holiday_list[0].name,
-				"enable_perpetual_inventory": 0,
-			},
-			{
-				"abbr": "_TC4",
-				"company_name": "_Test Company 4",
-				"parent_company": "_Test Company 3",
-				"is_group": 1,
-				"country": "Pakistan",
-				"default_currency": "INR",
-				"doctype": "Company",
-				"domain": "Manufacturing",
-				"chart_of_accounts": "Standard",
-				"default_holiday_list": cls.holiday_list[0].name,
-				"enable_perpetual_inventory": 0,
-			},
-			{
-				"abbr": "_TC5",
-				"company_name": "_Test Company 5",
-				"parent_company": "_Test Company 4",
-				"country": "Pakistan",
-				"default_currency": "INR",
-				"doctype": "Company",
-				"domain": "Manufacturing",
-				"chart_of_accounts": "Standard",
-				"default_holiday_list": cls.holiday_list[0].name,
-				"enable_perpetual_inventory": 0,
-			},
-			{
-				"abbr": "TCP1",
-				"company_name": "_Test Company with perpetual inventory",
-				"country": "India",
-				"default_currency": "INR",
-				"doctype": "Company",
-				"domain": "Manufacturing",
-				"chart_of_accounts": "Standard",
-				"enable_perpetual_inventory": 1,
-				"default_holiday_list": cls.holiday_list[0].name,
-			},
-			{
-				"abbr": "_TC6",
-				"company_name": "_Test Company 6",
-				"is_group": 1,
-				"country": "India",
-				"default_currency": "INR",
-				"doctype": "Company",
-				"domain": "Manufacturing",
-				"chart_of_accounts": "Standard",
-				"default_holiday_list": cls.holiday_list[0].name,
-				"enable_perpetual_inventory": 0,
-			},
-			{
-				"abbr": "_TC7",
-				"company_name": "_Test Company 7",
-				"parent_company": "_Test Company 6",
-				"is_group": 1,
-				"country": "United States",
-				"default_currency": "USD",
-				"doctype": "Company",
-				"domain": "Manufacturing",
-				"chart_of_accounts": "Standard",
-				"default_holiday_list": cls.holiday_list[0].name,
-				"enable_perpetual_inventory": 0,
-			},
-			{
-				"doctype": "Company",
-				"default_currency": "USD",
-				"full_name": "Test User",
-				"company_name": "Wind Power LLC",
-				"timezone": "America/New_York",
-				"abbr": "WP",
-				"industry": "Manufacturing",
-				"country": "United States",
-				"language": "english",
-				"company_tagline": "Testing",
-				"email": "test@erpnext.com",
-				"password": "test",
-				"chart_of_accounts": "Standard",
-			},
-			{
-				"abbr": "PGCI",
-				"company_name": "Parent Group Company India",
-				"country": "India",
-				"default_currency": "INR",
-				"doctype": "Company",
-				"domain": "Manufacturing",
-				"chart_of_accounts": "Standard",
-				"default_holiday_list": cls.holiday_list[0].name,
-				"enable_perpetual_inventory": 0,
-				"is_group": 1,
-			},
-			{
-				"abbr": "CCI",
-				"company_name": "Child Company India",
-				"country": "India",
-				"default_currency": "INR",
-				"doctype": "Company",
-				"domain": "Manufacturing",
-				"chart_of_accounts": "Standard",
-				"default_holiday_list": cls.holiday_list[0].name,
-				"enable_perpetual_inventory": 0,
-				"parent_company": "Parent Group Company India",
-			},
-			{
-				"abbr": "CCU",
-				"company_name": "Child Company US",
-				"country": "United States",
-				"default_currency": "USD",
-				"doctype": "Company",
-				"domain": "Manufacturing",
-				"chart_of_accounts": "Standard",
-				"default_holiday_list": cls.holiday_list[0].name,
-				"enable_perpetual_inventory": 0,
-				"parent_company": "Parent Group Company India",
-			},
-			{
-				"abbr": "BT",
-				"company_name": "Best Test",
-				"country": "India",
-				"default_currency": "INR",
-				"doctype": "Company",
-				"chart_of_accounts": "Standard",
-			},
-			{
-				"abbr": "_TCUV",
-				"company_name": "_Test Company UAE VAT",
-				"country": "United Arab Emirates",
-				"default_currency": "AED",
-				"doctype": "Company",
-				"domain": "Manufacturing",
-				"create_chart_of_accounts_based_on": "Standard Template",
-			},
-		]
-		cls.companies = []
-		for x in records:
-			if not frappe.db.exists("Company", {"company_name": x.get("company_name")}):
-				cls.companies.append(frappe.get_doc(x).insert())
-			else:
-				cls.companies.append(frappe.get_doc("Company", {"company_name": x.get("company_name")}))
+	def make_company(self):
+		records = load_test_records_for("Company")["Company"]
+		self.make_records(["company_name"], records)
 
-	@classmethod
-	def make_fiscal_year(cls):
+	def make_fiscal_year(self):
 		records = [
 			{
 				"doctype": "Fiscal Year",
@@ -1026,26 +742,10 @@ class ERPNextTestSuite(unittest.TestCase):
 				}
 			)
 
-		cls.fiscal_year = []
-		for x in records:
-			if not frappe.db.exists(
-				"Fiscal Year",
-				{"year_start_date": x.get("year_start_date"), "year_end_date": x.get("year_end_date")},
-			):
-				cls.fiscal_year.append(frappe.get_doc(x).insert())
-			else:
-				cls.fiscal_year.append(
-					frappe.get_doc(
-						"Fiscal Year",
-						{
-							"year_start_date": x.get("year_start_date"),
-							"year_end_date": x.get("year_end_date"),
-						},
-					)
-				)
+		key = ["year_start_date", "year_end_date"]
+		self.make_records(key, records)
 
-	@classmethod
-	def make_payment_term(cls):
+	def make_payment_term(self):
 		records = [
 			{
 				"doctype": "Payment Term",
@@ -1080,17 +780,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				"credit_days": 30,
 			},
 		]
-		cls.payment_terms = []
-		for x in records:
-			if not frappe.db.exists("Payment Term", {"payment_term_name": x.get("payment_term_name")}):
-				cls.payment_terms.append(frappe.get_doc(x).insert())
-			else:
-				cls.payment_terms.append(
-					frappe.get_doc("Payment Term", {"payment_term_name": x.get("payment_term_name")})
-				)
+		self.make_records(["payment_term_name"], records)
 
-	@classmethod
-	def make_payment_terms_template(cls):
+	def make_payment_terms_template(self):
 		records = [
 			{
 				"doctype": "Payment Terms Template",
@@ -1151,31 +843,17 @@ class ERPNextTestSuite(unittest.TestCase):
 				"template_name": "_Test Payment Term Template 3",
 			},
 		]
-		cls.payment_terms_template = []
-		for x in records:
-			if not frappe.db.exists("Payment Terms Template", {"template_name": x.get("template_name")}):
-				cls.payment_terms_template.append(frappe.get_doc(x).insert())
-			else:
-				cls.payment_terms_template.append(
-					frappe.get_doc("Payment Terms Template", {"template_name": x.get("template_name")})
-				)
+		self.make_records(["template_name"], records)
 
-	@classmethod
-	def make_tax_category(cls):
+	def make_tax_category(self):
 		records = [
-			{"doctype": "Tax Category", "title": "_Test Tax Category 1"},
-			{"doctype": "Tax Category", "title": "_Test Tax Category 2"},
-			{"doctype": "Tax Category", "title": "_Test Tax Category 3"},
+			{"doctype": "Tax Category", "name": "_Test Tax Category 1", "title": "_Test Tax Category 1"},
+			{"doctype": "Tax Category", "name": "_Test Tax Category 2", "title": "_Test Tax Category 2"},
+			{"doctype": "Tax Category", "name": "_Test Tax Category 3", "title": "_Test Tax Category 3"},
 		]
-		cls.tax_category = []
-		for x in records:
-			if not frappe.db.exists("Tax Category", {"name": x.get("title")}):
-				cls.tax_category.append(frappe.get_doc(x).insert())
-			else:
-				cls.tax_category.append(frappe.get_doc("Tax Category", {"name": x.get("title")}))
+		self.make_records(["title"], records)
 
-	@classmethod
-	def make_account(cls):
+	def make_account(self):
 		records = [
 			{
 				"doctype": "Account",
@@ -1197,21 +875,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				"company": "_Test Company with perpetual inventory",
 			},
 		]
-		cls.accounts = []
-		for x in records:
-			if not frappe.db.exists(
-				"Account", {"account_name": x.get("account_name"), "company": x.get("company")}
-			):
-				cls.accounts.append(frappe.get_doc(x).insert())
-			else:
-				cls.accounts.append(
-					frappe.get_doc(
-						"Account", {"account_name": x.get("account_name"), "company": x.get("company")}
-					)
-				)
+		self.make_records(["account_name", "company"], records)
 
-	@classmethod
-	def make_supplier(cls):
+	def make_supplier(self):
 		records = [
 			{
 				"doctype": "Supplier",
@@ -1264,19 +930,13 @@ class ERPNextTestSuite(unittest.TestCase):
 				"supplier_group": "_Test Supplier Group",
 				"is_internal_supplier": 1,
 				"territory": "_Test Territory",
-				"represents_company": cls.companies[6].name,
-				"companies": [{"company": cls.companies[6].name}],
+				"represents_company": "_Test Company with perpetual inventory",
+				"companies": [{"company": "_Test Company with perpetual inventory"}],
 			},
 		]
-		cls.suppliers = []
-		for x in records:
-			if not frappe.db.exists("Supplier", {"supplier_name": x.get("supplier_name")}):
-				cls.suppliers.append(frappe.get_doc(x).insert())
-			else:
-				cls.suppliers.append(frappe.get_doc("Supplier", {"supplier_name": x.get("supplier_name")}))
+		self.make_records(["supplier_name"], records)
 
-	@classmethod
-	def make_supplier_group(cls):
+	def make_supplier_group(self):
 		records = [
 			{
 				"doctype": "Supplier Group",
@@ -1284,17 +944,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				"parent_supplier_group": "All Supplier Groups",
 			}
 		]
-		cls.supplier_groups = []
-		for x in records:
-			if not frappe.db.exists("Supplier Group", {"supplier_group_name": x.get("supplier_group_name")}):
-				cls.supplier_groups.append(frappe.get_doc(x).insert())
-			else:
-				cls.supplier_groups.append(
-					frappe.get_doc("Supplier Group", {"supplier_group_name": x.get("supplier_group_name")})
-				)
+		self.make_records(["supplier_group_name"], records)
 
-	@classmethod
-	def make_cost_center(cls):
+	def make_cost_center(self):
 		records = [
 			{
 				"company": "_Test Company",
@@ -1318,24 +970,12 @@ class ERPNextTestSuite(unittest.TestCase):
 				"parent_cost_center": "_Test Company - _TC",
 			},
 		]
-		cls.cost_center = []
-		for x in records:
-			if not frappe.db.exists(
-				"Cost Center", {"cost_center_name": x.get("cost_center_name"), "company": x.get("company")}
-			):
-				cls.cost_center.append(frappe.get_doc(x).insert())
-			else:
-				cls.cost_center.append(
-					frappe.get_doc(
-						"Cost Center",
-						{"cost_center_name": x.get("cost_center_name"), "company": x.get("company")},
-					)
-				)
+		self.make_records(["cost_center_name", "company"], records)
 
-	@classmethod
-	def make_location(cls):
+	def make_location(self):
 		records = [
 			{"doctype": "Location", "location_name": "Test Location"},
+			{"doctype": "Location", "location_name": "Test Location 2"},
 			{"doctype": "Location", "location_name": "Test Location Area", "is_group": 1, "is_container": 1},
 			{
 				"doctype": "Location",
@@ -1374,20 +1014,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				"is_container": 1,
 			},
 		]
-		cls.location = []
-		for x in records:
-			if not frappe.db.exists("Location", {"location_name": x.get("location_name")}):
-				cls.location.append(frappe.get_doc(x).insert())
-			else:
-				cls.location.append(
-					frappe.get_doc(
-						"Location",
-						{"location_name": x.get("location_name")},
-					)
-				)
+		self.make_records(["location_name"], records)
 
-	@classmethod
-	def make_warehouse(cls):
+	def make_warehouse(self):
 		records = [
 			{
 				"company": "_Test Company",
@@ -1464,40 +1093,16 @@ class ERPNextTestSuite(unittest.TestCase):
 				"is_group": 0,
 			},
 		]
-		cls.warehouse = []
-		for x in records:
-			if not frappe.db.exists(
-				"Warehouse", {"warehouse_name": x.get("warehouse_name"), "company": x.get("company")}
-			):
-				cls.warehouse.append(frappe.get_doc(x).insert())
-			else:
-				cls.warehouse.append(
-					frappe.get_doc(
-						"Warehouse",
-						{"warehouse_name": x.get("warehouse_name"), "company": x.get("company")},
-					)
-				)
+		self.make_records(["warehouse_name", "company"], records)
 
-	@classmethod
-	def make_uom(cls):
+	def make_uom(self):
 		records = [
 			{"doctype": "UOM", "must_be_whole_number": 1, "uom_name": "_Test UOM"},
 			{"doctype": "UOM", "uom_name": "_Test UOM 1"},
 		]
-		cls.uom = []
-		for x in records:
-			if not frappe.db.exists("UOM", {"uom_name": x.get("uom_name")}):
-				cls.uom.append(frappe.get_doc(x).insert())
-			else:
-				cls.uom.append(
-					frappe.get_doc(
-						"UOM",
-						{"uom_name": x.get("uom_name")},
-					)
-				)
+		self.make_records(["uom_name"], records)
 
-	@classmethod
-	def make_item_attribute(cls):
+	def make_item_attribute(self):
 		records = [
 			{
 				"doctype": "Item Attribute",
@@ -1523,20 +1128,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				],
 			},
 		]
-		cls.item_attribute = []
-		for x in records:
-			if not frappe.db.exists("Item Attribute", {"attribute_name": x.get("attribute_name")}):
-				cls.item_attribute.append(frappe.get_doc(x).insert())
-			else:
-				cls.item_attribute.append(
-					frappe.get_doc(
-						"Item Attribute",
-						{"attribute_name": x.get("attribute_name")},
-					)
-				)
+		self.make_records(["attribute_name"], records)
 
-	@classmethod
-	def make_item_tax_template(cls):
+	def make_item_tax_template(self):
 		records = [
 			{
 				"doctype": "Item Tax Template",
@@ -1616,22 +1210,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				],
 			},
 		]
-		cls.item_tax_template = []
-		for x in records:
-			if not frappe.db.exists(
-				"Item Tax Template", {"title": x.get("title"), "company": x.get("company")}
-			):
-				cls.item_tax_template.append(frappe.get_doc(x).insert())
-			else:
-				cls.item_tax_template.append(
-					frappe.get_doc(
-						"Item Tax Template",
-						{"title": x.get("title"), "company": x.get("company")},
-					)
-				)
+		self.make_records(["title", "company"], records)
 
-	@classmethod
-	def make_item_group(cls):
+	def make_item_group(self):
 		records = [
 			{
 				"doctype": "Item Group",
@@ -1742,17 +1323,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				],
 			},
 		]
-		cls.item_group = []
-		for x in records:
-			if not frappe.db.exists("Item Group", {"item_group_name": x.get("item_group_name")}):
-				cls.item_group.append(frappe.get_doc(x).insert())
-			else:
-				cls.item_group.append(
-					frappe.get_doc("Item Group", {"item_group_name": x.get("item_group_name")})
-				)
+		self.make_records(["item_group_name"], records)
 
-	@classmethod
-	def _make_item(cls):
+	def make_item(self):
 		records = [
 			{
 				"description": "_Test Item 1",
@@ -2309,7 +1882,7 @@ class ERPNextTestSuite(unittest.TestCase):
 				"stock_uom": "Box",
 				"is_fixed_asset": 1,
 				"auto_create_assets": 1,
-				"asset_category": cls.asset_category[0].name,
+				"asset_category": "Equipment",
 				"asset_naming_series": "ABC.###",
 			},
 			{
@@ -2344,22 +1917,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				"company": "_Test Company",
 			},
 		]
-		cls.item = []
-		for x in records:
-			if not frappe.db.exists(
-				"Item", {"item_code": x.get("item_code"), "item_name": x.get("item_name")}
-			):
-				cls.item.append(frappe.get_doc(x).insert())
-			else:
-				cls.item.append(
-					frappe.get_doc(
-						"Item",
-						{"item_code": x.get("item_code"), "item_name": x.get("item_name")},
-					)
-				)
+		self.make_records(["item_code", "item_name"], records)
 
-	@classmethod
-	def make_product_bundle(cls):
+	def make_product_bundle(self):
 		records = [
 			{
 				"doctype": "Product Bundle",
@@ -2380,20 +1940,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				],
 			}
 		]
-		cls.product_bundle = []
-		for x in records:
-			if not frappe.db.exists("Product Bundle", {"new_item_code": x.get("new_item_code")}):
-				cls.product_bundle.append(frappe.get_doc(x).insert())
-			else:
-				cls.product_bundle.append(
-					frappe.get_doc(
-						"Product Bundle",
-						{"new_item_code": x.get("new_item_code")},
-					)
-				)
+		self.make_records(["new_item_code"], records)
 
-	@classmethod
-	def make_test_account(cls):
+	def make_test_account(self):
 		records = [
 			# [account_name, parent_account, is_group]
 			["_Test Bank", "Bank Accounts", 0, "Bank", None],
@@ -2431,11 +1980,19 @@ class ERPNextTestSuite(unittest.TestCase):
 			["_Test Payable", "Current Liabilities", 0, "Payable", None],
 			["_Test Receivable USD", "Current Assets", 0, "Receivable", "USD"],
 			["_Test Payable USD", "Current Liabilities", 0, "Payable", "USD"],
+			# Deferred Account
+			["Deferred Revenue", "Current Liabilities", 0, None, None],
+			["Deferred Expense", "Current Assets", 0, None, None],
+			# Bank
+			["HDFC", "Bank Accounts", 0, "Bank", None],
+			# Advance Account
+			["Advance Received", "Current Liabilities", 0, "Receivable", None],
+			["Advance Paid", "Current Assets", 0, "Payable", None],
 			# Loyalty Account
 			["Loyalty", "Direct Expenses", 0, "Expense Account", None],
 		]
 
-		cls.test_accounts = []
+		self.test_accounts = []
 		for company, abbr in [
 			["_Test Company", "_TC"],
 			["_Test Company 1", "_TC1"],
@@ -2443,7 +2000,7 @@ class ERPNextTestSuite(unittest.TestCase):
 		]:
 			for account_name, parent_account, is_group, account_type, currency in records:
 				if not frappe.db.exists("Account", {"account_name": account_name, "company": company}):
-					cls.test_accounts.append(
+					self.test_accounts.append(
 						frappe.get_doc(
 							{
 								"doctype": "Account",
@@ -2457,12 +2014,11 @@ class ERPNextTestSuite(unittest.TestCase):
 						).insert()
 					)
 				else:
-					cls.test_accounts.append(
+					self.test_accounts.append(
 						frappe.get_doc("Account", {"account_name": account_name, "company": company})
 					)
 
-	@classmethod
-	def make_customer(cls):
+	def make_customer(self):
 		records = [
 			{
 				"customer_group": "_Test Customer Group",
@@ -2537,8 +2093,8 @@ class ERPNextTestSuite(unittest.TestCase):
 				"doctype": "Customer",
 				"is_internal_customer": 1,
 				"territory": "_Test Territory",
-				"represents_company": cls.companies[6].name,
-				"companies": [{"company": cls.companies[6].name}],
+				"represents_company": "_Test Company with perpetual inventory",
+				"companies": [{"company": "_Test Company with perpetual inventory"}],
 			},
 			{
 				"customer_group": "_Test Customer Group",
@@ -2555,15 +2111,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				"territory": "_Test Territory",
 			},
 		]
-		cls.customer = []
-		for x in records:
-			if not frappe.db.exists("Customer", {"customer_name": x.get("customer_name")}):
-				cls.customer.append(frappe.get_doc(x).insert())
-			else:
-				cls.customer.append(frappe.get_doc("Customer", {"customer_name": x.get("customer_name")}))
+		self.make_records(["customer_name"], records)
 
-	@classmethod
-	def make_shareholder(cls):
+	def make_shareholder(self):
 		records = [
 			{
 				"doctype": "Shareholder",
@@ -2574,17 +2124,9 @@ class ERPNextTestSuite(unittest.TestCase):
 			{"doctype": "Shareholder", "naming_series": "SH-", "title": "Thor", "company": "_Test Company"},
 			{"doctype": "Shareholder", "naming_series": "SH-", "title": "Hulk", "company": "_Test Company"},
 		]
-		cls.shareholder = []
-		for x in records:
-			if not frappe.db.exists("Shareholder", {"title": x.get("title"), "company": x.get("company")}):
-				cls.shareholder.append(frappe.get_doc(x).insert())
-			else:
-				cls.shareholder.append(
-					frappe.get_doc("Shareholder", {"title": x.get("title"), "company": x.get("company")})
-				)
+		self.make_records(["title", "company"], records)
 
-	@classmethod
-	def make_sales_taxes_template(cls):
+	def make_sales_taxes_template(self):
 		records = [
 			{
 				"company": "_Test Company",
@@ -2798,22 +2340,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				],
 			},
 		]
-		cls.sales_taxes_and_template = []
-		for x in records:
-			if not frappe.db.exists(
-				"Sales Taxes and Charges Template", {"title": x.get("title"), "company": x.get("company")}
-			):
-				cls.sales_taxes_and_template.append(frappe.get_doc(x).insert())
-			else:
-				cls.sales_taxes_and_template.append(
-					frappe.get_doc(
-						"Sales Taxes and Charges Template",
-						{"title": x.get("title"), "company": x.get("company")},
-					)
-				)
+		self.make_records(["title", "company"], records)
 
-	@classmethod
-	def make_asset_category(cls):
+	def make_asset_category(self):
 		records = [
 			{
 				"doctype": "Asset Category",
@@ -2852,20 +2381,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				],
 			},
 		]
-		cls.asset_category = []
-		for x in records:
-			if not frappe.db.exists("Asset Category", {"asset_category_name": x.get("asset_category_name")}):
-				cls.asset_category.append(frappe.get_doc(x).insert())
-			else:
-				cls.asset_category.append(
-					frappe.get_doc(
-						"Asset Category",
-						{"asset_category_name": x.get("asset_category_name")},
-					)
-				)
+		self.make_records(["asset_category_name"], records)
 
-	@classmethod
-	def make_asset_maintenance_team(cls):
+	def make_asset_maintenance_team(self):
 		records = [
 			{
 				"doctype": "Asset Maintenance Team",
@@ -2891,22 +2409,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				],
 			}
 		]
-		cls.asset_maintenance_team = []
-		for x in records:
-			if not frappe.db.exists(
-				"Asset Maintenance Team", {"maintenance_team_name": x.get("maintenance_team_name")}
-			):
-				cls.asset_maintenance_team.append(frappe.get_doc(x).insert())
-			else:
-				cls.asset_maintenance_team.append(
-					frappe.get_doc(
-						"Asset Maintenance Team",
-						{"maintenance_team_name": x.get("maintenance_team_name")},
-					)
-				)
+		self.make_records(["maintenance_team_name"], records)
 
-	@classmethod
-	def make_activity_type(cls):
+	def make_activity_type(self):
 		records = [
 			{
 				"doctype": "Activity Type",
@@ -2919,17 +2424,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				"activity_type": "_Test Activity Type 1",
 			},
 		]
-		cls.activity_type = []
-		for x in records:
-			if not frappe.db.exists("Activity Type", {"activity_type": x.get("activity_type")}):
-				cls.activity_type.append(frappe.get_doc(x).insert())
-			else:
-				cls.activity_type.append(
-					frappe.get_doc("Activity Type", {"activity_type": x.get("activity_type")})
-				)
+		self.make_records(["activity_type"], records)
 
-	@classmethod
-	def make_loyalty_program(cls):
+	def make_loyalty_program(self):
 		records = [
 			{
 				"doctype": "Loyalty Program",
@@ -2962,19 +2459,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				],
 			},
 		]
-		cls.loyalty_program = []
-		for x in records:
-			if not frappe.db.exists(
-				"Loyalty Program", {"loyalty_program_name": x.get("loyalty_program_name")}
-			):
-				cls.loyalty_program.append(frappe.get_doc(x).insert())
-			else:
-				cls.loyalty_program.append(
-					frappe.get_doc("Loyalty Program", {"loyalty_program_name": x.get("loyalty_program_name")})
-				)
+		self.make_records(["loyalty_program_name"], records)
 
-	@classmethod
-	def make_item_price(cls):
+	def make_item_price(self):
 		records = [
 			{
 				"doctype": "Item Price",
@@ -3043,43 +2530,15 @@ class ERPNextTestSuite(unittest.TestCase):
 				"price_list_rate": 10000,
 			},
 		]
-		cls.item_price = []
-		for x in records:
-			if not frappe.db.exists(
-				"Item Price",
-				{
-					"item_code": x.get("item_code"),
-					"price_list": x.get("price_list"),
-					"price_list_rate": x.get("price_list_rate"),
-				},
-			):
-				cls.item_price.append(frappe.get_doc(x).insert())
-			else:
-				cls.item_price.append(
-					frappe.get_doc(
-						"Item Price",
-						{
-							"item_code": x.get("item_code"),
-							"price_list": x.get("price_list"),
-							"price_list_rate": x.get("price_list_rate"),
-						},
-					)
-				)
+		self.make_records(["item_code", "price_list", "price_list_rate"], records)
 
-	@classmethod
-	def make_operation(cls):
+	def make_operation(self):
 		records = [
 			{"doctype": "Operation", "name": "_Test Operation 1", "workstation": "_Test Workstation 1"}
 		]
-		cls.operation = []
-		for x in records:
-			if not frappe.db.exists("Operation", {"name": x.get("name")}):
-				cls.operation.append(frappe.get_doc(x).insert())
-			else:
-				cls.operation.append(frappe.get_doc("Operation", {"name": x.get("name")}))
+		self.make_records(["name"], records)
 
-	@classmethod
-	def make_workstation(cls):
+	def make_workstation(self):
 		records = [
 			{
 				"doctype": "Workstation",
@@ -3094,72 +2553,34 @@ class ERPNextTestSuite(unittest.TestCase):
 				"working_hours": [{"start_time": "10:00:00", "end_time": "20:00:00"}],
 			}
 		]
-		cls.workstation = []
-		for x in records:
-			if not frappe.db.exists("Workstation", {"workstation_name": x.get("workstation_name")}):
-				cls.workstation.append(frappe.get_doc(x).insert())
-			else:
-				cls.workstation.append(
-					frappe.get_doc("Workstation", {"workstation_name": x.get("workstation_name")})
-				)
+		self.make_records(["workstation_name"], records)
 
-	@classmethod
-	def make_bom(cls):
-		# TODO: replace JSON source with hardcoded data in py
-		cls.load_test_records("BOM")
-		records = cls.globalTestRecords["BOM"]
-		cls.bom = []
-		for x in records:
-			x["company"] = cls.companies[0].name
-			if not frappe.db.exists("BOM", {"item": x.get("item"), "company": x.get("company")}):
-				cls.bom.append(frappe.get_doc(x).insert())
-			else:
-				cls.bom.append(frappe.get_doc("BOM", {"item": x.get("item"), "company": x.get("company")}))
+	def make_bom(self):
+		# TODO: replace JSON source with hardcoded data
+		records = load_test_records_for("BOM")["BOM"]
+		self.make_records(["item", "company"], records)
 
-	@classmethod
-	def make_quality_inspection_param(cls):
+	def make_quality_inspection_param(self):
 		records = [{"doctype": "Quality Inspection Parameter", "parameter": "_Test Param"}]
-		cls.quality_inspection_param = []
-		for x in records:
-			if not frappe.db.exists("Quality Inspection Parameter", {"parameter": x.get("parameter")}):
-				cls.quality_inspection_param.append(frappe.get_doc(x).insert())
-			else:
-				cls.quality_inspection_param.append(
-					frappe.get_doc("Quality Inspection Parameter", {"parameter": x.get("parameter")})
-				)
+		self.make_records(["parameter"], records)
 
-	@classmethod
-	def make_quality_inspection_template(cls):
+	def make_quality_inspection_template(self):
 		records = [
 			{
 				"quality_inspection_template_name": "_Test Quality Inspection Template",
 				"doctype": "Quality Inspection Template",
 				"item_quality_inspection_parameter": [
 					{
-						"specification": cls.quality_inspection_param[0].name,
+						"specification": "_Test Param",
 						"doctype": "Item Quality Inspection Parameter",
 						"parentfield": "item_quality_inspection_parameter",
 					}
 				],
 			}
 		]
-		cls.quality_inspection_template = []
-		for x in records:
-			if not frappe.db.exists(
-				"Quality Inspection Template",
-				{"quality_inspection_template_name": x.get("quality_inspection_template_name")},
-			):
-				cls.quality_inspection_template.append(frappe.get_doc(x).insert())
-			else:
-				cls.quality_inspection_template.append(
-					frappe.get_doc(
-						"Quality Inspection Template",
-						{"quality_inspection_template_name": x.get("quality_inspection_template_name")},
-					)
-				)
+		self.make_records(["quality_inspection_template_name"], records)
 
-	@classmethod
-	def make_brand(cls):
+	def make_brand(self):
 		records = [
 			{"brand": "_Test Brand", "doctype": "Brand"},
 			{
@@ -3176,20 +2597,14 @@ class ERPNextTestSuite(unittest.TestCase):
 				],
 			},
 		]
-		cls.brand = []
-		for x in records:
-			if not frappe.db.exists("Brand", {"brand": x.get("brand")}):
-				cls.brand.append(frappe.get_doc(x).insert())
-			else:
-				cls.brand.append(frappe.get_doc("Brand", {"Brand": x.get("brand")}))
+		self.make_records(["brand"], records)
 
-	@classmethod
-	def make_dunning_type(cls):
+	def make_dunning_type(self):
 		records = [
 			{
 				"doctype": "Dunning Type",
 				"dunning_type": "First Notice",
-				"company": cls.companies[0].name,
+				"company": "_Test Company",
 				"is_default": 1,
 				"dunning_fee": 0,
 				"rate_of_interest": 0,
@@ -3206,7 +2621,7 @@ class ERPNextTestSuite(unittest.TestCase):
 			{
 				"doctype": "Dunning Type",
 				"dunning_type": "Second Notice",
-				"company": cls.companies[0].name,
+				"company": "_Test Company",
 				"is_default": 0,
 				"dunning_fee": 10,
 				"rate_of_interest": 10,
@@ -3221,17 +2636,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				],
 			},
 		]
-		cls.dunning_type = []
-		for x in records:
-			if not frappe.db.exists("Dunning Type", {"dunning_type": x.get("dunning_type")}):
-				cls.dunning_type.append(frappe.get_doc(x).insert())
-			else:
-				cls.dunning_type.append(
-					frappe.get_doc("Dunning Type", {"dunning_type": x.get("dunning_type")})
-				)
+		self.make_records(["dunning_type"], records)
 
-	@classmethod
-	def make_finance_book(cls):
+	def make_finance_book(self):
 		records = [
 			{
 				"doctype": "Finance Book",
@@ -3246,17 +2653,9 @@ class ERPNextTestSuite(unittest.TestCase):
 				"finance_book_name": "Test Finance Book 3",
 			},
 		]
-		cls.finance_book = []
-		for x in records:
-			if not frappe.db.exists("Finance Book", {"finance_book_name": x.get("finance_book_name")}):
-				cls.finance_book.append(frappe.get_doc(x).insert())
-			else:
-				cls.finance_book.append(
-					frappe.get_doc("Finance Book", {"finance_book_name": x.get("finance_book_name")})
-				)
+		self.make_records(["finance_book_name"], records)
 
-	@classmethod
-	def make_custom_doctype(cls):
+	def make_custom_doctype(self):
 		if not frappe.db.exists("DocType", "Shelf"):
 			frappe.get_doc(
 				{
@@ -3372,8 +2771,47 @@ class ERPNextTestSuite(unittest.TestCase):
 					}
 				).insert(ignore_permissions=True)
 
-	@classmethod
-	def make_address(cls):
+			if not frappe.db.exists("DocType", "Order Assignment"):
+				frappe.get_doc(
+					{
+						"doctype": "DocType",
+						"name": "Order Assignment",
+						"module": "Buying",
+						"custom": 1,
+						"autoname": "field:po",
+						"fields": [
+							{
+								"label": "PO",
+								"fieldname": "po",
+								"fieldtype": "Link",
+								"options": "Purchase Order",
+							},
+							{
+								"label": "Supplier",
+								"fieldname": "supplier",
+								"fieldtype": "Data",
+								"fetch_from": "po.supplier",
+							},
+						],
+						"permissions": [
+							{
+								"create": 1,
+								"delete": 1,
+								"email": 1,
+								"export": 1,
+								"print": 1,
+								"read": 1,
+								"report": 1,
+								"role": "System Manager",
+								"share": 1,
+								"write": 1,
+							},
+							{"read": 1, "role": "Supplier"},
+						],
+					}
+				).insert(ignore_if_duplicate=True)
+
+	def make_address(self):
 		records = [
 			{
 				"doctype": "Address",
@@ -3422,24 +2860,129 @@ class ERPNextTestSuite(unittest.TestCase):
 				],
 			},
 		]
-		cls.address = []
-		for x in records:
-			if not frappe.db.exists(
-				"Address",
+		self.make_records(["address_title", "address_type"], records)
+
+	def make_dimensions(self):
+		records = [
+			{
+				"doctype": "Accounting Dimension",
+				"document_type": "Department",
+				"dimension_defaults": [
+					{
+						"company": "_Test Company",
+						"reference_document": "Department",
+						"default_dimension": "_Test Department - _TC",
+					}
+				],
+			},
+			{
+				"doctype": "Accounting Dimension",
+				"document_type": "Location",
+				"dimension_defaults": [
+					{
+						"company": "_Test Company",
+						"reference_document": "Location",
+						"default_dimension": "Block 1",
+					}
+				],
+			},
+			{
+				"doctype": "Accounting Dimension",
+				"document_type": "Branch",
+			},
+		]
+		self.make_records(["document_type"], records)
+
+	def make_custom_field(self):
+		pan_field = {
+			"Supplier": [
 				{
-					"address_title": x.get("address_title"),
-				},
-			):
-				cls.address.append(frappe.get_doc(x).insert())
-			else:
-				cls.address.append(
-					frappe.get_doc(
-						"Address",
-						{
-							"address_title": x.get("address_title"),
-						},
-					)
-				)
+					"fieldname": "pan",
+					"label": "PAN",
+					"fieldtype": "Data",
+					"translatable": 0,
+				}
+			]
+		}
+
+		create_custom_fields(pan_field, update=1)
+
+	def make_shelf(self):
+		records = [
+			{
+				"doctype": "Shelf",
+				"shelf_name": "Shelf 1",
+			},
+			{
+				"doctype": "Shelf",
+				"shelf_name": "Shelf 2",
+			},
+		]
+		self.make_records(["shelf_name"], records)
+
+	def make_rack(self):
+		records = [
+			{
+				"doctype": "Rack",
+				"rack_name": "Rack 1",
+			},
+			{
+				"doctype": "Rack",
+				"rack_name": "Rack 2",
+			},
+		]
+		self.make_records(["rack_name"], records)
+
+	def make_inv_site(self):
+		records = [
+			{
+				"doctype": "Inv Site",
+				"site_name": "Site 1",
+			},
+			{
+				"doctype": "Inv Site",
+				"site_name": "Site 2",
+			},
+		]
+		self.make_records(["site_name"], records)
+
+	def make_store(self):
+		records = [
+			{
+				"doctype": "Store",
+				"store_name": "Store 1",
+			},
+			{
+				"doctype": "Store",
+				"store_name": "Store 2",
+			},
+		]
+		self.make_records(["store_name"], records)
+
+
+BootStrapTestData()
+
+
+class ERPNextTestSuite(unittest.TestCase):
+	@classmethod
+	def registerAs(cls, _as):
+		def decorator(cm_func):
+			setattr(cls, cm_func.__name__, _as(cm_func))
+			return cm_func
+
+		return decorator
+
+	@classmethod
+	def setUpClass(cls):
+		cls.globalTestRecords = {}
+
+	def tearDown(self):
+		frappe.db.rollback()
+
+	def load_test_records(self, doctype):
+		if doctype not in self.globalTestRecords:
+			records = load_test_records_for(doctype)
+			self.globalTestRecords[doctype] = records[doctype]
 
 	@contextmanager
 	def set_user(self, user: str):

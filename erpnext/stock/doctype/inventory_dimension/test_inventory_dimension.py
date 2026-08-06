@@ -3,7 +3,6 @@
 
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_field
-from frappe.tests.utils import FrappeTestCase
 from frappe.utils import nowdate, nowtime
 
 from erpnext.stock.doctype.delivery_note.test_delivery_note import create_delivery_note
@@ -12,20 +11,16 @@ from erpnext.stock.doctype.inventory_dimension.inventory_dimension import (
 	CanNotBeDefaultDimension,
 	DoNotChangeError,
 	delete_dimension,
-	get_parent_fields,
 )
 from erpnext.stock.doctype.item.test_item import create_item
 from erpnext.stock.doctype.purchase_receipt.test_purchase_receipt import make_purchase_receipt
 from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 from erpnext.stock.doctype.stock_ledger_entry.stock_ledger_entry import InventoryDimensionNegativeStockError
 from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
+from erpnext.tests.utils import ERPNextTestSuite
 
 
-class TestInventoryDimension(FrappeTestCase):
-	def setUp(self):
-		prepare_test_data()
-		create_store_dimension()
-
+class TestInventoryDimension(ERPNextTestSuite):
 	def test_validate_inventory_dimension(self):
 		# Can not be child doc
 		inv_dim1 = create_inventory_dimension(
@@ -78,8 +73,7 @@ class TestInventoryDimension(FrappeTestCase):
 		self.assertFalse(custom_field)
 
 	def test_inventory_dimension(self):
-		frappe.local.document_wise_inventory_dimensions = {}
-
+		create_warehouse("Shelf Warehouse")
 		warehouse = "Shelf Warehouse - _TC"
 		item_code = "_Test Item"
 
@@ -119,12 +113,12 @@ class TestInventoryDimension(FrappeTestCase):
 		inward.load_from_db()
 
 		sle_data = frappe.db.get_value(
-			"Stock Ledger Entry", {"voucher_no": inward.name}, ["shelf", "warehouse"], as_dict=1
+			"Stock Ledger Entry", {"voucher_no": inward.name}, ["to_shelf", "warehouse"], as_dict=1
 		)
 
 		self.assertEqual(inward.items[0].to_shelf, "Shelf 1")
 		self.assertEqual(sle_data.warehouse, warehouse)
-		self.assertEqual(sle_data.shelf, "Shelf 1")
+		self.assertEqual(sle_data.to_shelf, "Shelf 1")
 
 		outward = make_stock_entry(
 			item_code=item_code,
@@ -150,11 +144,10 @@ class TestInventoryDimension(FrappeTestCase):
 		self.assertRaises(DoNotChangeError, inv_dim1.save)
 
 	def test_inventory_dimension_for_purchase_receipt_and_delivery_note(self):
-		frappe.local.document_wise_inventory_dimensions = {}
-
 		inv_dimension = create_inventory_dimension(
 			reference_document="Rack", dimension_name="Rack", apply_to_all_doctypes=1
 		)
+
 		inv_dimension.db_set("fetch_from_parent", "Rack")
 
 		self.assertEqual(inv_dimension.type_of_transaction, "Both")
@@ -167,9 +160,6 @@ class TestInventoryDimension(FrappeTestCase):
 		create_custom_field(
 			"Delivery Note", dict(fieldname="rack", label="Rack", fieldtype="Link", options="Rack")
 		)
-
-		frappe.reload_doc("stock", "doctype", "purchase_receipt_item")
-		frappe.reload_doc("stock", "doctype", "delivery_note_item")
 
 		pr_doc = make_purchase_receipt(qty=2, do_not_submit=True)
 		pr_doc.rack = "Rack 1"
@@ -204,8 +194,6 @@ class TestInventoryDimension(FrappeTestCase):
 		self.assertEqual(sle_rack, "Rack 1")
 
 	def test_check_standard_dimensions(self):
-		if "Projects" not in frappe.get_installed_apps():
-			return
 		create_inventory_dimension(
 			reference_document="Project",
 			type_of_transaction="Outward",
@@ -263,8 +251,6 @@ class TestInventoryDimension(FrappeTestCase):
 	def test_for_purchase_sales_and_stock_transaction(self):
 		from erpnext.controllers.sales_and_purchase_return import make_return_doc
 
-		warehouse = "Shelf Warehouse - _TC"
-		item_code = "_Test Item"
 		create_inventory_dimension(
 			reference_document="Store",
 			type_of_transaction="Outward",
@@ -272,7 +258,11 @@ class TestInventoryDimension(FrappeTestCase):
 			apply_to_all_doctypes=1,
 		)
 
+		item_code = "Test Inventory Dimension Item"
+		create_item(item_code)
+		warehouse = create_warehouse("Store Warehouse")
 		rj_warehouse = create_warehouse("RJ Warehouse")
+
 		if not frappe.db.exists("Store", "Rejected Store"):
 			frappe.get_doc({"doctype": "Store", "store_name": "Rejected Store"}).insert(
 				ignore_permissions=True
@@ -309,6 +299,7 @@ class TestInventoryDimension(FrappeTestCase):
 			fields=["store"],
 			order_by="creation",
 		)
+
 		self.assertEqual(entries[0].store, "Rejected Store")
 
 		# Stock Entry -> Transfer from Store 1 to Store 2
@@ -439,7 +430,6 @@ class TestInventoryDimension(FrappeTestCase):
 				self.assertEqual(d.store, "Inter Transfer Store 2")
 
 	def test_validate_negative_stock_for_inventory_dimension(self):
-		frappe.local.inventory_dimensions = {}
 		item_code = "Test Negative Inventory Dimension Item"
 		frappe.db.set_single_value("Stock Settings", "allow_negative_stock", 1)
 		create_item(item_code)
@@ -454,18 +444,22 @@ class TestInventoryDimension(FrappeTestCase):
 
 		warehouse = create_warehouse("Negative Stock Warehouse")
 
+		# Try issuing 10 qty, more than available stock against inventory dimension
 		doc = make_stock_entry(item_code=item_code, source=warehouse, qty=10, do_not_submit=True)
 		doc.items[0].inv_site = "Site 1"
 		self.assertRaises(InventoryDimensionNegativeStockError, doc.submit)
+
+		# cancel the stock entry
 		doc.reload()
 		if doc.docstatus == 1:
 			doc.cancel()
 
+		# Receive 10 qty against inventory dimension
 		doc = make_stock_entry(item_code=item_code, target=warehouse, qty=10, do_not_submit=True)
-
 		doc.items[0].to_inv_site = "Site 1"
 		doc.submit()
 
+		# check inventory dimension value in stock ledger entry
 		site_name = frappe.get_all(
 			"Stock Ledger Entry", filters={"voucher_no": doc.name, "is_cancelled": 0}, fields=["inv_site"]
 		)[0].inv_site
@@ -478,243 +472,85 @@ class TestInventoryDimension(FrappeTestCase):
 		# Try issuing 100 qty, more than available stock against inventory dimension
 		# Note: total available qty for the item is 110, but against inventory dimension, only 10 qty is available
 		doc = make_stock_entry(item_code=item_code, source=warehouse, qty=100, do_not_submit=True)
-
 		doc.items[0].inv_site = "Site 1"
 		self.assertRaises(InventoryDimensionNegativeStockError, doc.submit)
 
+		# disable validate_negative_stock for inventory dimension
 		inv_dimension.reload()
 		inv_dimension.db_set("validate_negative_stock", 0)
-		frappe.local.inventory_dimensions = {}
+		frappe.clear_cache(doctype="Inventory Dimension")
 
+		# Try issuing 100 qty, more than available stock against inventory dimension
 		doc = make_stock_entry(item_code=item_code, source=warehouse, qty=100, do_not_submit=True)
-
 		doc.items[0].inv_site = "Site 1"
 		doc.submit()
 		self.assertEqual(doc.docstatus, 1)
 
+		# check inventory dimension value in stock ledger entry
 		site_name = frappe.get_all(
 			"Stock Ledger Entry", filters={"voucher_no": doc.name, "is_cancelled": 0}, fields=["inv_site"]
 		)[0].inv_site
 
 		self.assertEqual(site_name, "Site 1")
 
-		## TearDown
-		if frappe.db.exists("Inventory Dimension", {"dimension_name": "Inv Site"}):
-			frappe.delete_doc("Inventory Dimension", "Inv Site", force=True)
+	@ERPNextTestSuite.change_settings("Stock Settings", {"allow_negative_stock": 0})
+	def test_validate_negative_stock_with_multiple_dimension(self):
+		item_code = "Test Negative Multi Inventory Dimension Item"
+		create_item(item_code)
 
-		affected_doctypes = [
-			"Stock Ledger Entry",
-			"Stock Entry Detail",
-			"Purchase Receipt Item",
-			"Delivery Note Item",
-			"Sales Invoice Item",
-		]
-		for doctype in affected_doctypes:
-			# Remove both source and target fields if they exist
-			for fieldname in ["inv_site", "to_inv_site"]:
-				if frappe.db.exists("Custom Field", {"dt": doctype, "fieldname": fieldname}):
-					frappe.delete_doc("Custom Field", f"{doctype}-{fieldname}", force=True)
+		inv_dimension_1 = create_inventory_dimension(
+			apply_to_all_doctypes=1,
+			dimension_name="Inv Site",
+			reference_document="Inv Site",
+			document_type="Inv Site",
+			validate_negative_stock=1,
+		)
+		inv_dimension_1.db_set("validate_negative_stock", 1)
 
-			# Drop the columns if they exist
-			if fieldname in frappe.db.get_table_columns(doctype):
-				frappe.db.sql(f"ALTER TABLE `tab{doctype}` DROP COLUMN IF EXISTS `{fieldname}`")
-			# Clear inventory dimension cache
-		frappe.local.inventory_dimensions = {}
-		frappe.cache().delete_key("inventory_dimensions")
-		frappe.db.set_single_value("Stock Settings", "allow_negative_stock", 0)
-		frappe.db.commit()
+		inv_dimension_2 = create_inventory_dimension(
+			apply_to_all_doctypes=1,
+			dimension_name="Rack",
+			reference_document="Rack",
+			document_type="Rack",
+			validate_negative_stock=1,
+		)
+		inv_dimension_2.db_set("validate_negative_stock", 1)
 
-	def test_get_parent_fields_TC_SCK_447(self):
-		frappe.set_user("Administrator")
+		pr_doc = make_purchase_receipt(item_code=item_code, qty=30, do_not_submit=True)
+		pr_doc.items[0].inv_site = "Site 1"
+		pr_doc.items[0].rack = "Rack 1"
+		pr_doc.save()
+		pr_doc.submit()
 
-		# Create child DocType if not exists
-		if not frappe.db.exists("DocType", "Test Child Doc"):
-			frappe.get_doc(
-				{
-					"doctype": "DocType",
-					"name": "Test Child Doc",
-					"module": "Custom",
-					"custom": 1,
-					"istable": 1,
-					"fields": [{"fieldname": "dummy_field", "label": "Dummy", "fieldtype": "Data"}],
-					"permissions": [{"role": "System Manager"}],
-				}
-			).insert()
+		pr_doc = make_purchase_receipt(item_code=item_code, qty=15, do_not_submit=True)
+		pr_doc.items[0].inv_site = "Site 1"
+		pr_doc.items[0].rack = "Rack 2"
+		pr_doc.save()
+		pr_doc.submit()
 
-			# Create parent DocType with:
-			# - a Table field referencing the child
-			# - a Link field referencing the dimension "Pallet"
-		if not frappe.db.exists("DocType", "Test Parent Doc"):
-			frappe.get_doc(
-				{
-					"doctype": "DocType",
-					"name": "Test Parent Doc",
-					"module": "Custom",
-					"custom": 1,
-					"fields": [
-						{
-							"fieldname": "test_child_table",
-							"label": "Test Child Table",
-							"fieldtype": "Table",
-							"options": "Test Child Doc",
-						},
-						{"fieldname": "pallet", "label": "Pallet", "fieldtype": "Link", "options": "Pallet"},
-					],
-					"permissions": [{"role": "System Manager"}],
-				}
-			).insert()
+		pr_doc = make_purchase_receipt(item_code=item_code, qty=30, do_not_submit=True)
+		pr_doc.items[0].inv_site = "Site 2"
+		pr_doc.items[0].rack = "Rack 1"
+		pr_doc.save()
+		pr_doc.submit()
 
-			# Call the function under test
-		fields = get_parent_fields("Test Child Doc", "Pallet")
+		pr_doc = make_purchase_receipt(item_code=item_code, qty=25, do_not_submit=True)
+		pr_doc.items[0].inv_site = "Site 2"
+		pr_doc.items[0].rack = "Rack 2"
+		pr_doc.save()
+		pr_doc.submit()
 
-		# Assert that 'pallet' field was found
-		fieldnames = [d["value"] for d in fields]
-		self.assertIn("pallet", fieldnames)
+		dn_doc = create_delivery_note(item_code=item_code, qty=35, do_not_submit=True)
+		dn_doc.items[0].inv_site = "Site 2"
+		dn_doc.items[0].rack = "Rack 1"
+		dn_doc.save()
+		self.assertRaises(InventoryDimensionNegativeStockError, dn_doc.submit)
 
 
 def get_voucher_sl_entries(voucher_no, fields):
 	return frappe.get_all(
 		"Stock Ledger Entry", filters={"voucher_no": voucher_no}, fields=fields, order_by="creation"
 	)
-
-
-def create_store_dimension():
-	if not frappe.db.exists("DocType", "Store"):
-		frappe.get_doc(
-			{
-				"doctype": "DocType",
-				"name": "Store",
-				"module": "Stock",
-				"custom": 1,
-				"naming_rule": "By fieldname",
-				"autoname": "field:store_name",
-				"fields": [{"label": "Store Name", "fieldname": "store_name", "fieldtype": "Data"}],
-				"permissions": [
-					{
-						"role": "System Manager",
-						"permlevel": 0,
-						"read": 1,
-						"write": 1,
-						"create": 1,
-						"delete": 1,
-					}
-				],
-			}
-		).insert(ignore_permissions=True)
-
-	for store in ["Store 1", "Store 2"]:
-		if not frappe.db.exists("Store", store):
-			frappe.get_doc({"doctype": "Store", "store_name": store}).insert(ignore_permissions=True)
-
-
-def prepare_test_data():
-	if not frappe.db.exists("DocType", "Shelf"):
-		frappe.get_doc(
-			{
-				"doctype": "DocType",
-				"name": "Shelf",
-				"module": "Stock",
-				"custom": 1,
-				"naming_rule": "By fieldname",
-				"autoname": "field:shelf_name",
-				"fields": [{"label": "Shelf Name", "fieldname": "shelf_name", "fieldtype": "Data"}],
-				"permissions": [
-					{
-						"role": "System Manager",
-						"permlevel": 0,
-						"read": 1,
-						"write": 1,
-						"create": 1,
-						"delete": 1,
-					}
-				],
-			}
-		).insert(ignore_permissions=True)
-
-	for shelf in ["Shelf 1", "Shelf 2"]:
-		if not frappe.db.exists("Shelf", shelf):
-			frappe.get_doc({"doctype": "Shelf", "shelf_name": shelf}).insert(ignore_permissions=True)
-
-	create_warehouse("Shelf Warehouse")
-
-	if not frappe.db.exists("DocType", "Rack"):
-		frappe.get_doc(
-			{
-				"doctype": "DocType",
-				"name": "Rack",
-				"module": "Stock",
-				"custom": 1,
-				"naming_rule": "By fieldname",
-				"autoname": "field:rack_name",
-				"fields": [{"label": "Rack Name", "fieldname": "rack_name", "fieldtype": "Data"}],
-				"permissions": [
-					{
-						"role": "System Manager",
-						"permlevel": 0,
-						"read": 1,
-						"write": 1,
-						"create": 1,
-						"delete": 1,
-					}
-				],
-			}
-		).insert(ignore_permissions=True)
-
-	for rack in ["Rack 1"]:
-		if not frappe.db.exists("Rack", rack):
-			frappe.get_doc({"doctype": "Rack", "rack_name": rack}).insert(ignore_permissions=True)
-
-	create_warehouse("Rack Warehouse")
-
-	if not frappe.db.exists("DocType", "Pallet"):
-		frappe.get_doc(
-			{
-				"doctype": "DocType",
-				"name": "Pallet",
-				"module": "Stock",
-				"custom": 1,
-				"naming_rule": "By fieldname",
-				"autoname": "field:pallet_name",
-				"fields": [{"label": "Pallet Name", "fieldname": "pallet_name", "fieldtype": "Data"}],
-				"permissions": [
-					{
-						"role": "System Manager",
-						"permlevel": 0,
-						"read": 1,
-						"write": 1,
-						"create": 1,
-						"delete": 1,
-					}
-				],
-			}
-		).insert(ignore_permissions=True)
-
-	if not frappe.db.exists("DocType", "Inv Site"):
-		frappe.get_doc(
-			{
-				"doctype": "DocType",
-				"name": "Inv Site",
-				"module": "Stock",
-				"custom": 1,
-				"naming_rule": "By fieldname",
-				"autoname": "field:site_name",
-				"fields": [{"label": "Site Name", "fieldname": "site_name", "fieldtype": "Data"}],
-				"permissions": [
-					{
-						"role": "System Manager",
-						"permlevel": 0,
-						"read": 1,
-						"write": 1,
-						"create": 1,
-						"delete": 1,
-					}
-				],
-			}
-		).insert(ignore_permissions=True)
-
-	for site in ["Site 1", "Site 2"]:
-		if not frappe.db.exists("Inv Site", site):
-			frappe.get_doc({"doctype": "Inv Site", "site_name": site}).insert(ignore_permissions=True)
 
 
 def create_inventory_dimension(**args):

@@ -2,8 +2,6 @@
 # For license information, please see license.txt
 
 
-from unittest import TestCase
-
 import frappe
 from frappe.utils import today
 
@@ -40,10 +38,6 @@ class TestVATAuditReport(ERPNextTestSuite):
 
 		make_sales_invoices()
 		create_purchase_invoices()
-
-	def tearDown(self):
-		frappe.db.sql("delete from `tabSales Invoice` where company='_Test Company SA VAT'")
-		frappe.db.sql("delete from `tabPurchase Invoice` where company='_Test Company SA VAT'")
 
 	def test_vat_audit_report(self):
 		filters = {"company": "_Test Company SA VAT", "from_date": today(), "to_date": today()}
