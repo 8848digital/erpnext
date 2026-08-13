@@ -110,7 +110,7 @@ class Account(NestedSet):
 		self.validate_parent_child_account_type()
 		self.validate_root_details()
 		self.validate_account_number()
-		self.validate_disabled()
+		# self.validate_disabled()
 		self.validate_group_or_ledger()
 		self.set_root_and_report_type()
 		self.validate_mandatory()

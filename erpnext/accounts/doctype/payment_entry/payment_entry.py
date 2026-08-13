@@ -445,7 +445,7 @@ class PaymentEntry(AccountsController):
 				)
 			else:
 				complete_contact_details(self)
-			if not self.party_balance and frappe.get_single_value("Accounts Settings", "show_party_balance"):
+			if not self.party_balance and frappe.db.get_single_value("Accounts Settings", "show_party_balance"):
 				self.party_balance = get_balance_on(
 					party_type=self.party_type, party=self.party, date=self.posting_date, company=self.company
 				)
@@ -2675,14 +2675,14 @@ def get_party_details(company, party_type, party, date, cost_center=None):
 	account_currency = get_account_currency(party_account)
 	account_balance = (
 		get_balance_on(party_account, date, cost_center=cost_center)
-		if frappe.get_single_value("Accounts Settings", "show_account_balance")
+		if frappe.db.get_single_value("Accounts Settings", "show_account_balance")
 		else 0
 	)
 	_party_name = "title" if party_type == "Shareholder" else party_type.lower() + "_name"
 	party_name = frappe.db.get_value(party_type, party, _party_name)
 	party_balance = (
 		get_balance_on(party_type=party_type, party=party, company=company, cost_center=cost_center)
-		if frappe.get_single_value("Accounts Settings", "show_party_balance")
+		if frappe.db.get_single_value("Accounts Settings", "show_party_balance")
 		else 0
 	)
 	if party_type in ["Customer", "Supplier"]:
@@ -2716,7 +2716,7 @@ def get_account_details(account, date, cost_center=None):
 
 	account_balance = (
 		get_balance_on(account, date, cost_center=cost_center, ignore_account_permission=True)
-		if frappe.get_single_value("Accounts Settings", "show_account_balance")
+		if frappe.db.get_single_value("Accounts Settings", "show_account_balance")
 		else 0
 	)
 
@@ -3526,11 +3526,11 @@ def get_paid_amount(dt, dn, party_type, party, account, due_date):
 def get_party_and_account_balance(
 	company, date, paid_from=None, paid_to=None, ptype=None, pty=None, cost_center=None
 ):  # pragma: no cover
-	show_account_balance = frappe.get_single_value("Accounts Settings", "show_account_balance")
+	show_account_balance = frappe.db.get_single_value("Accounts Settings", "show_account_balance")
 	return frappe._dict(
 		{
 			"party_balance": get_balance_on(party_type=ptype, party=pty, cost_center=cost_center)
-			if frappe.get_single_value("Accounts Settings", "show_party_balance")
+			if frappe.db.get_single_value("Accounts Settings", "show_party_balance")
 			else 0,
 			"paid_from_account_balance": get_balance_on(paid_from, date, cost_center=cost_center)
 			if show_account_balance

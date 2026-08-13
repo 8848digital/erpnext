@@ -769,7 +769,7 @@ class StockEntry(StockController):
 		Raises:
 		    frappe.ValidationError: If warehouses are same and no inventory dimensions differ
 		"""
-		if frappe.get_single_value("Stock Settings", "validate_material_transfer_warehouses"):
+		if frappe.db.get_single_value("Stock Settings", "validate_material_transfer_warehouses"):
 			from erpnext.stock.doctype.inventory_dimension.inventory_dimension import get_inventory_dimensions
 
 			inventory_dimensions = get_inventory_dimensions()

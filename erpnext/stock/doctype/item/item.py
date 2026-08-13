@@ -1271,7 +1271,7 @@ def get_item_defaults(item_code, company):
 
 	for d in item.item_defaults:
 		if d.company == company:
-			row = d.as_dict(no_private_properties=True)
+			row = d.as_dict()
 			row.pop("name")
 			out.update(row)
 	return out
