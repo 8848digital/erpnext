@@ -497,17 +497,12 @@ def get_internal_invoice_map(invoice_list):
 def get_invoice_tax_map(invoice_list, invoice_expense_map, expense_accounts, include_payments=False):
 	tax_details = frappe.db.sql(
 		"""
-		SELECT
-			parent,
-			account_head,
-			case add_deduct_tax
-		WHEN 'Add' THEN SUM(base_tax_amount_after_discount_amount)
-		ELSE SUM(base_tax_amount_after_discount_amount) * -1 END as tax_amount
-		FROM `tabPurchase Taxes and Charges`
-		WHERE parent IN (%s)
-			AND category IN ('Total', 'Valuation and Total')
-			AND base_tax_amount_after_discount_amount != 0
-		GROUP BY parent, account_head, add_deduct_tax
+		select parent, account_head, case add_deduct_tax when "Add" then sum(base_tax_amount_after_discount_amount)
+		else sum(base_tax_amount_after_discount_amount) * -1 end as tax_amount
+		from `tabPurchase Taxes and Charges`
+		where parent in (%s) and category in ('Total', 'Valuation and Total')
+			and base_tax_amount_after_discount_amount != 0 and parenttype='Purchase Invoice'
+		group by parent, account_head, add_deduct_tax
 	"""
 		% ", ".join(["%s"] * len(invoice_list)),
 		tuple(inv.name for inv in invoice_list),

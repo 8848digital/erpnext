@@ -335,7 +335,8 @@
    "fieldname": "discount_amount",
    "fieldtype": "Currency",
    "label": "Discount Amount",
-   "options": "currency"
+   "options": "currency",
+   "print_hide": 1
   },
   {
    "depends_on": "eval:doc.margin_type && doc.price_list_rate && doc.margin_rate_or_amount",
@@ -493,13 +494,15 @@
   {
    "fieldname": "weight_per_unit",
    "fieldtype": "Float",
-   "label": "Weight Per Unit"
+   "label": "Weight Per Unit",
+   "print_hide": 1
   },
   {
    "fieldname": "total_weight",
    "fieldtype": "Float",
    "label": "Total Weight",
-   "read_only": 1
+   "read_only": 1,
+   "print_hide": 1
   },
   {
    "fieldname": "column_break_21",
@@ -812,7 +815,8 @@
    "label": "Rate of Stock UOM",
    "no_copy": 1,
    "options": "currency",
-   "read_only": 1
+   "read_only": 1,
+   "print_hide": 1
   },
   {
    "default": "0",
@@ -820,14 +824,16 @@
    "fieldname": "grant_commission",
    "fieldtype": "Check",
    "label": "Grant Commission",
-   "read_only": 1
+   "read_only": 1,
+   "print_hide": 1
   },
   {
    "fieldname": "picked_qty",
    "fieldtype": "Float",
    "label": "Picked Qty (in Stock UOM)",
    "no_copy": 1,
-   "read_only": 1
+   "read_only": 1,
+   "print_hide": 1
   },
   {
    "fieldname": "inter_transfer_reference_section",
@@ -900,7 +906,8 @@
    "fieldtype": "Float",
    "label": "Production Plan Qty",
    "no_copy": 1,
-   "read_only": 1
+   "read_only": 1,
+   "print_hide": 1
   },
   {
    "default": "0",

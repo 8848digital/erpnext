@@ -244,6 +244,7 @@ class StockReconciliation(StockController):
 				serial_and_batch_bundle = frappe.get_doc(
 					{
 						"doctype": "Serial and Batch Bundle",
+						"company": self.company,
 						"item_code": item.item_code,
 						"warehouse": item.warehouse,
 						"posting_datetime": combine_datetime(self.posting_date, self.posting_time),
@@ -527,13 +528,8 @@ class StockReconciliation(StockController):
 					return True
 
 			rate_precision = item.precision("valuation_rate")
-<<<<<<< Updated upstream
-			item_dict["rate"] = flt(item_dict.get("rate"), rate_precision)
-			item.valuation_rate = flt(item.valuation_rate, rate_precision) if item.valuation_rate else None
-=======
 			rate = flt(item_dict.get("rate"), rate_precision)
 			valuation_rate = flt(item.valuation_rate, rate_precision) if item.valuation_rate else None
->>>>>>> Stashed changes
 			if (
 				(item.qty is None or item.qty == item_dict.get("qty"))
 				and (valuation_rate is None or valuation_rate == rate)

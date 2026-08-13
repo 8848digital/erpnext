@@ -18,6 +18,7 @@ frappe.ui.form.on("Sales Order", {
 			Project: "Project",
 			"Payment Entry": "Payment",
 			"Work Order": "Work Order",
+			"Production Plan": "Production Plan",
 		};
 		frm.add_fetch("customer", "tax_id", "tax_id");
 
@@ -62,6 +63,13 @@ frappe.ui.form.on("Sales Order", {
 				frappe.model.set_value(d.doctype, d.name, "delivery_date", frm.doc.delivery_date);
 			});
 		}
+	},
+	transaction_date(frm) {
+		prevent_past_delivery_dates(frm);
+		frm.set_value("delivery_date", "");
+		frm.doc.items.forEach((d) => {
+			frappe.model.set_value(d.doctype, d.name, "delivery_date", "");
+		});
 	},
 
 	refresh: function (frm) {
@@ -166,10 +174,6 @@ frappe.ui.form.on("Sales Order", {
 			}
 		}
 		prevent_past_delivery_dates(frm);
-<<<<<<< Updated upstream
-
-=======
->>>>>>> Stashed changes
 		// Hide `Reserve Stock` field description in submitted or cancelled Sales Order.
 		if (frm.doc.docstatus > 0) {
 			frm.set_df_property("reserve_stock", "description", null);
@@ -249,17 +253,6 @@ frappe.ui.form.on("Sales Order", {
 		];
 	},
 
-<<<<<<< Updated upstream
-	delivery_date(frm) {
-		if (frm.doc.delivery_date) {
-			frm.doc.items.forEach((d) => {
-				frappe.model.set_value(d.doctype, d.name, "delivery_date", frm.doc.delivery_date);
-			});
-		}
-	},
-
-=======
->>>>>>> Stashed changes
 	create_stock_reservation_entries(frm) {
 		const dialog = new frappe.ui.Dialog({
 			title: __("Stock Reservation"),
@@ -723,29 +716,32 @@ frappe.ui.form.on("Sales Order", {
 		if (!frequency) {
 			frappe.throw(__("Please select a frequency for delivery schedule"));
 		}
-
 		if (!first_delivery_date) {
 			frappe.throw(__("Please enter the first delivery date"));
 		}
-
 		if (no_of_deliveries <= 0) {
 			frappe.throw(__("Please enter a valid number of deliveries"));
 		}
 
+		const month_mapper = {
+			Monthly: 1,
+			Quarterly: 3,
+			"Half Yearly": 6,
+			Yearly: 12,
+		};
+
 		frm.schedule_dialog.fields_dict.delivery_schedule.df.data = [];
 		let qty_to_deliver = row.qty;
 		let qty_per_delivery = qty_to_deliver / no_of_deliveries;
-		for (let i = 0; i < no_of_deliveries; i++) {
-			let qty = qty_per_delivery;
-			if (must_be_whole_number) {
-				qty = cint(qty);
-			}
 
-			if (i === no_of_deliveries - 1) {
-				// Last delivery, adjust the quantity to deliver the remaining amount
+		for (let i = 0; i < no_of_deliveries; i++) {
+			let qty;
+			const is_last = i === no_of_deliveries - 1;
+
+			if (is_last) {
 				qty = qty_to_deliver;
-				qty_to_deliver = 0;
 			} else {
+				qty = must_be_whole_number ? cint(qty_per_delivery) : qty_per_delivery;
 				qty_to_deliver -= qty;
 			}
 
@@ -754,20 +750,15 @@ frappe.ui.form.on("Sales Order", {
 				qty: qty,
 			});
 
-			if (frequency === "Weekly") {
-				first_delivery_date = frappe.datetime.add_days(first_delivery_date, i + 1 * 7);
-			} else {
-				let month_mapper = {
-					Monthly: 1,
-					Quarterly: 3,
-					Half_Yearly: 6,
-					Yearly: 12,
-				};
-
-				first_delivery_date = frappe.datetime.add_months(
-					first_delivery_date,
-					month_mapper[frequency] * i + 1
-				);
+			if (!is_last) {
+				if (frequency === "Weekly") {
+					first_delivery_date = frappe.datetime.add_days(first_delivery_date, 7);
+				} else {
+					first_delivery_date = frappe.datetime.add_months(
+						first_delivery_date,
+						month_mapper[frequency]
+					);
+				}
 			}
 		}
 
@@ -1067,6 +1058,14 @@ erpnext.selling.SalesOrderController = class SalesOrderController extends erpnex
 								__("Create")
 							);
 						}
+
+						if (frappe.model.can_create("Production Plan") && !doc.is_subcontracted) {
+							this.frm.add_custom_button(
+								__("Production Plan"),
+								() => this.make_production_plan(),
+								__("Create")
+							);
+						}
 					}
 
 					// sales invoice
@@ -1219,6 +1218,24 @@ erpnext.selling.SalesOrderController = class SalesOrderController extends erpnex
 		this.order_type(doc);
 	}
 
+	items_add(doc, cdt, cdn) {
+		const row = frappe.get_doc(cdt, cdn);
+		const field_copy = [];
+		if (doc.project) {
+			frappe.model.set_value(cdt, cdn, "project", doc.project);
+		} else {
+			field_copy.push("project");
+		}
+		if (doc.delivery_date) {
+			frappe.model.set_value(cdt, cdn, "delivery_date", doc.delivery_date);
+		} else {
+			field_copy.push("delivery_date");
+		}
+		if (field_copy.length) {
+			this.frm.script_manager.copy_from_first_row("items", row, field_copy);
+		}
+	}
+
 	create_pick_list() {
 		frappe.model.open_mapped_doc({
 			method: "erpnext.selling.doctype.sales_order.sales_order.create_pick_list",
@@ -1347,6 +1364,13 @@ erpnext.selling.SalesOrderController = class SalesOrderController extends erpnex
 		});
 	}
 
+	make_production_plan() {
+		frappe.model.open_mapped_doc({
+			method: "erpnext.selling.doctype.sales_order.sales_order.make_production_plan",
+			frm: this.frm,
+		});
+	}
+
 	order_type() {
 		this.toggle_delivery_date();
 	}
@@ -1397,6 +1421,7 @@ erpnext.selling.SalesOrderController = class SalesOrderController extends erpnex
 
 	make_raw_material_request_dialog(r) {
 		var me = this;
+		r.message.forEach((item) => (item.__checked = 1));
 		var fields = [
 			{ fieldtype: "Check", fieldname: "include_exploded_items", label: __("Include Exploded Items") },
 			{
@@ -1407,7 +1432,8 @@ erpnext.selling.SalesOrderController = class SalesOrderController extends erpnex
 			{
 				fieldtype: "Table",
 				fieldname: "items",
-				description: __("Select BOM, Qty and For Warehouse"),
+				description: __("Finished Goods"),
+				cannot_delete_rows: true,
 				fields: [
 					{
 						fieldtype: "Read Only",
@@ -1831,14 +1857,11 @@ erpnext.selling.SalesOrderController = class SalesOrderController extends erpnex
 };
 
 extend_cscript(cur_frm.cscript, new erpnext.selling.SalesOrderController({ frm: cur_frm }));
+
 function prevent_past_delivery_dates(frm) {
 	if (frm.doc.transaction_date) {
 		frm.fields_dict["delivery_date"].datepicker?.update({
 			minDate: new Date(frm.doc.transaction_date),
 		});
 	}
-<<<<<<< Updated upstream
 }
-=======
-}
->>>>>>> Stashed changes

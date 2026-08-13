@@ -553,22 +553,18 @@
    "label": "Allow Negative Stock for Batch"
   },
   {
+   "default": "0",
    "fieldname": "enable_serial_and_batch_no_for_item",
    "fieldtype": "Check",
-   "label": "Enable Serial / Batch No for Item"
+   "label": "Activate Serial / Batch No for Item"
   }
  ],
-<<<<<<< Updated upstream
- "hide_toolbar": 1,
-=======
- "hide_toolbar": 0,
->>>>>>> Stashed changes
  "icon": "icon-cog",
  "idx": 1,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-02-25 10:56:34.105949",
+ "modified": "2026-04-14 13:51:49.545114",
  "modified_by": "Administrator",
  "module": "Stock",
  "name": "Stock Settings",

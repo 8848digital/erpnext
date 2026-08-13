@@ -99,6 +99,7 @@
   "discount_amount",
   "sec_tax_breakup",
   "other_charges_calculation",
+  "item_wise_tax_details",
   "address_and_contact_tab",
   "section_addresses",
   "supplier_address",
@@ -1294,6 +1295,14 @@
    "fieldname": "auto_repeat_section",
    "fieldtype": "Section Break",
    "label": "Auto Repeat"
+  },
+  {
+   "fieldname": "item_wise_tax_details",
+   "fieldtype": "Table",
+   "hidden": 1,
+   "label": "Item Wise Tax Details",
+   "no_copy": 1,
+   "options": "Item Wise Tax Detail"
   }
  ],
  "grid_page_length": 50,

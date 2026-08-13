@@ -28,7 +28,6 @@
   "base_tax_amount",
   "base_total",
   "base_tax_amount_after_discount_amount",
-  "item_wise_tax_detail",
   "dont_recompute_tax"
  ],
  "fields": [
@@ -172,15 +171,6 @@
    "read_only": 1
   },
   {
-   "fieldname": "item_wise_tax_detail",
-   "fieldtype": "Code",
-   "hidden": 1,
-   "label": "Item Wise Tax Detail",
-   "oldfieldname": "item_wise_tax_detail",
-   "oldfieldtype": "Small Text",
-   "read_only": 1
-  },
-  {
    "fieldname": "accounting_dimensions_section",
    "fieldtype": "Section Break",
    "label": "Accounting Dimensions"
@@ -230,9 +220,10 @@
  "modified_by": "Administrator",
  "module": "Accounts",
  "name": "Sales Taxes and Charges",
- "owner": "Administrator",
- "permissions": [],
- "sort_field": "modified",
+  "owner": "Administrator",
+  "permissions": [],
+  "row_format": "Dynamic",
+  "sort_field": "modified",
  "sort_order": "ASC",
  "states": []
 }

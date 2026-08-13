@@ -31,8 +31,7 @@
   "column_break_14",
   "base_tax_amount",
   "base_total",
-  "base_tax_amount_after_discount_amount",
-  "item_wise_tax_detail"
+  "base_tax_amount_after_discount_amount"
  ],
  "fields": [
   {
@@ -190,16 +189,6 @@
    "fieldtype": "Currency",
    "label": "Tax Amount After Discount Amount",
    "options": "Company:company:default_currency",
-   "print_hide": 1,
-   "read_only": 1
-  },
-  {
-   "fieldname": "item_wise_tax_detail",
-   "fieldtype": "Code",
-   "hidden": 1,
-   "label": "Item Wise Tax Detail ",
-   "oldfieldname": "item_wise_tax_detail",
-   "oldfieldtype": "Small Text",
    "print_hide": 1,
    "read_only": 1
   },

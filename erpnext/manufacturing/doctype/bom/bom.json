@@ -45,6 +45,7 @@
   "process_loss_percentage",
   "column_break_ssj2",
   "process_loss_qty",
+  "backflush_based_on",
   "costing",
   "operating_cost",
   "raw_material_cost",
@@ -278,7 +279,7 @@
    "oldfieldtype": "Section Break"
   },
   {
-    "allow_bulk_edit": 1,
+   "allow_bulk_edit": 1,
    "fieldname": "items",
    "fieldtype": "Table",
    "label": "Items",
@@ -623,6 +624,14 @@
   {
    "fieldname": "column_break_oxbz",
    "fieldtype": "Column Break"
+  },
+  {
+   "description": "Controls how raw materials are consumed during the \u2018Manufacture\u2019 stock entry.",
+   "fieldname": "backflush_based_on",
+   "fieldtype": "Select",
+   "label": "Based On",
+   "options": "\nBOM\nMaterial Transferred for Manufacture",
+   "show_description_on_click": 1
   }
  ],
  "icon": "fa fa-sitemap",

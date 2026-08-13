@@ -48,6 +48,7 @@ class SalesInvoice(SellingController):
 		from frappe.types import DF
 
 		from erpnext.accounts.doctype.discount_terms.discount_terms import DiscountTerms
+		from erpnext.accounts.doctype.item_wise_tax_detail.item_wise_tax_detail import ItemWiseTaxDetail
 		from erpnext.accounts.doctype.payment_schedule.payment_schedule import PaymentSchedule
 		from erpnext.accounts.doctype.pricing_rule_detail.pricing_rule_detail import PricingRuleDetail
 		from erpnext.accounts.doctype.sales_invoice_advance.sales_invoice_advance import SalesInvoiceAdvance
@@ -123,6 +124,7 @@ class SalesInvoice(SellingController):
 		is_opening: DF.Literal["No", "Yes"]
 		is_pos: DF.Check
 		is_return: DF.Check
+		item_wise_tax_details: DF.Table[ItemWiseTaxDetail]
 		items: DF.Table[SalesInvoiceItem]
 		language: DF.Data | None
 		letter_head: DF.Link | None
@@ -894,8 +896,6 @@ class SalesInvoice(SellingController):
 				self.remarks = _("Against Customer Order {0}").format(self.po_no)
 				if self.po_date:
 					self.remarks += " " + _("dated {0}").format(formatdate(self.po_date))
-			else:
-				self.remarks = _("No Remarks")
 
 	def validate_auto_set_posting_time(self):
 		# Don't auto set the posting date and time if invoice is amended

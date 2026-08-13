@@ -34,7 +34,6 @@ class PurchaseTaxesandCharges(Document):
 		included_in_paid_amount: DF.Check
 		included_in_print_rate: DF.Check
 		is_tax_withholding_account: DF.Check
-		item_wise_tax_detail: DF.Code | None
 		parent: DF.Data
 		parentfield: DF.Data
 		parenttype: DF.Data

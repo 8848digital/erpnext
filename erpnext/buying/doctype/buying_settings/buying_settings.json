@@ -21,6 +21,7 @@
   "transaction_settings_section",
   "column_break_fcyl",
   "column_break_12",
+  "allow_negative_rates_for_items",
   "maintain_same_rate",
   "allow_multiple_items",
   "bill_for_rejected_quantity_in_purchase_invoice",
@@ -266,6 +267,12 @@
    "label": "Fixed Outgoing Email Account",
    "link_filters": "[[\"Email Account\",\"enable_outgoing\",\"=\",1]]",
    "options": "Email Account"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_negative_rates_for_items",
+   "fieldtype": "Check",
+   "label": "Allow Negative rates for Items"
   }
  ],
  "grid_page_length": 50,
@@ -275,7 +282,7 @@
  "issingle": 1,
  "links": [],
  "hide_toolbar": 0,
- "modified": "2025-05-16 15:56:38.321369",
+ "modified": "2026-04-15 16:07:35.484787",
  "modified_by": "Administrator",
  "module": "Buying",
  "name": "Buying Settings",

@@ -332,56 +332,13 @@ class SellingController(StockController):
 
 			if is_internal_customer or not is_stock_item:
 				continue
+
 			rate_field = "valuation_rate" if self.doctype in ["Sales Order", "Quotation"] else "incoming_rate"
 			if item.get(rate_field) and item.base_net_rate < (
 				valuation_rate := flt(
 					item.get(rate_field) * (item.conversion_factor or 1), item.precision("base_net_rate")
-<<<<<<< Updated upstream
-				))
-
-			valuation_rate_map[(item.item_code, item.warehouse)] = None
-
-		if not valuation_rate_map:
-			return
-
-		or_conditions = (
-			f"""(item_code = {frappe.db.escape(valuation_rate[0])}
-			and warehouse = {frappe.db.escape(valuation_rate[1])})"""
-			for valuation_rate in valuation_rate_map
-		)
-
-		valuation_rates = frappe.db.sql(
-			f"""
-			select
-				item_code, warehouse, valuation_rate
-			from
-				`tabBin`
-			where
-				({" or ".join(or_conditions)})
-				and valuation_rate > 0
-		""",
-			as_dict=True,
-		)
-
-		for rate in valuation_rates:
-			valuation_rate_map[(rate.item_code, rate.warehouse)] = rate.valuation_rate
-
-		for item in self.items:
-			if not item.item_code or item.is_free_item:
-				continue
-
-			last_valuation_rate = valuation_rate_map.get((item.item_code, item.warehouse))
-
-			if not last_valuation_rate:
-				continue
-
-			last_valuation_rate_in_sales_uom = last_valuation_rate * (item.conversion_factor or 1)
-
-			if flt(item.base_net_rate) < flt(last_valuation_rate_in_sales_uom):
-=======
 				)
 			):
->>>>>>> Stashed changes
 				throw_message(
 					item.idx,
 					item.item_name,
@@ -451,8 +408,10 @@ class SellingController(StockController):
 		product_bundle_items = getattr(self, "_product_bundle_items", None)
 		if product_bundle_items is None:
 			self._product_bundle_items = product_bundle_items = {}
+
 		if item_code not in product_bundle_items:
 			self._fetch_product_bundle_items(item_code)
+
 		return product_bundle_items[item_code]
 
 	def _fetch_product_bundle_items(self, item_code):
@@ -460,6 +419,7 @@ class SellingController(StockController):
 		items_to_fetch = {row.item_code for row in self.items if row.item_code not in product_bundle_items}
 		# fetch for requisite item_code even if it is not in items
 		items_to_fetch.add(item_code)
+
 		items_with_product_bundle = {
 			row.new_item_code
 			for row in frappe.get_all(
@@ -468,6 +428,7 @@ class SellingController(StockController):
 				fields="new_item_code",
 			)
 		}
+
 		for item_code in items_to_fetch:
 			product_bundle_items[item_code] = item_code in items_with_product_bundle
 
@@ -673,11 +634,11 @@ class SellingController(StockController):
 							if allow_at_arms_length_price:
 								continue
 
-							rate = flt(
-								flt(d.incoming_rate, d.precision("incoming_rate")) * d.conversion_factor,
-								d.precision("rate"),
-							)
-							if d.rate != rate:
+							rate = flt(flt(d.incoming_rate) * flt(d.conversion_factor or 1.0))
+
+							if flt(d.rate, d.precision("incoming_rate")) != flt(
+								rate, d.precision("incoming_rate")
+							):
 								d.rate = rate
 								frappe.msgprint(
 									_(

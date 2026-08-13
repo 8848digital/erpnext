@@ -543,6 +543,7 @@ class Company(NestedSet):
 
 			self.db_set("exchange_gain_loss_account", exchange_gain_loss_acct)
 
+
 	def _set_default_account(self, fieldname, account_type):
 		if self.get(fieldname):
 			return

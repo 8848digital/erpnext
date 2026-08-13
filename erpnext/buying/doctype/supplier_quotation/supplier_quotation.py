@@ -20,6 +20,7 @@ class SupplierQuotation(BuyingController):
 	from typing import TYPE_CHECKING
 
 	if TYPE_CHECKING: # pragma: no cover
+		from erpnext.accounts.doctype.item_wise_tax_detail.item_wise_tax_detail import ItemWiseTaxDetail
 		from erpnext.accounts.doctype.pricing_rule_detail.pricing_rule_detail import PricingRuleDetail
 		from erpnext.accounts.doctype.purchase_taxes_and_charges.purchase_taxes_and_charges import PurchaseTaxesandCharges
 		from erpnext.buying.doctype.supplier_quotation_item.supplier_quotation_item import SupplierQuotationItem
@@ -59,6 +60,8 @@ class SupplierQuotation(BuyingController):
 		in_words: DF.Data | None
 		incoterm: DF.Link | None
 		is_subcontracted: DF.Check
+		item_wise_tax_details: DF.Table[ItemWiseTaxDetail]
+		item_wise_tax_details: DF.Table[ItemWiseTaxDetail]
 		items: DF.Table[SupplierQuotationItem]
 		language: DF.Data | None
 		letter_head: DF.Link | None

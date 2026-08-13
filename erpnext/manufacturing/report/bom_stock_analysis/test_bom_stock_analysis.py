@@ -57,6 +57,7 @@ def create_items():
 			"is_stock_item": 1,
 			"standard_rate": 100,
 			"opening_stock": 100,
+			"valuation_rate": 100,
 			"last_purchase_rate": 100,
 			"item_defaults": [{"company": "_Test Company", "default_warehouse": "Stores - _TC"}],
 		}
@@ -66,6 +67,7 @@ def create_items():
 			"is_stock_item": 1,
 			"standard_rate": 200,
 			"opening_stock": 200,
+			"valuation_rate": 200,
 			"last_purchase_rate": 200,
 			"item_defaults": [{"company": "_Test Company", "default_warehouse": "Stores - _TC"}],
 		}

@@ -48,7 +48,7 @@
  "idx": 1,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-24 12:48:15.343727",
+ "modified": "2026-04-14 18:16:47.795986",
  "modified_by": "Administrator",
  "module": "Accounts",
  "name": "Mode of Payment",
@@ -70,9 +70,8 @@
    "role": "Accounts User"
   },
   {
-   "read": 1,
-   "report": 1,
-   "role": "HR User"
+   "role": "HR User",
+   "select": 1
   }
  ],
  "quick_entry": 1,

@@ -207,6 +207,11 @@ class TestRepostAccountingLedger(ERPNextTestSuite, AccountsTestMixin):
 	def test_06_repost_purchase_receipt(self):
 		from erpnext.accounts.doctype.account.test_account import create_account
 
+		if not frappe.db.set_value("Company", "_Test Company", "service_expense_account"):
+			frappe.db.set_value(
+				"Company", "_Test Company", "service_expense_account", "Marketing Expenses - _TC"
+			)
+
 		provisional_account = create_account(
 			account_name="Provision Account",
 			parent_account="Current Liabilities - _TC",
@@ -279,7 +284,8 @@ def update_repost_settings():
 		"Journal Entry",
 		"Purchase Receipt",
 	]
-	repost_settings = frappe.get_doc("Repost Accounting Ledger Settings")
-	for x in allowed_types:
-		repost_settings.append("allowed_types", {"document_type": x, "allowed": True})
-		repost_settings.save()
+	settings = frappe.get_doc("Accounts Settings")
+	for _type in allowed_types:
+		if _type not in [x.document_type for x in settings.repost_allowed_types]:
+			settings.append("repost_allowed_types", {"document_type": _type})
+	settings.save()

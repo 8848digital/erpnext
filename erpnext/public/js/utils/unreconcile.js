@@ -265,13 +265,23 @@ erpnext.accounts.unreconcile_payment = {
 				selections: selection_map,
 			},
 			callback: function(r) {
+				if (r.exc) {
+					return;
+				}
+
 				// Call the method to create the Payment Reconciliation Record after UnReconcile
 				erpnext.accounts.unreconcile_payment.create_payment_reconciliation_record_for_other_source_docs(
 					frm, 
 					selection_map,
 					clearing_date
 				);
-			}
+
+				if (frm && !frm.is_new()) {
+					frm.reload_doc();
+				}
+
+				frappe.show_alert({ message: __("Unreconciled successfully"), indicator: "green" });
+			},
 		});
 	},
 	//Create Payment Reconciliation Record after UnReconcile

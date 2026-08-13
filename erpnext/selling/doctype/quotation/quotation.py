@@ -21,6 +21,7 @@ class Quotation(SellingController):
 	if TYPE_CHECKING:  # pragma: no cover
 		from frappe.types import DF
 
+		from erpnext.accounts.doctype.item_wise_tax_detail.item_wise_tax_detail import ItemWiseTaxDetail
 		from erpnext.accounts.doctype.payment_schedule.payment_schedule import PaymentSchedule
 		from erpnext.accounts.doctype.pricing_rule_detail.pricing_rule_detail import PricingRuleDetail
 		from erpnext.accounts.doctype.sales_taxes_and_charges.sales_taxes_and_charges import (
@@ -66,6 +67,7 @@ class Quotation(SellingController):
 		ignore_pricing_rule: DF.Check
 		in_words: DF.Data | None
 		incoterm: DF.Link | None
+		item_wise_tax_details: DF.Table[ItemWiseTaxDetail]
 		items: DF.Table[QuotationItem]
 		language: DF.Data | None
 		letter_head: DF.Link | None
@@ -163,7 +165,7 @@ class Quotation(SellingController):
 		)
 
 		for row in self._items:
-			if row.name not in ordered_items or row.qty > ordered_items[row.name]:
+			if row.name not in ordered_items or row.stock_qty > ordered_items[row.name]:
 				return "Partially Ordered"
 
 		return "Ordered"
@@ -385,9 +387,9 @@ def _make_sales_order(source_name, target_doc=None, ignore_permissions=False, ar
 		target.run_method("calculate_taxes_and_totals")
 
 	def update_item(obj, target, source_parent):
-		balance_qty = obj.qty if is_unit_price_row(obj) else obj.qty - ordered_items.get(obj.name, 0.0)
-		target.qty = balance_qty if balance_qty > 0 else 0
-		target.stock_qty = flt(target.qty) * flt(obj.conversion_factor)
+		balance_stock_qty = obj.stock_qty - ordered_items.get(obj.name, 0.0)
+		target.stock_qty = balance_stock_qty if balance_stock_qty > 0 else 0
+		target.qty = flt(target.stock_qty) / flt(obj.conversion_factor)
 
 		if obj.against_blanket_order:
 			target.against_blanket_order = obj.against_blanket_order
@@ -401,7 +403,7 @@ def _make_sales_order(source_name, target_doc=None, ignore_permissions=False, ar
 		2. If selections: Is Alternative Item/Has Alternative Item: Map if selected and adequate qty
 		3. If no selections: Simple row: Map if adequate qty
 		"""
-		if not ((item.qty > ordered_items.get(item.name, 0.0)) or is_unit_price_row(item)):
+		if not ((item.stock_qty > ordered_items.get(item.name, 0.0)) or is_unit_price_row(item)):
 			return False
 
 		if not selected_rows:

@@ -2,6 +2,8 @@
 // Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
 // License: GNU General Public License v3. See license.txt
 
+const NOT_APPLICABLE_TAX = "N/A";
+
 erpnext.taxes_and_totals = class TaxesAndTotals extends erpnext.payments {
 	setup() {
 		this.fetch_round_off_accounts();
@@ -270,6 +272,10 @@ erpnext.taxes_and_totals = class TaxesAndTotals extends erpnext.payments {
 		if(cint(tax.included_in_print_rate)) {
 			var tax_rate = this._get_tax_rate(tax, item_tax_map);
 
+			if (tax_rate === NOT_APPLICABLE_TAX) {
+				return [current_tax_fraction, inclusive_tax_amount_per_qty];
+			}
+
 			if(tax.charge_type == "On Net Total") {
 				current_tax_fraction = (tax_rate / 100.0);
 
@@ -293,8 +299,14 @@ erpnext.taxes_and_totals = class TaxesAndTotals extends erpnext.payments {
 	}
 
 	_get_tax_rate(tax, item_tax_map) {
-		return (Object.keys(item_tax_map).indexOf(tax.account_head) != -1) ?
-			flt(item_tax_map[tax.account_head], precision("rate", tax)) : tax.rate;
+		if (tax.account_head in item_tax_map) {
+			let rate = item_tax_map[tax.account_head];
+			if (rate === NOT_APPLICABLE_TAX) {
+				return NOT_APPLICABLE_TAX;
+			}
+			return flt(rate, precision("rate", tax));
+		}
+		return tax.rate;
 	}
 
 	calculate_net_total() {
@@ -333,6 +345,10 @@ erpnext.taxes_and_totals = class TaxesAndTotals extends erpnext.payments {
 			}
 
 			$.each(item_tax_map, function(tax, rate) {
+				if (rate === NOT_APPLICABLE_TAX) {
+					return;
+				}
+
 				let found = (me.frm.doc.taxes || []).find(d => d.account_head === tax);
 				if (!found) {
 					let child = frappe.model.add_child(me.frm.doc, "taxes");
@@ -464,6 +480,10 @@ erpnext.taxes_and_totals = class TaxesAndTotals extends erpnext.payments {
 		var tax_rate = this._get_tax_rate(tax, item_tax_map);
 		var current_tax_amount = 0.0;
 
+		if (tax_rate === NOT_APPLICABLE_TAX) {
+			return [current_net_amount, current_tax_amount];
+		}
+
 		// To set row_id by default as previous row.
 		if(["On Previous Row Amount", "On Previous Row Total"].includes(tax.charge_type)) {
 			if (tax.idx === 1) {
@@ -493,35 +513,7 @@ erpnext.taxes_and_totals = class TaxesAndTotals extends erpnext.payments {
 			current_tax_amount = tax_rate * item.qty;
 		}
 
-		if (!tax.dont_recompute_tax) {
-			this.set_item_wise_tax(item, tax, tax_rate, current_tax_amount);
-		}
-
 		return current_tax_amount;
-	}
-
-	set_item_wise_tax(item, tax, tax_rate, current_tax_amount) {
-		// store tax breakup for each item
-		let tax_detail = tax.item_wise_tax_detail;
-		let key = item.item_code || item.item_name;
-
-		if(typeof (tax_detail) == "string") {
-			tax.item_wise_tax_detail = JSON.parse(tax.item_wise_tax_detail);
-			tax_detail = tax.item_wise_tax_detail;
-		}
-
-		let item_wise_tax_amount = current_tax_amount * this.frm.doc.conversion_rate;
-		if (frappe.flags.round_row_wise_tax) {
-			item_wise_tax_amount = flt(item_wise_tax_amount, precision("tax_amount", tax));
-			if (tax_detail && tax_detail[key]) {
-				item_wise_tax_amount += flt(tax_detail[key][1], precision("tax_amount", tax));
-			}
-		} else {
-			if (tax_detail && tax_detail[key])
-				item_wise_tax_amount += tax_detail[key][1];
-		}
-
-		tax_detail[key] = [tax_rate, flt(item_wise_tax_amount, precision("base_tax_amount", tax))];
 	}
 
 	round_off_totals(tax) {
@@ -642,18 +634,21 @@ erpnext.taxes_and_totals = class TaxesAndTotals extends erpnext.payments {
 			disable_rounded_total = frappe.sys_defaults.disable_rounded_total;
 		}
 
-		if (cint(disable_rounded_total)) {
-			this.frm.doc.rounded_total = 0;
-			this.frm.doc.base_rounded_total = 0;
-			this.frm.doc.rounding_adjustment = 0;
-			return;
-		}
-
-		if(frappe.meta.get_docfield(this.frm.doc.doctype, "rounded_total", this.frm.doc.name)) {
-			this.frm.doc.rounded_total = round_based_on_smallest_currency_fraction(this.frm.doc.grand_total,
-				this.frm.doc.currency, precision("rounded_total"));
-			this.frm.doc.rounding_adjustment = flt(this.frm.doc.rounded_total - this.frm.doc.grand_total,
-				precision("rounding_adjustment"));
+		if (frappe.meta.get_docfield(this.frm.doc.doctype, "rounded_total", this.frm.doc.name)) {
+			if (cint(disable_rounded_total)) {
+				this.frm.doc.rounded_total = 0;
+				this.frm.doc.rounding_adjustment = 0;
+			} else {
+				this.frm.doc.rounded_total = round_based_on_smallest_currency_fraction(
+					this.frm.doc.grand_total,
+					this.frm.doc.currency,
+					precision("rounded_total")
+				);
+				this.frm.doc.rounding_adjustment = flt(
+					this.frm.doc.rounded_total - this.frm.doc.grand_total,
+					precision("rounding_adjustment")
+				);
+			}
 
 			this.set_in_company_currency(this.frm.doc, ["rounding_adjustment", "rounded_total"]);
 		}
@@ -683,10 +678,6 @@ erpnext.taxes_and_totals = class TaxesAndTotals extends erpnext.payments {
 				$.each(temporary_fields, function(i, fieldname) {
 					delete tax[fieldname];
 				});
-
-				if (!tax.dont_recompute_tax) {
-					tax.item_wise_tax_detail = JSON.stringify(tax.item_wise_tax_detail);
-				}
 			});
 		}
 	}

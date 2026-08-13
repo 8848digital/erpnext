@@ -72,6 +72,10 @@
         font-weight: 500;
     }
 
+    .report-subtitle {
+        margin: 10px 0 14px;
+    }
+
     .text-center { text-align: center; }
     .text-right { text-align: right; font-variant-numeric: tabular-nums; }
     .text-left { text-align: left; }
@@ -97,27 +101,32 @@
         </div>
     </div>
 
-   <div class="report-meta">
-        <div class="left">
-            <div>
-                <strong>{%= __("Supplier") %}:</strong>
-                {%= (filters.party && filters.party.length && filters.party.join(", ")) || __("All Parties") %}
+    {% if (subtitle && subtitle.trim()) { %}
+        <div class="report-subtitle">
+            {{ subtitle }}
+        </div>
+    {% } else { %}
+    <div class="report-meta">
+            <div class="left">
+                <div>
+                    <strong>{%= __("Supplier") %}:</strong>
+                    {%= (filters.party && filters.party.length && filters.party.join(", ")) || __("All Parties") %}
+                </div>
+            </div>
+
+            <div class="right text-right">
+                <div>
+                    <strong>{%= __("Ageing Based On") %}:</strong>
+                    {%= __(filters.ageing_based_on) %}
+                </div>
+                <div>
+                    <strong>{%= __("As on Date") %}:</strong>
+                    {%= frappe.datetime.str_to_user(filters.report_date) %}
+                </div>
             </div>
         </div>
+    {% } %}
 
-        <div class="right text-right">
-             <div>
-                <strong>{%= __("Ageing Based On") %}:</strong>
-                {%= __(filters.ageing_based_on) %}
-            </div>
-            <div>
-                <strong>{%= __("As on Date") %}:</strong>
-                {%= frappe.datetime.str_to_user(filters.report_date) %}
-            </div>
-        </div>
-    </div>
-
-    <!-- Summary Table -->
     <div class="report-table">
         <table>
             <thead>
@@ -136,7 +145,6 @@
                     if (!(row.party || row.is_total_row)) continue;
                 %}
                     <tr>
-                        <!-- Supplier / Total -->
                         <td class="{% if (row.is_total_row) { %}text-bold{% } %}">
                             {% if (row.is_total_row) { %}
                                 {%= __("Total") %}

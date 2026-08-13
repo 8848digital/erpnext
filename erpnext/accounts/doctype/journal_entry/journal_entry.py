@@ -57,6 +57,7 @@ class JournalEntry(AccountsController):
 		cheque_no: DF.Data | None
 		clearance_date: DF.Date | None
 		company: DF.Link
+		custom_remark: DF.Check
 		difference: DF.Currency
 		due_date: DF.Date | None
 		finance_book: DF.Link | None
@@ -246,6 +247,13 @@ class JournalEntry(AccountsController):
 					frappe.throw(_("Total Credit/ Debit Amount should be same as linked Journal Entry"))
 
 	def validate_stock_accounts(self):
+		if (
+			not erpnext.is_perpetual_inventory_enabled(self.company)
+			or self.voucher_type == "Periodic Accounting Entry"
+		):
+			# Skip validation for periodic accounting entry and Perpetual Inventory Disabled Company.
+			return
+
 		stock_accounts = get_stock_accounts(self.company, self.doctype, self.name)
 		for account in stock_accounts:
 			account_bal, stock_bal, warehouse_list = get_stock_and_account_balance(
@@ -858,8 +866,8 @@ class JournalEntry(AccountsController):
 		if self.flags.skip_remarks_creation:
 			return
 
-		if self.user_remark:
-			r.append(_("Note: {0}").format(self.user_remark))
+		if self.get("custom_remark"):
+			return
 
 		if self.cheque_no:
 			if self.cheque_date:
@@ -1367,34 +1375,41 @@ def get_payment_entry(ref_doc, args):
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
-def get_against_jv(doctype, txt, searchfield, start, page_len, filters):
+def get_against_jv(
+	doctype: str,
+	txt: str,
+	searchfield: str,
+	start: int,
+	page_len: int,
+	filters: dict,
+):
 	if not frappe.db.has_column("Journal Entry", searchfield):
 		return []
 
-	return frappe.db.sql(
-		f"""
-		SELECT jv.name, jv.posting_date, jv.user_remark
-		FROM `tabJournal Entry` jv, `tabJournal Entry Account` jv_detail
-		WHERE jv_detail.parent = jv.name
-			AND jv_detail.account = %(account)s
-			AND IFNULL(jv_detail.party, '') = %(party)s
-			AND (
-				jv_detail.reference_type IS NULL
-				OR jv_detail.reference_type = ''
-			)
-			AND jv.docstatus = 1
-			AND jv.`{searchfield}` LIKE %(txt)s
-		ORDER BY jv.name DESC
-		LIMIT %(limit)s offset %(offset)s
-		""",
-		dict(
-			account=filters.get("account"),
-			party=cstr(filters.get("party")),
-			txt=f"%{txt}%",
-			offset=start,
-			limit=page_len,
-		),
+	JournalEntry = frappe.qb.DocType("Journal Entry")
+	JournalEntryAccount = frappe.qb.DocType("Journal Entry Account")
+
+	query = (
+		frappe.qb.from_(JournalEntry)
+		.join(JournalEntryAccount)
+		.on(JournalEntryAccount.parent == JournalEntry.name)
+		.select(JournalEntry.name, JournalEntry.posting_date, JournalEntry.remark)
+		.where(JournalEntryAccount.account == filters.get("account"))
+		.where(JournalEntryAccount.reference_type.isnull() | (JournalEntryAccount.reference_type == ""))
+		.where(JournalEntry.docstatus == 1)
+		.where(JournalEntry[searchfield].like(f"%{txt}%"))
+		.orderby(JournalEntry.name, order=frappe.qb.desc)
+		.limit(page_len)
+		.offset(start)
 	)
+
+	party = filters.get("party")
+	if party:
+		query = query.where(JournalEntryAccount.party == party)
+	else:
+		query = query.where(JournalEntryAccount.party.isnull() | (JournalEntryAccount.party == ""))
+
+	return query.run()
 
 
 @frappe.whitelist()

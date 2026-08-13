@@ -8,8 +8,10 @@
  "field_order": [
   "customer_defaults_section",
   "cust_master_name",
-  "customer_group",
+  "naming_series_details",
+  "configure",
   "column_break_4",
+  "customer_group",
   "territory",
   "item_price_settings_section",
   "selling_price_list",
@@ -34,7 +36,9 @@
   "dont_reserve_sales_order_qty_on_sales_return",
   "hide_tax_id",
   "enable_discount_accounting",
-  "enable_cutoff_date_on_bulk_delivery_note_creation"
+  "enable_cutoff_date_on_bulk_delivery_note_creation",
+  "default_naming_tab",
+  "transaction_naming_html"
  ],
  "fields": [
   {
@@ -208,6 +212,29 @@
    "fieldname": "enable_cutoff_date_on_bulk_delivery_note_creation",
    "fieldtype": "Check",
    "label": "Enable Cut-Off Date on Bulk Delivery Note Creation"
+  },
+  {
+   "fieldname": "configure",
+   "fieldtype": "Button",
+   "hidden": 1,
+   "label": "Configure Series"
+  },
+  {
+   "fieldname": "naming_series_details",
+   "fieldtype": "Small Text",
+   "hidden": 1,
+   "is_virtual": 1,
+   "label": "Naming Series options",
+   "read_only": 1
+  },
+  {
+   "fieldname": "default_naming_tab",
+   "fieldtype": "Tab Break",
+   "label": "Document Naming"
+  },
+  {
+   "fieldname": "transaction_naming_html",
+   "fieldtype": "HTML"
   }
  ],
  "grid_page_length": 50,

@@ -449,11 +449,6 @@ class TestItem(IntegrationTestCase):
 		frappe.delete_doc_if_exists("Item", "_Test Numeric Template Item")
 		frappe.delete_doc_if_exists("Item Attribute", "Test Item Length")
 
-		frappe.db.sql(
-			"""delete from `tabItem Variant Attribute`
-			where attribute='Test Item Length' """
-		)
-
 		frappe.flags.attribute_values = None
 
 		# make item attribute
@@ -597,7 +592,6 @@ class TestItem(IntegrationTestCase):
 
 	def test_add_item_barcode(self):
 		# Clean up
-		frappe.db.sql("""delete from `tabItem Barcode`""")
 		item_code = "Test Item Barcode"
 		if frappe.db.exists("Item", item_code):
 			frappe.delete_doc("Item", item_code)

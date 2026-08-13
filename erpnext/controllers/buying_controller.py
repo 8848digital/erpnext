@@ -15,7 +15,7 @@ from erpnext.accounts.party import get_party_details
 from erpnext.buying.utils import update_last_purchase_rate, validate_for_items
 from erpnext.controllers.sales_and_purchase_return import get_rate_for_return
 from erpnext.controllers.subcontracting_controller import SubcontractingController
-from erpnext.stock.get_item_details import get_conversion_factor
+from erpnext.stock.get_item_details import NOT_APPLICABLE_TAX, get_conversion_factor
 from erpnext.stock.utils import get_incoming_rate
 from erpnext.controllers.accounts_controller import get_taxes_and_charges
 
@@ -340,7 +340,17 @@ class BuyingController(SubcontractingController):
 						get_conversion_factor(item.item_code, item.uom).get("conversion_factor") or 1.0
 					)
 
-				net_rate = item.base_net_amount
+				net_rate = (
+					flt(
+						(item.base_net_amount / item.received_qty) * item.qty,
+						item.precision("base_net_amount"),
+					)
+					if item.received_qty
+					and frappe.get_single_value(
+						"Buying Settings", "bill_for_rejected_quantity_in_purchase_invoice"
+					)
+					else item.base_net_amount
+				)
 				if item.sales_incoming_rate:  # for internal transfer
 					net_rate = item.qty * item.sales_incoming_rate
 
@@ -397,7 +407,36 @@ class BuyingController(SubcontractingController):
 				total_actual_tax_amount += amount
 
 		return tax_accounts, total_valuation_amount, total_actual_tax_amount
-	
+	def get_item_tax_amount(self, item, tax_accounts):
+		item_tax_amount = 0.0
+		if item.item_tax_rate:
+			tax_details = json.loads(item.item_tax_rate)
+			for account, rate in tax_details.items():
+				if account not in tax_accounts:
+					continue
+
+				if rate == NOT_APPLICABLE_TAX:
+					continue
+
+				net_rate = item.base_net_amount
+				if item.sales_incoming_rate:
+					net_rate = item.qty * item.sales_incoming_rate
+
+				item_tax_amount += flt(net_rate) * flt(rate) / 100
+
+		return item_tax_amount
+
+	def get_item_actual_tax_amount(
+		self, item, actual_tax_amount, stock_and_asset_items_amount, stock_and_asset_items_qty
+	):
+		item_proportion = (
+			flt(item.base_net_amount) / stock_and_asset_items_amount
+			if stock_and_asset_items_amount
+			else flt(item.qty) / stock_and_asset_items_qty
+		)
+
+		return flt(item_proportion * actual_tax_amount, self.precision("item_tax_amount", item))
+
 	def set_incoming_rate(self):
 		"""
 		Override item rate with incoming rate for internal stock transfer

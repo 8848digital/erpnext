@@ -459,8 +459,12 @@ erpnext.TransactionController = class TransactionController extends erpnext.taxe
 				reference_name: frm.doc.name,
 			},
 		});
+		const value = await frappe.db.get_single_value(
+			"Accounts Settings",
+			"fetch_payment_schedule_in_payment_request"
+		);
 
-		if (!schedules.length) {
+		if (!value || !schedules.length) {
 			this.make_payment_request();
 			return;
 		}
@@ -468,6 +472,7 @@ erpnext.TransactionController = class TransactionController extends erpnext.taxe
 			frappe.msgprint(__("No pending payment schedules available."));
 			return;
 		}
+		schedules.forEach((schedule) => (schedule.__checked = 1));
 
 		const dialog = new frappe.ui.Dialog({
 			title: __("Select Payment Schedule"),
@@ -477,6 +482,7 @@ erpnext.TransactionController = class TransactionController extends erpnext.taxe
 					fieldname: "payment_schedules",
 					label: __("Payment Schedules"),
 					cannot_add_rows: true,
+					cannot_delete_rows: true,
 					in_place_edit: false,
 					data: schedules,
 					fields: [
@@ -522,7 +528,6 @@ erpnext.TransactionController = class TransactionController extends erpnext.taxe
 					});
 					return;
 				}
-				console.log(selected);
 				dialog.hide();
 				let me = this;
 				const payment_request_type = ["Sales Order", "Sales Invoice"].includes(this.frm.doc.doctype)
