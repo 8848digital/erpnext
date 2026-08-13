@@ -6,7 +6,9 @@ import frappe
 from frappe import _
 
 import erpnext
-# from frappe.core.doctype.installed_applications.installed_applications import get_setup_wizard_completed_apps
+from frappe.core.doctype.installed_applications.installed_applications import (
+	get_setup_wizard_completed_apps,
+)
 
 
 def get_level(site_info):

@@ -7,6 +7,7 @@ import frappe
 import frappe.utils
 
 import erpnext
+from erpnext.accounts.utils import build_qb_match_conditions
 from erpnext.setup.doctype.employee.employee import InactiveEmployeeStatusError
 from frappe.query_builder import Criterion
 

@@ -3,11 +3,13 @@
 
 import unittest
 
+import frappe
+from frappe.exceptions import ValidationError
+
 # test_records = frappe.get_test_records('Bank Account')
 
 
 class TestBankAccount(unittest.TestCase):
-<<<<<<< HEAD
 	def test_validate_iban(self):
 		valid_ibans = [
 			"GB82 WEST 1234 5698 7654 32",
@@ -106,6 +108,3 @@ class TestBankAccount(unittest.TestCase):
 
 		self.assertFalse(frappe.db.exists("Contact", contact.name))
 		self.assertFalse(frappe.db.exists("Address", address.name))
-=======
-	pass
->>>>>>> bd3a132868 (feat: set options for IBAN fields (backport #49377) (#49413))

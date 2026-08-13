@@ -16,6 +16,9 @@ import erpnext
 
 # from erpnext.accounts.doctype.work_breakdown_structure.work_breakdown_structure import check_available_budget
 from erpnext.accounts.utils import get_account_currency
+from erpnext.budget.doctype.work_breakdown_structure.work_breakdown_structure import (
+	check_available_budget,
+)
 from erpnext.buying.utils import check_on_hold_or_closed_status
 from erpnext.controllers.accounts_controller import merge_taxes
 from erpnext.controllers.buying_controller import BuyingController

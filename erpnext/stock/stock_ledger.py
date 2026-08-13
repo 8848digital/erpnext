@@ -2328,7 +2328,7 @@ def validate_reserved_batch_nos(kwargs):
 				msg = _("{0} units of {1} needed in {2} on {3} {4} to complete this transaction.").format(
 					abs(diff),
 					frappe.get_desk_link("Batch", batch_no),
-					frappe.get_desk_link("Warehouse", warehouse),
+					frappe.get_desk_link("Warehouse", kwargs.warehouse),
 					nowdate(),
 					nowtime(),
 				)
@@ -2414,6 +2414,15 @@ def is_transfer_stock_entry(voucher_no):
 
 	return purpose in ["Material Transfer", "Material Transfer for Manufacture", "Send to Subcontractor"]
 
+
+@frappe.request_cache
+def get_serial_from_sabb(serial_and_batch_bundle):
+	return frappe.get_all(
+		"Serial and Batch Entry",
+		filters={"parent": serial_and_batch_bundle},
+		fields=["serial_no", "batch_no", "name", "qty", "incoming_rate"],
+		order_by="idx",
+	)
 
 
 def get_incoming_rate_for_serial_and_batch(item_code, row, sn_obj):

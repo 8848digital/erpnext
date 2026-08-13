@@ -120,6 +120,36 @@ class Account(NestedSet):
 		self.validate_root_company_and_sync_account_to_children()
 		self.validate_receivable_payable_account_type()
 
+	def validate_disabled(self):
+		doc_before_save = self.get_doc_before_save()
+		if not doc_before_save or cint(doc_before_save.disabled) == cint(self.disabled):
+			return
+
+		if cint(self.disabled):
+			self.validate_default_accounts_in_company()
+
+	def validate_default_accounts_in_company(self):
+		default_account_fields = get_company_default_account_fields()
+
+		company_default_accounts = frappe.db.get_value(
+			"Company", self.company, list(default_account_fields.keys()), as_dict=1
+		)
+
+		msg = _("Account {0} cannot be disabled as it is already set as {1} for {2}.")
+
+		if not self.disabled:
+			msg = _("Account {0} cannot be converted to Group as it is already set as {1} for {2}.")
+
+		for d in default_account_fields:
+			if company_default_accounts.get(d) == self.name:
+				throw(
+					msg.format(
+						frappe.bold(self.name),
+						frappe.bold(default_account_fields.get(d)),
+						frappe.bold(self.company),
+					)
+				)
+
 	def validate_parent_child_account_type(self):
 		if self.parent_account:
 			if self.account_type in [
@@ -626,3 +656,24 @@ def _ensure_idle_system():
 			).format(pretty_date(last_gl_update)),
 			title=_("System In Use"),
 		)
+
+
+def get_company_default_account_fields():
+	return {
+		"default_bank_account": "Default Bank Account",
+		"default_cash_account": "Default Cash Account",
+		"default_receivable_account": "Default Receivable Account",
+		"default_payable_account": "Default Payable Account",
+		"default_expense_account": "Default Expense Account",
+		"default_income_account": "Default Income Account",
+		"stock_received_but_not_billed": "Stock Received But Not Billed Account",
+		"stock_adjustment_account": "Stock Adjustment Account",
+		"write_off_account": "Write Off Account",
+		"default_discount_account": "Default Payment Discount Account",
+		"unrealized_profit_loss_account": "Unrealized Profit / Loss Account",
+		"exchange_gain_loss_account": "Exchange Gain / Loss Account",
+		"unrealized_exchange_gain_loss_account": "Unrealized Exchange Gain / Loss Account",
+		"round_off_account": "Round Off Account",
+		"default_deferred_revenue_account": "Default Deferred Revenue Account",
+		"default_deferred_expense_account": "Default Deferred Expense Account",
+	}

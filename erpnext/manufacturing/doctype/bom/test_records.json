@@ -78,6 +78,7 @@
   "is_active": 1,
   "is_default": 1,
   "currency": "USD",
+  "company": "_Test Company",
   "item": "_Test FG Item",
   "quantity": 1.0
  },
@@ -159,6 +160,7 @@
   "is_active": 1,
   "is_default": 1,
   "currency": "USD",
+  "company": "_Test Company",
   "item": "_Test Variant Item",
   "quantity": 1.0,
   "with_operations": 1
@@ -183,6 +185,7 @@
   "is_active": 1,
   "is_default": 1,
   "currency": "USD",
+  "company": "_Test Company",
   "item": "_Test Variant Item",
   "quantity": 1.0,
   "with_operations": 0,

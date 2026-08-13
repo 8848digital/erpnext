@@ -7894,6 +7894,7 @@ def check_gl_entries(doc, voucher_no, expected_gle, posting_date, voucher_type="
 
 	def test_non_batchwise_valuation_for_moving_average(self):
 		from erpnext.stock.doctype.item.test_item import make_item
+		from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
 
 		item_code = "_Test Item for Non Batchwise Valuation"
 		make_item_for_si(

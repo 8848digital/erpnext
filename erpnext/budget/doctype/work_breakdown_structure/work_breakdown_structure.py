@@ -69,6 +69,17 @@ def get_children(doctype, parent, project = None, is_root=False):
 
     return acc
 
+def create_warehouse(name, company=None):
+	if frappe.db.exists("Warehouse", name):
+		return frappe.get_doc("Warehouse", name)
+
+	warehouse = frappe.new_doc("Warehouse")
+	warehouse.warehouse_name = name
+	warehouse.company = company
+	warehouse.insert(ignore_permissions=True)
+	return warehouse
+
+
 @frappe.whitelist()
 def add_wbs_from_tree_view(arguments=None):
     from frappe.desk.treeview import make_tree_args
@@ -112,7 +123,7 @@ def add_wbs_from_tree_view(arguments=None):
     wbs.insert()
 
     if int(arguments.get("warehouse_required")) == 1:
-        create_warehouse(wbs.name)
+        create_warehouse(wbs.name, wbs.company)
 
     return wbs.name
 

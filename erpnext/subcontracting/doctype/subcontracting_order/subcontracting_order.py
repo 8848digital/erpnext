@@ -356,8 +356,7 @@ class SubcontractingOrder(SubcontractingController):
 				service_item.purchase_order_item,
 				"subcontracted_quantity",
 				subcontracted_quantity,
- 			)
-			doc.save()
+			)
 
 
 @frappe.whitelist()
