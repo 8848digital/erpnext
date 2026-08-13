@@ -823,14 +823,14 @@ frappe.ui.form.on("Payment Entry", {
 	paid_amount: function (frm) {
 		frm.set_value("base_paid_amount", flt(frm.doc.paid_amount) * flt(frm.doc.source_exchange_rate));
 		let company_currency = frappe.get_doc(":Company", frm.doc.company).default_currency;
- 		if (!frm.doc.received_amount) {
- 			if (frm.doc.paid_from_account_currency == frm.doc.paid_to_account_currency) {
- 				frm.set_value("received_amount", frm.doc.paid_amount);
- 			} else if (company_currency == frm.doc.paid_to_account_currency) {
- 				frm.set_value("received_amount", frm.doc.base_paid_amount);
- 				frm.set_value("base_received_amount", frm.doc.base_paid_amount);
- 			}
- 		}
+		if (!frm.doc.received_amount) {
+			if (frm.doc.paid_from_account_currency == frm.doc.paid_to_account_currency) {
+				frm.set_value("received_amount", frm.doc.paid_amount);
+			} else if (company_currency == frm.doc.paid_to_account_currency) {
+				frm.set_value("received_amount", frm.doc.base_paid_amount);
+				frm.set_value("base_received_amount", frm.doc.base_paid_amount);
+			}
+		}
 		frm.trigger("reset_received_amount");
 		frm.events.hide_unhide_fields(frm);
 	},
@@ -1467,7 +1467,6 @@ frappe.ui.form.on("Payment Entry", {
 		$.each(frm.doc["taxes"] || [], function (i, tax) {
 			frm.events.validate_taxes_and_charges(tax);
 			frm.events.validate_inclusive_tax(tax);
-			tax.item_wise_tax_detail = {};
 			let tax_fields = [
 				"total",
 				"tax_fraction_for_current_item",

@@ -53,7 +53,7 @@ def get_leaderboards():
 
 
 @frappe.whitelist()
-def get_all_customers(date_range, company, field, limit=None):
+def get_all_customers(date_range: str, company: str, field: str, limit: int | None = None):
 	filters = [["docstatus", "=", "1"], ["company", "=", company]]
 	from_date, to_date = parse_date_range(date_range)
 	if field == "outstanding_amount":
@@ -88,7 +88,7 @@ def get_all_customers(date_range, company, field, limit=None):
 
 
 @frappe.whitelist()
-def get_all_items(date_range, company, field, limit=None):
+def get_all_items(date_range: str, company: str, field: str, limit: int | None = None):
 	if field in ("available_stock_qty", "available_stock_value"):
 		select_field = "sum(actual_qty)" if field == "available_stock_qty" else "sum(stock_value)"
 		results = frappe.db.get_all(
@@ -134,7 +134,7 @@ def get_all_items(date_range, company, field, limit=None):
 
 
 @frappe.whitelist()
-def get_all_suppliers(date_range, company, field, limit=None):
+def get_all_suppliers(date_range: str, company: str, field: str, limit: int | None = None):
 	filters = [["docstatus", "=", "1"], ["company", "=", company]]
 	from_date, to_date = parse_date_range(date_range)
 
@@ -170,7 +170,7 @@ def get_all_suppliers(date_range, company, field, limit=None):
 
 
 @frappe.whitelist()
-def get_all_sales_partner(date_range, company, field, limit=None):
+def get_all_sales_partner(date_range: str, company: str, field: str, limit: int | None = None):
 	if field == "total_sales_amount":
 		select_field = "base_net_total"
 	elif field == "total_commission":
@@ -195,7 +195,7 @@ def get_all_sales_partner(date_range, company, field, limit=None):
 
 
 @frappe.whitelist()
-def get_all_sales_person(date_range, company, field=None, limit=0):
+def get_all_sales_person(date_range: str, company: str, field: str | None = None, limit: int | None = None):
 	filters = [
 		["docstatus", "=", "1"],
 		["company", "=", company],

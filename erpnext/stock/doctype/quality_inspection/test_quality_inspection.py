@@ -154,7 +154,9 @@ class TestQualityInspection(FrappeTestCase):
 		dn = create_delivery_note(item_code="_Test Item with QA", do_not_submit=True)
 		for item in dn.items:
 			item.sample_size = item.qty
-		quality_inspections = make_quality_inspections(dn.doctype, dn.name, dn.items)
+		quality_inspections = make_quality_inspections(
+			dn.company, dn.doctype, dn.name, dn.items, inspection_type
+		)
 		self.assertEqual(len(dn.items), len(quality_inspections))
 
 		# cleanup

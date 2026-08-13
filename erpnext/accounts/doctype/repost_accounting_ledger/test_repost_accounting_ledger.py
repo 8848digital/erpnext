@@ -4,7 +4,6 @@
 import frappe
 from frappe import qb
 from frappe.query_builder.functions import Sum
-from frappe.tests.utils import FrappeTestCase, change_settings
 from frappe.utils import add_days, nowdate, today
 
 from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
@@ -14,16 +13,16 @@ from erpnext.accounts.test.accounts_mixin import AccountsTestMixin
 from erpnext.accounts.utils import get_fiscal_year
 from erpnext.stock.doctype.item.test_item import make_item
 from erpnext.stock.doctype.purchase_receipt.test_purchase_receipt import get_gl_entries, make_purchase_receipt
+from erpnext.tests.utils import ERPNextTestSuite
 
-class TestRepostAccountingLedger(AccountsTestMixin, FrappeTestCase):
+
+class TestRepostAccountingLedger(ERPNextTestSuite, AccountsTestMixin):
 	def setUp(self):
 		self.create_company()
 		self.create_customer()
 		self.create_item()
+		frappe.db.set_single_value("Selling Settings", "validate_selling_price", 0)
 		update_repost_settings()
-
-	def tearDown(self):
-		frappe.db.rollback()
 
 	def test_01_basic_functions(self):
 		si = create_sales_invoice(
@@ -74,7 +73,6 @@ class TestRepostAccountingLedger(AccountsTestMixin, FrappeTestCase):
 			qb.from_(gl)
 			.select(gl.voucher_no, Sum(gl.debit).as_("debit"), Sum(gl.credit).as_("credit"))
 			.where((gl.voucher_no == si.name) & (gl.is_cancelled == 0))
-			.groupby(gl.voucher_no)
 			.run()
 		)
 
@@ -88,7 +86,6 @@ class TestRepostAccountingLedger(AccountsTestMixin, FrappeTestCase):
 			qb.from_(gl)
 			.select(gl.voucher_no, Sum(gl.debit).as_("debit"), Sum(gl.credit).as_("credit"))
 			.where((gl.voucher_no == si.name) & (gl.is_cancelled == 0))
-			.groupby(gl.voucher_no)
 			.run()
 		)
 
@@ -117,7 +114,7 @@ class TestRepostAccountingLedger(AccountsTestMixin, FrappeTestCase):
 		ral.append("vouchers", {"voucher_type": si.doctype, "voucher_no": si.name})
 		self.assertRaises(frappe.ValidationError, ral.save)
 
-	@change_settings("Accounts Settings", {"delete_linked_ledger_entries": 1})
+	@ERPNextTestSuite.change_settings("Accounts Settings", {"delete_linked_ledger_entries": 1})
 	def test_04_pcv_validation(self):
 		# Clear old GL entries so PCV can be submitted.
 		gl = frappe.qb.DocType("GL Entry")
@@ -137,10 +134,9 @@ class TestRepostAccountingLedger(AccountsTestMixin, FrappeTestCase):
 			{
 				"doctype": "Period Closing Voucher",
 				"transaction_date": today(),
-				"posting_date": today(),
+				"period_start_date": fy[1],
+				"period_end_date": today(),
 				"company": self.company,
-				"period_start_date":frappe.utils.getdate(fy[1]),
-				"period_end_date":frappe.utils.getdate(fy[2]),
 				"fiscal_year": fy[0],
 				"cost_center": self.cost_center,
 				"closing_account_head": self.retained_earnings,
@@ -211,6 +207,11 @@ class TestRepostAccountingLedger(AccountsTestMixin, FrappeTestCase):
 	def test_06_repost_purchase_receipt(self):
 		from erpnext.accounts.doctype.account.test_account import create_account
 
+		if not frappe.db.set_value("Company", "_Test Company", "service_expense_account"):
+			frappe.db.set_value(
+				"Company", "_Test Company", "service_expense_account", "Marketing Expenses - _TC"
+			)
+
 		provisional_account = create_account(
 			account_name="Provision Account",
 			parent_account="Current Liabilities - _TC",
@@ -229,7 +230,7 @@ class TestRepostAccountingLedger(AccountsTestMixin, FrappeTestCase):
 		company.save()
 
 		test_cc = company.cost_center
-		default_expense_account = company.default_expense_account
+		default_expense_account = company.service_expense_account
 
 		item = make_item(properties={"is_stock_item": 0})
 
@@ -274,15 +275,17 @@ class TestRepostAccountingLedger(AccountsTestMixin, FrappeTestCase):
 		company.default_provisional_account = None
 		company.save()
 
+
 def update_repost_settings():
 	allowed_types = [
- 		"Sales Invoice",
- 		"Purchase Invoice",
- 		"Payment Entry",
- 		"Journal Entry",
- 		"Purchase Receipt",
- 	]
-	repost_settings = frappe.get_doc("Repost Accounting Ledger Settings")
-	for x in allowed_types:
-		repost_settings.append("allowed_types", {"document_type": x, "allowed": True})
-		repost_settings.save()
+		"Sales Invoice",
+		"Purchase Invoice",
+		"Payment Entry",
+		"Journal Entry",
+		"Purchase Receipt",
+	]
+	settings = frappe.get_doc("Accounts Settings")
+	for _type in allowed_types:
+		if _type not in [x.document_type for x in settings.repost_allowed_types]:
+			settings.append("repost_allowed_types", {"document_type": _type})
+	settings.save()

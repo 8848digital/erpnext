@@ -1,13 +1,10 @@
 # Copyright (c) 2018, Frappe Technologies Pvt. Ltd. and Contributors
 # See license.txt
 
-import unittest
-
 import frappe
+from frappe.tests import IntegrationTestCase
 
 from erpnext.selling.doctype.sales_order.test_sales_order import make_sales_order
-
-test_dependencies = ["Item"]
 
 
 def test_create_test_data():
@@ -27,7 +24,6 @@ def test_create_test_data():
 				"item_code": "_Test Tesla Car",
 				"item_group": "_Test Item Group",
 				"item_name": "_Test Tesla Car",
-				"gst_hsn_code" : "01011010" ,
 				"apply_warehouse_wise_reorder_level": 0,
 				"warehouse": "Stores - _TC",
 				"valuation_rate": 5000,
@@ -82,17 +78,16 @@ def test_create_test_data():
 		)
 		item_pricing_rule.insert()
 	# create test item sales partner
-	if "Sales Commission" in frappe.get_installed_apps():
-		if not frappe.db.exists("Sales Partner", "_Test Coupon Partner"):
-			sales_partner = frappe.get_doc(
-				{
-					"doctype": "Sales Partner",
-					"partner_name": "_Test Coupon Partner",
-					"commission_rate": 2,
-					"referral_code": "COPART",
-				}
-			)
-			sales_partner.insert()
+	if not frappe.db.exists("Sales Partner", "_Test Coupon Partner"):
+		sales_partner = frappe.get_doc(
+			{
+				"doctype": "Sales Partner",
+				"partner_name": "_Test Coupon Partner",
+				"commission_rate": 2,
+				"referral_code": "COPART",
+			}
+		)
+		sales_partner.insert()
 	# create test item coupon code
 	if not frappe.db.exists("Coupon Code", "SAVE30"):
 		pricing_rule = frappe.db.get_value(
@@ -112,7 +107,7 @@ def test_create_test_data():
 		coupon_code.insert()
 
 
-class TestCouponCode(unittest.TestCase):
+class TestCouponCode(IntegrationTestCase):
 	def setUp(self):
 		test_create_test_data()
 
@@ -130,7 +125,6 @@ class TestCouponCode(unittest.TestCase):
 			item_code="_Test Tesla Car",
 			rate=5000,
 			qty=1,
-			do_not_submit=True,
 			do_not_save=True,
 		)
 
@@ -146,37 +140,38 @@ class TestCouponCode(unittest.TestCase):
 		so.submit()
 		self.assertEqual(frappe.db.get_value("Coupon Code", "SAVE30", "used"), 1)
 
-	def test_autoname_TC_ACC_296(self):
-		# Coupon Code
-		doc = frappe.new_doc("Coupon Code")
-		doc.coupon_name = "Promo1234Test"
-		doc.coupon_type = "Promotional"
-		doc.pricing_rule = "_Test Pricing Rule"
-		doc.maximum_use = 5
-		doc.autoname()
-		self.assertEqual(doc.name, "Promo1234Test")
-		expected_code = "PROMOTES"
-		self.assertEqual(doc.coupon_code, expected_code)
+	def test_coupon_without_max_use(self):
+		from erpnext.accounts.doctype.pricing_rule.utils import (
+			update_coupon_code_count,
+			validate_coupon_code,
+		)
 
-		# Gift Card
-		doc = frappe.new_doc("Coupon Code")
-		doc.coupon_name = "GiftCard987"
-		doc.coupon_type = "Gift Card"
-		doc.pricing_rule = "_Test Pricing Rule"
-		doc.customer = "_Test Customer"
+		coupon = frappe.get_doc(
+			{
+				"doctype": "Coupon Code",
+				"coupon_name": "_Test Coupon Without Max Use",
+				"coupon_code": "TESTUNLIMITED",
+				"from_external_ecomm_platform": 1,  # avoids requirement for pricing rule
+				"valid_from": frappe.utils.nowdate(),
+				"maximum_use": 0,
+				"used": 0,
+			}
+		)
+		coupon.insert(ignore_permissions=True)
 
-		doc.autoname()
-		self.assertEqual(doc.name, "GiftCard987")
-		self.assertTrue(doc.coupon_code)
-		self.assertEqual(len(doc.coupon_code), 10)
-		self.assertTrue(doc.coupon_code.isupper())
+		# Validate initial state
+		self.assertEqual(coupon.used, 0)
+		self.assertEqual(coupon.maximum_use, 0)
 
-	def test_validate_TC_ACC_297(self):
-		doc = frappe.new_doc("Coupon Code")
-		doc.coupon_name = "GC123"
-		doc.coupon_type = "Gift Card"
-		doc.pricing_rule = "_Test Pricing Rule"
+		# Use coupon multiple times
+		for _ in range(5):
+			validate_coupon_code(coupon.name)
+			update_coupon_code_count(coupon.name, "used")
+			coupon.reload()
 
-		with self.assertRaises(frappe.ValidationError) as context:
-			doc.validate()
-		self.assertIn("Please select the customer", str(context.exception))
+		# Check that the coupon is still valid and usage count increased
+		self.assertEqual(coupon.used, 5)
+		validate_coupon_code(coupon.name)  # This should not raise an error
+
+		# Clean up
+		coupon.delete()

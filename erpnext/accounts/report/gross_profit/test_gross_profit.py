@@ -1329,3 +1329,28 @@ class TestGrossProfit(FrappeTestCase):
 			frappe.get_cached_value = orig_gcv
 			frappe.db.get_value = orig_gv
 			rpt.get_match_cond = orig_match
+
+	def test_drop_ship(self):
+		from erpnext.buying.doctype.purchase_order.purchase_order import make_purchase_invoice
+		from erpnext.selling.doctype.sales_order.sales_order import make_purchase_order, make_sales_invoice
+		from erpnext.selling.doctype.sales_order.test_sales_order import make_sales_order
+		from erpnext.stock.doctype.item.test_item import make_item
+
+		item = make_item("_Test Drop Ship Item", properties={"is_stock_item": 1, "delivered_by_supplier": 1})
+
+		so = make_sales_order(item=item.name, qty=10, rate=100)
+		po = make_purchase_order(so.name, selected_items=[so.items[0]])[0]
+		po.items[0].rate = 80
+		po.supplier = "_Test Supplier"
+		po.submit()
+		make_purchase_invoice(po.name).submit()
+		si = make_sales_invoice(so.name).submit()
+
+		filters = frappe._dict(
+			company=si.company, from_date=si.posting_date, to_date=si.posting_date, group_by="Invoice"
+		)
+
+		_, data = execute(filters=filters)
+		self.assertEqual(data[1].buying_amount, 800)
+		self.assertIsNone(data[1].buying_rate)
+		self.assertEqual(data[1]["gross_profit_%"], 20)

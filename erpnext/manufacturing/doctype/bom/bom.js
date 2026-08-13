@@ -19,6 +19,49 @@ frappe.ui.form.on("BOM", {
 			};
 		});
 
+		frm.set_query("workstation", "operations", function (doc, cdt, cdn) {
+			let row = locals[cdt][cdn];
+			let filters = {
+				disabled: 0,
+			};
+
+			if (row.workstation_type) {
+				filters.workstation_type = row.workstation_type;
+			}
+
+			return {
+				filters: filters,
+			};
+		});
+
+		frm.set_query("operation", "items", function () {
+			if (!frm.doc.operations?.length) {
+				frappe.throw(__("Please add Operations first."));
+			}
+
+			let operations = frm.doc.operations.map((d) => d.operation);
+
+			return {
+				filters: {
+					name: ["in", operations],
+				},
+			};
+		});
+
+		frm.set_query("bom_no", "operations", function (doc, cdt, cdn) {
+			let row = locals[cdt][cdn];
+			return {
+				query: "erpnext.controllers.queries.bom",
+				filters: {
+					currency: frm.doc.currency,
+					company: frm.doc.company,
+					item: row.finished_good,
+					is_active: 1,
+					docstatus: 1,
+				},
+			};
+		});
+
 		frm.set_query("source_warehouse", "items", function () {
 			return {
 				filters: {
@@ -72,6 +115,55 @@ frappe.ui.form.on("BOM", {
 		}
 	},
 
+	set_company_filters: function (frm, fieldname) {
+		frm.set_query(fieldname, () => {
+			return {
+				filters: {
+					company: frm.doc.company,
+				},
+			};
+		});
+	},
+
+	track_semi_finished_goods(frm) {
+		frm.trigger("toggle_fields_for_semi_finished_goods");
+	},
+
+	toggle_fields_for_semi_finished_goods(frm) {
+		let fields = [
+			"finished_good",
+			"finished_good_qty",
+			"bom_no",
+			"skip_material_transfer",
+			"wip_warehouse",
+			"fg_warehouse",
+			"is_subcontracted",
+			"is_final_finished_good",
+		];
+
+		fields.forEach((field) => {
+			frm.fields_dict["operations"].grid.update_docfield_property(
+				field,
+				"read_only",
+				!frm.doc.track_semi_finished_goods
+			);
+
+			frm.fields_dict["operations"].grid.update_docfield_property(
+				field,
+				"in_list_view",
+				frm.doc.track_semi_finished_goods
+			);
+
+			frm.fields_dict["operations"].grid.update_docfield_property(
+				field,
+				"hidden",
+				!frm.doc.track_semi_finished_goods
+			);
+		});
+
+		frm.fields_dict["operations"].grid.reset_grid();
+	},
+
 	with_operations: function (frm) {
 		frm.set_df_property("fg_based_operating_cost", "hidden", frm.doc.with_operations ? 1 : 0);
 	},
@@ -86,6 +178,8 @@ frappe.ui.form.on("BOM", {
 
 	refresh(frm) {
 		frm.toggle_enable("item", frm.doc.__islocal);
+
+		frm.trigger("toggle_fields_for_semi_finished_goods");
 
 		frm.set_indicator_formatter("item_code", function (doc) {
 			if (doc.original_item) {
@@ -262,6 +356,7 @@ frappe.ui.form.on("BOM", {
 				reqd: 1,
 				default: 1,
 				onchange: () => {
+					if (!cur_dialog) return;
 					const { quantity, items: rm } = frm.doc;
 					const variant_items_map = rm.reduce((acc, item) => {
 						acc[item.item_code] = item.qty;
@@ -487,11 +582,18 @@ erpnext.bom.BomController = class BomController extends erpnext.TransactionContr
 	}
 
 	buying_price_list(doc) {
-		this.apply_price_list();
+		if (doc.rm_cost_as_per !== "Price List" && doc.buying_price_list) {
+			this.frm.set_value("buying_price_list", "");
+			return;
+		}
+
+		if (doc.buying_price_list) {
+			this.apply_price_list();
+		}
 	}
 
 	plc_conversion_rate(doc) {
-		if (!this.in_apply_price_list) {
+		if (!this.in_apply_price_list && doc.rm_cost_as_per === "Price List"){
 			this.apply_price_list(null, true);
 		}
 	}
@@ -732,6 +834,36 @@ frappe.ui.form.on("BOM Operation", "workstation", function (frm, cdt, cdn) {
 	});
 });
 
+frappe.ui.form.on("BOM Operation", "workstation_type", function (frm, cdt, cdn) {
+	var d = locals[cdt][cdn];
+	if (!d.workstation_type) return;
+
+	if (d.workstation) {
+		frappe.model.set_value(cdt, cdn, "workstation", "");
+	}
+
+	frappe.call({
+		method: "frappe.client.get",
+		args: {
+			doctype: "Workstation Type",
+			name: d.workstation_type,
+		},
+		callback: function (data) {
+			frappe.model.set_value(d.doctype, d.name, "base_hour_rate", data.message.hour_rate);
+			frappe.model.set_value(
+				d.doctype,
+				d.name,
+				"hour_rate",
+				flt(flt(data.message.hour_rate) / flt(frm.doc.conversion_rate)),
+				2
+			);
+
+			erpnext.bom.calculate_op_cost(frm.doc);
+			erpnext.bom.calculate_total(frm.doc);
+		},
+	});
+});
+
 frappe.ui.form.on("BOM Item", {
 	do_not_explode: function (frm, cdt, cdn) {
 		get_bom_material_detail(frm.doc, cdt, cdn, false);
@@ -757,6 +889,8 @@ frappe.ui.form.on("BOM Item", "sourced_by_supplier", function (frm, cdt, cdn) {
 	if (d.sourced_by_supplier) {
 		d.rate = 0;
 		refresh_field("rate", d.name, d.parentfield);
+	} else {
+		get_bom_material_detail(frm.doc, cdt, cdn, false);
 	}
 });
 

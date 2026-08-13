@@ -17,6 +17,7 @@ from erpnext.stock.stock_ledger import validate_reserved_stock
 from erpnext.stock.stock_ledger import validate_reserved_stock
 from frappe.query_builder import DocType
 from frappe.query_builder.functions import Abs, Sum
+from frappe.contacts.doctype.contact.contact import get_default_contact
 form_grid_templates = {"items": "templates/form_grid/item_grid.html"}
 
 
@@ -29,6 +30,7 @@ class DeliveryNote(SellingController):
 	if TYPE_CHECKING:  # pragma: no cover
 		from frappe.types import DF
 
+		from erpnext.accounts.doctype.item_wise_tax_detail.item_wise_tax_detail import ItemWiseTaxDetail
 		from erpnext.accounts.doctype.pricing_rule_detail.pricing_rule_detail import PricingRuleDetail
 		from erpnext.accounts.doctype.sales_taxes_and_charges.sales_taxes_and_charges import (
 			SalesTaxesandCharges,
@@ -82,6 +84,7 @@ class DeliveryNote(SellingController):
 		is_internal_customer: DF.Check
 		is_return: DF.Check
 		issue_credit_note: DF.Check
+		item_wise_tax_details: DF.Table[ItemWiseTaxDetail]
 		items: DF.Table[DeliveryNoteItem]
 		language: DF.Data | None
 		letter_head: DF.Link | None
@@ -365,6 +368,8 @@ class DeliveryNote(SellingController):
 		)
 
 	def validate_sales_invoice_references(self):
+		if self.is_return:
+			return
 		self._validate_dependent_item_fields(
 			"against_sales_invoice", "si_detail", _("References to Sales Invoices are Incomplete")
 		)
@@ -882,7 +887,7 @@ def make_sales_invoice(source_name, target_doc=None, args=None):
 			frappe.throw(_("All these items have already been Invoiced/Returned"))
 
 		if args and args.get("merge_taxes"):
-			merge_taxes(source.get("taxes") or [], target)
+			merge_taxes(source, target)
 
 		target.run_method("calculate_taxes_and_totals")
 
@@ -898,6 +903,7 @@ def make_sales_invoice(source_name, target_doc=None, args=None):
 
 	def update_item(source_doc, target_doc, source_parent):
 		target_doc.qty = to_make_invoice_qty_map[source_doc.name]
+		target_doc._old_name = source_doc.name
 
 	def get_pending_qty(item_row):
 		pending_qty = item_row.qty - invoiced_qty_map.get(item_row.name, 0)
@@ -1125,18 +1131,22 @@ def make_shipment(source_name, target_doc=None):
 		# As we are using session user details in the pickup_contact then pickup_contact_person will be session user
 		target.pickup_contact_person = frappe.session.user
 
-		if source.contact_person:  # pragma: no cover
+		contact_person = source.contact_person or get_default_contact("Customer", source.customer)
+		if contact_person:
 			contact = frappe.db.get_value(
-				"Contact", source.contact_person, ["email_id", "phone", "mobile_no"], as_dict=1
+				"Contact", contact_person, ["email_id", "phone", "mobile_no"], as_dict=1
 			)
-			delivery_contact_display = f"{source.contact_display}"
-			if contact:
+			delivery_contact_display = source.contact_display or contact_person or ""
+			if contact and not source.contact_display:
 				if contact.email_id:
 					delivery_contact_display += "<br>" + contact.email_id
 				if contact.phone:
 					delivery_contact_display += "<br>" + contact.phone
 				if contact.mobile_no and not contact.phone:
 					delivery_contact_display += "<br>" + contact.mobile_no
+			target.delivery_contact_name = contact_person
+			if contact and contact.email_id and not target.delivery_contact_email:
+				target.delivery_contact_email = contact.email_id
 			target.delivery_contact = delivery_contact_display
 
 		if source.shipping_address_name:
@@ -1146,39 +1156,29 @@ def make_shipment(source_name, target_doc=None):
 			target.delivery_address_name = source.customer_address
 			target.delivery_address = source.address_display
 
+	def update_address(source_doc, target_doc, source_parent):
+		target_doc.address = source_doc.shipping_address_name or source_doc.customer_address
+		target_doc.customer_address = source_doc.shipping_address or source_doc.address_display
+
 	doclist = get_mapped_doc(
 		"Delivery Note",
 		source_name,
 		{
 			"Delivery Note": {
-				"doctype": "Shipment",
+				"doctype": "Delivery Stop",
+				"on_parent": target_doc,
 				"field_map": {
-					"grand_total": "value_of_goods",
-					"company": "pickup_company",
-					"company_address": "pickup_address_name",
-					"company_address_display": "pickup_address",
-					"customer": "delivery_customer",
-					"contact_person": "delivery_contact_name",
-					"contact_email": "delivery_contact_email",
+					"name": "delivery_note",
+					"contact_person": "contact",
+					"contact_display": "customer_contact",
 				},
-				"validation": {"docstatus": ["=", 1]},
-			},
-			"Delivery Note Item": {
-				"doctype": "Shipment Delivery Note",
-				"field_map": {
-					"name": "prevdoc_detail_docname",
-					"parent": "prevdoc_docname",
-					"parenttype": "prevdoc_doctype",
-					"base_amount": "grand_total",
-				},
+				"postprocess": update_address,
 			},
 		},
-		target_doc,
-		postprocess,
+		ignore_child_tables=True,
 	)
 
 	return doclist
-
 
 @frappe.whitelist()
 def make_sales_return(source_name, target_doc=None):

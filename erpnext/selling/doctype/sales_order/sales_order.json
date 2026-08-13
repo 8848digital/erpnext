@@ -19,6 +19,7 @@
   "order_type",
   "column_break_7",
   "transaction_date",
+  "transaction_time",
   "delivery_date",
   "column_break1",
   "po_no",
@@ -89,6 +90,7 @@
   "discount_amount",
   "sec_tax_breakup",
   "other_charges_calculation",
+  "item_wise_tax_details",
   "packing_list",
   "packed_items",
   "pricing_rule_details",
@@ -118,6 +120,7 @@
   "company_contact_person",
   "payment_schedule_section",
   "payment_terms_section",
+  "ignore_default_payment_terms_template",
   "payment_terms_template",
   "payment_schedule",
   "terms_section_break",
@@ -136,7 +139,7 @@
   "loyalty_points",
   "column_break_116",
   "loyalty_amount",
-  "subscription_section",
+  "auto_repeat_section",
   "from_date",
   "to_date",
   "column_break_108",
@@ -1298,18 +1301,6 @@
   },
   {
    "allow_on_submit": 1,
-   "collapsible": 1,
-   "fieldname": "subscription_section",
-   "fieldtype": "Section Break",
-   "hide_days": 1,
-   "hide_seconds": 1,
-   "label": "Auto Repeat",
-   "no_copy": 1,
-   "print_hide": 1,
-   "read_only": 1
-  },
-  {
-   "allow_on_submit": 1,
    "fieldname": "from_date",
    "fieldtype": "Date",
    "hide_days": 1,
@@ -1527,6 +1518,42 @@
    "fieldtype": "Data",
    "is_virtual": 1,
    "label": "Last Scanned Warehouse"
+  },
+  {
+   "default": "Now",
+   "depends_on": "is_internal_customer",
+   "fieldname": "transaction_time",
+   "fieldtype": "Time",
+   "label": "Time",
+   "mandatory_depends_on": "is_internal_customer"
+  },
+  {
+   "default": "0",
+   "fieldname": "ignore_default_payment_terms_template",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Ignore Default Payment Terms Template",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "collapsible": 1,
+   "fieldname": "auto_repeat_section",
+   "fieldtype": "Section Break",
+   "hide_days": 1,
+   "hide_seconds": 1,
+   "label": "Auto Repeat",
+   "no_copy": 1,
+   "print_hide": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "item_wise_tax_details",
+   "fieldtype": "Table",
+   "hidden": 1,
+   "label": "Item Wise Tax Details",
+   "no_copy": 1,
+   "options": "Item Wise Tax Detail"
   }
  ],
  "icon": "fa fa-file-text",

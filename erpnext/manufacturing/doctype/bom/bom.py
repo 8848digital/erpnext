@@ -115,6 +115,7 @@ class BOM(WebsiteGenerator):
 
 		allow_alternative_item: DF.Check
 		amended_from: DF.Link | None
+		backflush_based_on: DF.Literal["", "BOM", "Material Transferred for Manufacture"]
 		base_operating_cost: DF.Currency
 		base_raw_material_cost: DF.Currency
 		base_scrap_material_cost: DF.Currency
@@ -752,12 +753,14 @@ class BOM(WebsiteGenerator):
 					hour_rate / flt(self.conversion_rate) if self.conversion_rate and hour_rate else hour_rate
 				)
 
-		if row.hour_rate and row.time_in_mins:
+		if row.hour_rate:
 			row.base_hour_rate = flt(row.hour_rate) * flt(self.conversion_rate)
-			row.operating_cost = flt(row.hour_rate) * flt(row.time_in_mins) / 60.0
-			row.base_operating_cost = flt(row.operating_cost) * flt(self.conversion_rate)
-			row.cost_per_unit = row.operating_cost / (row.batch_size or 1.0)
-			row.base_cost_per_unit = row.base_operating_cost / (row.batch_size or 1.0)
+
+			if row.time_in_mins:
+				row.operating_cost = flt(row.hour_rate) * flt(row.time_in_mins) / 60.0
+				row.base_operating_cost = flt(row.operating_cost) * flt(self.conversion_rate)
+				row.cost_per_unit = row.operating_cost / (row.batch_size or 1.0)
+				row.base_cost_per_unit = row.base_operating_cost / (row.batch_size or 1.0)
 
 		if update_hour_rate:
 			row.db_update()
@@ -997,6 +1000,12 @@ class BOM(WebsiteGenerator):
 						_(
 							"Row {0}: Workstation or Workstation Type is mandatory for an operation {1}"
 						).format(d.idx, d.operation)
+					)
+				if not d.time_in_mins or d.time_in_mins <= 0:
+					frappe.throw(
+						_("Row {0}: Operation time should be greater than 0 for operation {1}").format(
+							d.idx, d.operation
+						)
 					)
 
 	def get_tree_representation(self) -> BOMTree:
@@ -1637,3 +1646,16 @@ def get_scrap_items_from_sub_assemblies(bom_no, company, qty, scrap_items=None):
 		get_scrap_items_from_sub_assemblies(row.bom_no, company, qty, scrap_items)
 
 	return scrap_items
+
+
+def get_backflush_based_on(bom_no):
+	backflush_based_on = None
+	if bom_no:
+		backflush_based_on = frappe.get_cached_value("BOM", bom_no, "backflush_based_on")
+
+	if not backflush_based_on:
+		backflush_based_on = frappe.db.get_single_value(
+			"Manufacturing Settings", "backflush_raw_materials_based_on"
+		)
+
+	return backflush_based_on

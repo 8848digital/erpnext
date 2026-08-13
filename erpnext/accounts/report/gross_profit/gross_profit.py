@@ -565,7 +565,11 @@ class GrossProfitGenerator:
 
 			# get buying rate
 			if flt(row.qty):
-				row.buying_rate = flt(row.buying_amount / flt(row.qty), self.float_precision)
+				row.buying_rate = (
+					flt(row.buying_amount / flt(row.qty), self.float_precision)
+					if not row.delivered_by_supplier
+					else None
+				)
 				row.base_rate = flt(row.base_amount / flt(row.qty), self.float_precision)
 			else:
 				if self.is_not_invoice_row(row):
@@ -609,7 +613,8 @@ class GrossProfitGenerator:
 						row.base_amount = 0
 						returned_item_row.qty += row.qty
 						returned_item_row.base_amount += row.base_amount
-			row.buying_amount = flt(flt(row.qty) * flt(row.buying_rate), self.currency_precision)
+			if not row.delivered_by_supplier:
+				row.buying_amount = flt(flt(row.qty) * flt(row.buying_rate), self.currency_precision)
 
 	def get_average_rate_based_on_group_by(self):
 		for key in list(self.grouped):
@@ -628,7 +633,7 @@ class GrossProfitGenerator:
 						new_row = row
 						self.set_average_based_on_payment_term_portion(new_row, row, invoice_portion)
 					else:
-						new_row.qty += flt(row.qty)
+						new_row.qty = flt((new_row.qty + row.qty), self.float_precision)
 						self.set_average_based_on_payment_term_portion(new_row, row, invoice_portion, True)
 
 				new_row = self.set_average_rate(new_row)
@@ -638,11 +643,17 @@ class GrossProfitGenerator:
 					if i == 0:
 						new_row = row
 					else:
-						new_row.qty += flt(row.qty)
-						new_row.buying_amount += flt(row.buying_amount, self.currency_precision)
-						new_row.base_amount += flt(row.base_amount, self.currency_precision)
+						new_row.qty = flt((new_row.qty + row.qty), self.float_precision)
+						new_row.buying_amount = flt(
+							(new_row.buying_amount + row.buying_amount), self.currency_precision
+						)
+						new_row.base_amount = flt(
+							(new_row.base_amount + row.base_amount), self.currency_precision
+						)
 						if self.filters.get("group_by") == "Sales Person":
-							new_row.allocated_amount += flt(row.allocated_amount, self.currency_precision)
+							new_row.allocated_amount = flt(
+								(new_row.allocated_amount + row.allocated_amount), self.currency_precision
+							)
 				new_row = self.set_average_rate(new_row)
 				self.grouped_data.append(new_row)
 
@@ -737,7 +748,28 @@ class GrossProfitGenerator:
 		# IMP NOTE
 		# stock_ledger_entries should already be filtered by item_code and warehouse and
 		# sorted by posting_date desc, posting_time desc
-		if item_code in self.non_stock_items and (row.project or row.cost_center):
+		if (
+			row.delivered_by_supplier
+			and row.so_detail
+			and (
+				po_details := frappe.get_all(
+					"Purchase Order Item",
+					filters={"sales_order_item": row.so_detail, "docstatus": 1},
+					pluck="name",
+				)
+			)
+		):
+			from frappe.query_builder.functions import Sum
+
+			table = frappe.qb.DocType("Purchase Invoice Item")
+			query = (
+				frappe.qb.from_(table)
+				.select(Sum(table.qty * table.base_net_rate))
+				.where((table.po_detail.isin(po_details)) & (table.docstatus == 1))
+			)
+			return flt(query.run()[0][0])
+
+		elif item_code in self.non_stock_items and (row.project or row.cost_center):
 			# Issue 6089-Get last purchasing rate for non-stock item
 			item_rate = self.get_last_purchase_rate(item_code, row)
 			return flt(row.qty) * item_rate
@@ -944,7 +976,8 @@ class GrossProfitGenerator:
 				`tabSales Invoice Item`.delivery_note, `tabSales Invoice Item`.stock_qty as qty,
 				`tabSales Invoice Item`.base_net_rate, `tabSales Invoice Item`.base_net_amount,
 				`tabSales Invoice Item`.name as "item_row", `tabSales Invoice`.is_return,
-				`tabSales Invoice Item`.cost_center, `tabSales Invoice Item`.serial_and_batch_bundle
+				`tabSales Invoice Item`.cost_center, `tabSales Invoice Item`.serial_and_batch_bundle,
+				`tabSales Invoice Item`.delivered_by_supplier
 				{sales_person_cols}
 				{payment_term_cols}
 			from

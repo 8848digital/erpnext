@@ -441,6 +441,7 @@ def get_customer_emails(customer_name, primary_mandatory, billing_and_primary=Tr
 	"""Returns first email from Contact Email table as a Billing email
 	when Is Billing Contact checked
 	and Primary email- email with Is Primary checked"""
+	frappe.has_permission("Customer", "read", customer_name, throw=True)
 
 	billing_email = frappe.db.sql(
 		"""
@@ -485,6 +486,7 @@ def get_customer_emails(customer_name, primary_mandatory, billing_and_primary=Tr
 @frappe.whitelist()
 def download_statements(document_name):
 	doc = frappe.get_doc("Process Statement Of Accounts", document_name)
+	doc.check_permission("read")
 	report = get_report_pdf(doc)
 	if report:
 		frappe.local.response.filename = doc.name + ".pdf"
@@ -539,10 +541,10 @@ def send_emails(document_name, from_scheduler=False, posting_date=None):
 			new_from_date = add_months(new_to_date, -1 * doc.filter_duration)
 			doc.add_comment("Comment", "Emails sent on: " + frappe.utils.format_datetime(frappe.utils.now()))
 			if doc.report == "General Ledger":
-				doc.db_set("to_date", new_to_date, commit=True)
-				doc.db_set("from_date", new_from_date, commit=True)
+				frappe.db.set_value(doc.doctype, doc.name, "to_date", new_to_date)
+				frappe.db.set_value(doc.doctype, doc.name, "from_date", new_from_date)
 			else:
-				doc.db_set("posting_date", new_to_date, commit=True)
+				frappe.db.set_value(doc.doctype, doc.name, "posting_date", new_to_date)
 		return True
 	else:
 		return False

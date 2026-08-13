@@ -6,7 +6,6 @@
 
 import copy
 import json
-import math
 
 import frappe
 from frappe import _, bold
@@ -28,7 +27,7 @@ def get_pricing_rules(args, doc=None):
 	pricing_rules = []
 	values = {}
 
-	if not frappe.db.exists("Pricing Rule", {"disable": 0, args.transaction_type: 1}):
+	if not frappe.db.count("Pricing Rule", cache=True):
 		return
 
 	for apply_on in ["Item Code", "Item Group", "Brand"]:
@@ -115,8 +114,8 @@ def _get_pricing_rules(apply_on, args, values):
 		if apply_on_field == "item_code":
 			if args.get("uom", None):
 				item_conditions += (
-					" and ({child_doc}.uom='{item_uom}' or IFNULL({child_doc}.uom, '')='')".format(
-						child_doc=child_doc, item_uom=args.get("uom")
+					" and ({child_doc}.uom={item_uom} or IFNULL({child_doc}.uom, '')='')".format(
+						child_doc=child_doc, item_uom=frappe.db.escape(args.get("uom"))
 					)
 				)
 			if "variant_of" not in args:
@@ -128,8 +127,8 @@ def _get_pricing_rules(apply_on, args, values):
 	elif apply_on_field == "item_group":
 		item_conditions = _get_tree_conditions(args, "Item Group", child_doc, False)
 		if args.get("uom", None):
-			item_conditions += " and ({child_doc}.uom='{item_uom}' or IFNULL({child_doc}.uom, '')='')".format(
-				child_doc=child_doc, item_uom=args.get("uom")
+			item_conditions += " and ({child_doc}.uom={item_uom} or IFNULL({child_doc}.uom, '')='')".format(
+				child_doc=child_doc, item_uom=frappe.db.escape(args.get("uom"))
 			)
 
 	conditions += get_other_conditions(conditions, values, args)
@@ -223,20 +222,15 @@ def _get_tree_conditions(args, parenttype, table, allow_blank=True):
 			)
 
 			frappe.flags.tree_conditions[key] = condition
-		elif allow_blank:
-			condition = f"ifnull({table}.{field}, '') = ''"
+
+	elif allow_blank:
+		condition = f"ifnull({table}.{field}, '') = ''"
+
 	return condition
 
 
 def get_other_conditions(conditions, values, args):
-	fields = ["company", "customer", "supplier"]
-	installed_apps = frappe.get_installed_apps()
-	if "CRM" in installed_apps:
-		fields.append("campaign")
-	if "Sales Commission" in installed_apps:
-		fields.append("sales_partner")
-
-	for field in fields:
+	for field in ["company", "customer", "supplier", "campaign", "sales_partner"]:
 		if args.get(field):
 			conditions += f" and ifnull(`tabPricing Rule`.{field}, '') in (%({field})s, '')"
 			values[field] = args.get(field)
@@ -248,8 +242,10 @@ def get_other_conditions(conditions, values, args):
 		if group_condition:
 			conditions += " and " + group_condition
 
-	date = args.get("transaction_date") or frappe.get_value(
-		args.get("doctype"), args.get("name"), "posting_date"
+	date = (
+		args.get("transaction_date")
+		or args.get("posting_date")
+		or frappe.get_value(args.get("doctype"), args.get("name"), "posting_date", ignore=True)
 	)
 	if date:
 		conditions += """ and %(transaction_date)s between ifnull(`tabPricing Rule`.valid_from, '2000-01-01')
@@ -591,7 +587,11 @@ def apply_pricing_rule_on_transaction(doc):
 					if not d.get(pr_field):
 						continue
 
-					if d.validate_applied_rule and (doc.get(field) or 0) < d.get(pr_field):
+					if (
+						d.validate_applied_rule
+						and doc.get(field) is not None
+						and doc.get(field) < d.get(pr_field)
+					):
 						frappe.msgprint(_("User has not applied rule on the invoice {0}").format(doc.name))
 					else:
 						if not d.coupon_code_based:
@@ -661,7 +661,7 @@ def get_product_discount_rule(pricing_rule, item_details, args=None, doc=None):
 	if pricing_rule.is_recursive:
 		transaction_qty = sum(
 			[
-				row.qty
+				flt(row.qty)
 				for row in doc.items
 				if not row.is_free_item
 				and row.item_code == args.item_code
@@ -673,6 +673,9 @@ def get_product_discount_rule(pricing_rule, item_details, args=None, doc=None):
 			qty = flt(transaction_qty) * qty / pricing_rule.recurse_for
 			if pricing_rule.round_free_qty:
 				qty = (flt(transaction_qty) // pricing_rule.recurse_for) * (pricing_rule.free_qty or 1)
+
+	if not qty:
+		return
 
 	free_item_data_args = {
 		"item_code": free_item,
@@ -718,8 +721,10 @@ def apply_pricing_rule_for_free_items(doc, pricing_rule_args):
 				args.pop((item.item_code, item.pricing_rules))
 
 		for free_item in args.values():
-			if frappe.get_value("Pricing Rule", free_item["pricing_rules"], "enforce_free_item_qty"):
- 				doc.append("items", free_item)
+			if doc.is_new() or not frappe.get_value(
+				"Pricing Rule", free_item["pricing_rules"], "dont_enforce_free_item_qty"
+			):
+				doc.append("items", free_item)
 
 
 def get_pricing_rule_items(pr_doc, other_items=False) -> list:
@@ -743,7 +748,6 @@ def get_pricing_rule_items(pr_doc, other_items=False) -> list:
 
 def validate_coupon_code(coupon_name):
 	coupon = frappe.get_doc("Coupon Code", coupon_name)
-
 	if coupon.valid_from and coupon.valid_from > getdate(today()):
 		frappe.throw(_("Sorry, this coupon code's validity has not started"))
 	elif coupon.valid_upto and coupon.valid_upto < getdate(today()):
@@ -756,7 +760,10 @@ def update_coupon_code_count(coupon_name, transaction_type):
 	coupon = frappe.get_doc("Coupon Code", coupon_name)
 	if coupon:
 		if transaction_type == "used":
-			if coupon.used < coupon.maximum_use:
+			if not coupon.maximum_use:
+				coupon.used = coupon.used + 1
+				coupon.save(ignore_permissions=True)
+			elif coupon.used < coupon.maximum_use:
 				coupon.used = coupon.used + 1
 				coupon.save(ignore_permissions=True)
 			else:

@@ -171,6 +171,14 @@ class Item(Document):
 			for default in self.item_defaults or [frappe._dict()]:
 				self.add_price(default.default_price_list)
 
+			frappe.msgprint(
+				_("Item Price created at rate {0}").format(
+					frappe.format(self.standard_rate, {"fieldtype": "Currency"})
+				),
+				indicator="green",
+				alert=True,
+			)
+
 		if self.opening_stock:
 			self.set_opening_stock()
 
@@ -200,6 +208,7 @@ class Item(Document):
 		self.validate_attributes()
 		self.validate_variant_attributes()
 		self.validate_variant_based_on_change()
+		self.validate_fixed_asset()
 		self.clear_retain_sample()
 		self.validate_retain_sample()
 		self.validate_uom_conversion_factor()
@@ -255,7 +264,7 @@ class Item(Document):
 		if not self.is_stock_item or self.has_serial_no or self.has_batch_no:
 			return
 
-		if not self.valuation_rate and not self.standard_rate and not self.is_customer_provided_item:
+		if self.valuation_rate is None and not self.is_customer_provided_item:
 			frappe.throw(_("Valuation Rate is mandatory if Opening Stock entered"))
 
 		from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
@@ -280,13 +289,54 @@ class Item(Document):
 					item_code=self.name,
 					target=default_warehouse,
 					qty=self.opening_stock,
-					rate=self.valuation_rate or self.standard_rate,
+					rate=self.valuation_rate,
 					company=default.company,
 					posting_date=getdate(),
 					posting_time=nowtime(),
+					do_not_save=True,
 				)
 
+				if self.valuation_rate == 0:
+					for item in stock_entry.items:
+						item.allow_zero_valuation_rate = 1
+
+				stock_entry.insert()
+				stock_entry.submit()
+				stock_entry.load_from_db()
 				stock_entry.add_comment("Comment", _("Opening Stock"))
+
+				stock_entry_link = frappe.utils.get_link_to_form("Stock Entry", stock_entry.name)
+				if self.valuation_rate == 0:
+					frappe.msgprint(
+						_("Opening Stock entry created with zero valuation rate: {0}").format(
+							stock_entry_link
+						),
+						indicator="orange",
+						alert=True,
+					)
+				else:
+					frappe.msgprint(
+						_("Opening Stock entry created: {0}").format(stock_entry_link),
+						indicator="green",
+						alert=True,
+					)
+
+	def validate_fixed_asset(self):
+		if self.is_fixed_asset:
+			if self.is_stock_item:
+				frappe.throw(_("Fixed Asset Item must be a non-stock item."))
+
+			if not self.asset_category:
+				frappe.throw(_("Asset Category is mandatory for Fixed Asset item"))
+
+			if self.stock_ledger_created():
+				frappe.throw(_("Cannot be a fixed asset item as Stock Ledger is created."))
+
+		if not self.is_fixed_asset and not self.is_new():
+			if self.has_submitted_assets():
+				frappe.throw(
+					_('"Is Fixed Asset" cannot be unchecked, as Asset record exists against the item')
+				)
 
 	def validate_retain_sample(self):
 		if self.retain_sample and not frappe.db.get_single_value(
@@ -555,25 +605,6 @@ class Item(Document):
 			self.set_last_purchase_rate(new_name)
 			self.recalculate_bin_qty(new_name)
 
-		for dt in ("Sales Taxes and Charges", "Purchase Taxes and Charges"):
-			for d in frappe.db.sql(
-				f"""select name, item_wise_tax_detail from `tab{dt}`
-					where ifnull(item_wise_tax_detail, '') != ''""",
-				as_dict=1,
-			):
-				item_wise_tax_detail = json.loads(d.item_wise_tax_detail)
-				if isinstance(item_wise_tax_detail, dict) and old_name in item_wise_tax_detail:
-					item_wise_tax_detail[new_name] = item_wise_tax_detail[old_name]
-					item_wise_tax_detail.pop(old_name)
-
-					frappe.db.set_value(
-						dt,
-						d.name,
-						"item_wise_tax_detail",
-						json.dumps(item_wise_tax_detail),
-						update_modified=False,
-					)
-
 	def delete_old_bins(self, old_name):
 		frappe.db.delete("Bin", {"item_code": old_name})
 
@@ -752,6 +783,19 @@ class Item(Document):
 				self.append(
 					"item_defaults",
 					{"company": defaults.get("company"), "default_warehouse": defaults.default_warehouse},
+				)
+
+		if not self.taxes and item_group.taxes:
+			for tax in item_group.taxes:
+				self.append(
+					"taxes",
+					{
+						"item_tax_template": tax.item_tax_template,
+						"tax_category": tax.tax_category,
+						"valid_from": tax.valid_from,
+						"minimum_net_rate": tax.minimum_net_rate,
+						"maximum_net_rate": tax.maximum_net_rate,
+					},
 				)
 
 	def update_variants(self):

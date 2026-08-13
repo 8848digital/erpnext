@@ -2,182 +2,131 @@
 # MIT License. See license.txt
 
 import frappe
-from frappe.tests.utils import FrappeTestCase
-from frappe.utils import today
+from frappe.tests import IntegrationTestCase
+from frappe.utils.data import today
 
 from erpnext.accounts.report.balance_sheet.balance_sheet import execute
-from erpnext.accounts.report.balance_sheet import balance_sheet
+
+COMPANY = "_Test Company 6"
+COMPANY_SHORT_NAME = "_TC6"
 
 
-class TestBalanceSheet(FrappeTestCase):
+class TestBalanceSheet(IntegrationTestCase):
 	def test_balance_sheet(self):
-		from erpnext.accounts.doctype.purchase_invoice.test_purchase_invoice import make_purchase_invoice
-		from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import (
-			create_sales_invoice,
+		create_account("VAT Liabilities", f"Duties and Taxes - {COMPANY_SHORT_NAME}", COMPANY)
+		create_account("Advance VAT Paid", f"Duties and Taxes - {COMPANY_SHORT_NAME}", COMPANY)
+		create_account("My Bank", f"Bank Accounts - {COMPANY_SHORT_NAME}", COMPANY)
+
+		# 1000 equity paid to bank account
+		make_journal_entry(
+			[
+				dict(
+					account_name="My Bank",
+					debit_in_account_currency=1000,
+					credit_in_account_currency=0,
+				),
+				dict(
+					account_name="Capital Stock",
+					debit_in_account_currency=0,
+					credit_in_account_currency=1000,
+				),
+			]
 		)
 
-		frappe.db.sql("delete from `tabPurchase Invoice` where company='_Test Company 6'")
-		frappe.db.sql("delete from `tabSales Invoice` where company='_Test Company 6'")
-		frappe.db.sql("delete from `tabGL Entry` where company='_Test Company 6'")
+		# 110 income paid to bank account (100 revenue + 10 VAT)
+		make_journal_entry(
+			[
+				dict(
+					account_name="My Bank",
+					debit_in_account_currency=110,
+					credit_in_account_currency=0,
+				),
+				dict(
+					account_name="Sales",
+					debit_in_account_currency=0,
+					credit_in_account_currency=100,
+				),
+				dict(
+					account_name="VAT Liabilities",
+					debit_in_account_currency=0,
+					credit_in_account_currency=10,
+				),
+			]
+		)
 
-		make_purchase_invoice(
-			company="_Test Company 6",
-			warehouse="Finished Goods - _TC6",
-			expense_account="Cost of Goods Sold - _TC6",
-			cost_center="Main - _TC6",
-			qty=10,
-			rate=100,
+		# offset VAT Liabilities with intra-year advance payment
+		make_journal_entry(
+			[
+				dict(
+					account_name="My Bank",
+					debit_in_account_currency=0,
+					credit_in_account_currency=10,
+				),
+				dict(
+					account_name="Advance VAT Paid",
+					debit_in_account_currency=10,
+					credit_in_account_currency=0,
+				),
+			]
 		)
-		create_sales_invoice(
-			company="_Test Company 6",
-			debit_to="Debtors - _TC6",
-			income_account="Sales - _TC6",
-			cost_center="Main - _TC6",
-			qty=5,
-			rate=110,
-		)
+
 		filters = frappe._dict(
-			company="_Test Company 6",
+			company=COMPANY,
 			period_start_date=today(),
 			period_end_date=today(),
 			periodicity="Yearly",
 		)
-		result = execute(filters)[1]
-		for account_dict in result:
-			if account_dict.get("account") == "Current Liabilities - _TC6":
-				self.assertEqual(account_dict.total, 1000)
-			if account_dict.get("account") == "Current Assets - _TC6":
-				self.assertEqual(account_dict.total, 550)
-	
-	def setUp(self):
-		self.filters = frappe._dict(
-			company="_Test Company",
-			from_fiscal_year="2023",
-			to_fiscal_year="2023",
-			period_start_date=today(),
-			period_end_date=today(),
-			filter_based_on="Fiscal Year",
-			periodicity="Yearly",
-			accumulated_values=0,
-			presentation_currency="INR",
-		)
+		results = execute(filters)
+		name_and_total = {
+			account_dict["account_name"]: account_dict["total"]
+			for account_dict in results[1]
+			if "total" in account_dict and "account_name" in account_dict
+		}
 
-	def test_balance_sheet_TC_ACC_370(self):
-		from erpnext.accounts.doctype.purchase_invoice.test_purchase_invoice import make_purchase_invoice
-		from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import (
-			create_sales_invoice,
-		)
+		self.assertNotIn("Sales", name_and_total)
 
-		frappe.db.sql("delete from `tabPurchase Invoice` where company='_Test Company 6'")
-		frappe.db.sql("delete from `tabSales Invoice` where company='_Test Company 6'")
-		frappe.db.sql("delete from `tabGL Entry` where company='_Test Company 6'")
+		self.assertIn("My Bank", name_and_total)
+		self.assertEqual(name_and_total["My Bank"], 1100)
 
-		make_purchase_invoice(
-			company="_Test Company",
-			warehouse="Finished Goods - _TC",
-			expense_account="Cost of Goods Sold - _TC",
-			cost_center="Main - _TC",
-			qty=10,
-			rate=100,
-		)
-		create_sales_invoice(
-			company="_Test Company",
-			debit_to="Debtors - _TC",
-			income_account="Sales - _TC",
-			cost_center="Main - _TC",
-			qty=5,
-			rate=110,
-		)
-		filters = frappe._dict(
-			company="_Test Company",
-			period_start_date=today(),
-			period_end_date=today(),
-			periodicity="Yearly",
-		)
-		result = execute(filters)[1]
-		for account_dict in result:
-			if account_dict.get("account") == "Current Liabilities - _TC":
-				self.assertGreater(account_dict.total, 0)
-			if account_dict.get("account") == "Current Assets - _TC":
-				self.assertGreater(account_dict.total, 0)
+		self.assertIn("VAT Liabilities", name_and_total)
+		self.assertEqual(name_and_total["VAT Liabilities"], 10)
 
-	def test_balance_sheet_with_opening_balance_TC_ACC_386(self):
-		filters = frappe._dict(
-			company="_Test Company",
-			period_start_date=today(),
-			period_end_date=today(),
-			filter_based_on="Date Range",
-			periodicity="Yearly",
-			accumulated_values=0,
-		)
+		self.assertIn("Advance VAT Paid", name_and_total)
+		self.assertEqual(name_and_total["Advance VAT Paid"], -10)
 
-		fake_period_list = [frappe._dict(key="2023", year_start_date=today(), year_end_date=today())]
-		balance_sheet.get_period_list = lambda *a, **kw: fake_period_list
+		self.assertIn("Duties and Taxes", name_and_total)
+		self.assertEqual(name_and_total["Duties and Taxes"], 0)
 
-		asset = [
-			{"account_name": "Asset Account", "account": "Asset", "2023": 200},
-			{"account_name": "Asset Total", "account": "Asset Total", "2023": 100, "opening_balance": 500},
-		]
-		liability = [
-			{"account_name": "Liability Account", "account": "Liability", "2023": 50},
-			{"account_name": "Liability Total", "account": "Liability Total", "2023": 0, "opening_balance": 100},
-		]
-		equity = [
-			{"account_name": "Equity Account", "account": "Equity", "2023": 30},
-			{"account_name": "Equity Total", "account": "Equity Total", "2023": 0, "opening_balance": 100},
-		]
+		self.assertIn("Application of Funds (Assets)", name_and_total)
+		self.assertEqual(name_and_total["Application of Funds (Assets)"], 1100)
+
+		self.assertIn("Equity", name_and_total)
+		self.assertEqual(name_and_total["Equity"], 1000)
+
+		self.assertIn("'Provisional Profit / Loss (Credit)'", name_and_total)
+		self.assertEqual(name_and_total["'Provisional Profit / Loss (Credit)'"], 100)
 
 
-		balance_sheet.get_data = lambda *a, **kw: (
-			asset if a[1] == "Asset"
-			else liability if a[1] == "Liability"
-			else equity
-		)
+def make_journal_entry(rows):
+	jv = frappe.new_doc("Journal Entry")
+	jv.posting_date = today()
+	jv.company = COMPANY
+	jv.user_remark = "test"
 
-		columns, data, msg, chart, summary, primitive = balance_sheet.execute(filters)
-		self.assertTrue(any("Unclosed Fiscal Years Profit / Loss" in d.get("account_name", "") for d in data))
-		self.assertIn("Previous Financial Year is not closed", msg)
-		self.assertIsInstance(summary, list)
-		self.assertIsInstance(primitive, (int, float))
+	for row in rows:
+		row["account"] = row.pop("account_name") + " - " + COMPANY_SHORT_NAME
+		jv.append("accounts", row)
+
+	jv.insert()
+	jv.submit()
 
 
-	def test_balance_sheet_growth_view_TC_ACC_387(self):
-		filters = frappe._dict(
-			company="_Test Company",
-			period_start_date=today(),
-			period_end_date=today(),
-			filter_based_on="Date Range",
-			periodicity="Yearly",
-			accumulated_values=0,
-			selected_view="Growth",
-		)
+def create_account(account_name: str, parent_account: str, company: str):
+	if frappe.db.exists("Account", {"account_name": account_name, "company": company}):
+		return
 
-		fake_period_list = [frappe._dict(key="2023", year_start_date=today(), year_end_date=today())]
-		balance_sheet.get_period_list = lambda *a, **kw: fake_period_list
-
-		# Fake data for Asset, Liability, Equity
-		asset = [
-			{"account_name": "Asset Account", "account": "Asset", "2023": 100},
-			{"account_name": "Asset Total", "account": "Asset Total", "2023": 200},
-		]
-		liability = [
-			{"account_name": "Liability Account", "account": "Liability", "2023": 50},
-			{},
-		]
-		equity = [
-			{"account_name": "Equity Account", "account": "Equity", "2023": 30},
-			{},
-		]
-
-		balance_sheet.get_data = lambda *a, **kw: (
-			asset if a[1] == "Asset"
-			else liability if a[1] == "Liability"
-			else equity
-		)
-
-		columns, data, msg, chart, summary, primitive = balance_sheet.execute(filters)
-		self.assertIsInstance(columns, list)
-		self.assertIsInstance(data, list)
-		self.assertIsInstance(summary, list)
-		self.assertIsInstance(primitive, (int, float))
-		self.assertTrue(any("account_name" in d for d in data))
+	acc = frappe.new_doc("Account")
+	acc.account_name = account_name
+	acc.company = COMPANY
+	acc.parent_account = parent_account
+	acc.insert()

@@ -7,17 +7,14 @@ import json
 import frappe
 from frappe import _, msgprint
 from frappe.desk.notifications import clear_doctype_notifications
+from frappe.model.document import Document
 from frappe.model.mapper import get_mapped_doc
 from frappe.utils import cint, cstr, flt, get_link_to_form
-from datetime import datetime
-from erpnext.budget.doctype.work_breakdown_structure.work_breakdown_structure import check_available_budget
+
 from erpnext.accounts.doctype.sales_invoice.sales_invoice import (
 	unlink_inter_company_doc,
 	update_linked_doc,
 	validate_inter_company_party,
-)
-from erpnext.accounts.doctype.tax_withholding_category.tax_withholding_category import (
-	get_party_tax_withholding_details,
 )
 from erpnext.accounts.party import get_party_account, get_party_account_currency
 from erpnext.buying.utils import check_on_hold_or_closed_status, validate_for_items
@@ -32,7 +29,7 @@ from erpnext.stock.utils import get_bin
 from erpnext.subcontracting.doctype.subcontracting_bom.subcontracting_bom import (
 	get_subcontracting_boms_for_finished_goods,
 )
-from datetime import datetime
+
 form_grid_templates = {"items": "templates/form_grid/item_grid.html"}
 
 
@@ -42,20 +39,26 @@ class PurchaseOrder(BuyingController):
 
 	from typing import TYPE_CHECKING
 
-	if TYPE_CHECKING:  # pragma: no cover
-		from erpnext.accounts.doctype.payment_schedule.payment_schedule import PaymentSchedule
-		from erpnext.accounts.doctype.pricing_rule_detail.pricing_rule_detail import PricingRuleDetail
-		from erpnext.accounts.doctype.purchase_taxes_and_charges.purchase_taxes_and_charges import PurchaseTaxesandCharges
-		from erpnext.buying.doctype.purchase_order_item.purchase_order_item import PurchaseOrderItem
-		from erpnext.buying.doctype.purchase_order_item_supplied.purchase_order_item_supplied import PurchaseOrderItemSupplied
+	if TYPE_CHECKING:
 		from frappe.types import DF
 
+		from erpnext.accounts.doctype.item_wise_tax_detail.item_wise_tax_detail import ItemWiseTaxDetail
+		from erpnext.accounts.doctype.payment_schedule.payment_schedule import PaymentSchedule
+		from erpnext.accounts.doctype.pricing_rule_detail.pricing_rule_detail import PricingRuleDetail
+		from erpnext.accounts.doctype.purchase_taxes_and_charges.purchase_taxes_and_charges import (
+			PurchaseTaxesandCharges,
+		)
+		from erpnext.buying.doctype.purchase_order_item.purchase_order_item import PurchaseOrderItem
+		from erpnext.buying.doctype.purchase_order_item_supplied.purchase_order_item_supplied import (
+			PurchaseOrderItemSupplied,
+		)
+
 		additional_discount_percentage: DF.Float
-		address_display: DF.SmallText | None
+		address_display: DF.TextEditor | None
 		advance_paid: DF.Currency
+		advance_payment_status: DF.Literal["Not Initiated", "Initiated", "Partially Paid", "Fully Paid"]
 		amended_from: DF.Link | None
 		apply_discount_on: DF.Literal["", "Grand Total", "Net Total"]
-		apply_tds: DF.Check
 		auto_repeat: DF.Link | None
 		base_discount_amount: DF.Currency
 		base_grand_total: DF.Currency
@@ -63,13 +66,12 @@ class PurchaseOrder(BuyingController):
 		base_net_total: DF.Currency
 		base_rounded_total: DF.Currency
 		base_rounding_adjustment: DF.Currency
-		base_tax_withholding_net_total: DF.Currency
 		base_taxes_and_charges_added: DF.Currency
 		base_taxes_and_charges_deducted: DF.Currency
 		base_total: DF.Currency
 		base_total_taxes_and_charges: DF.Currency
 		billing_address: DF.Link | None
-		billing_address_display: DF.SmallText | None
+		billing_address_display: DF.TextEditor | None
 		buying_price_list: DF.Link | None
 		company: DF.Link
 		contact_display: DF.SmallText | None
@@ -92,6 +94,7 @@ class PurchaseOrder(BuyingController):
 		from_date: DF.Date | None
 		grand_total: DF.Currency
 		group_same_items: DF.Check
+		has_unit_price_items: DF.Check
 		ignore_pricing_rule: DF.Check
 		in_words: DF.Data | None
 		incoterm: DF.Link | None
@@ -99,9 +102,11 @@ class PurchaseOrder(BuyingController):
 		is_internal_supplier: DF.Check
 		is_old_subcontracting_flow: DF.Check
 		is_subcontracted: DF.Check
+		item_wise_tax_details: DF.Table[ItemWiseTaxDetail]
 		items: DF.Table[PurchaseOrderItem]
 		language: DF.Data | None
 		letter_head: DF.Link | None
+		mps: DF.Link | None
 		named_place: DF.Data | None
 		naming_series: DF.Literal["PUR-ORD-.YYYY.-"]
 		net_total: DF.Currency
@@ -128,17 +133,27 @@ class PurchaseOrder(BuyingController):
 		set_reserve_warehouse: DF.Link | None
 		set_warehouse: DF.Link | None
 		shipping_address: DF.Link | None
-		shipping_address_display: DF.SmallText | None
+		shipping_address_display: DF.TextEditor | None
 		shipping_rule: DF.Link | None
-		status: DF.Literal["", "Draft", "On Hold", "To Receive and Bill", "To Bill", "To Receive", "Completed", "Cancelled", "Closed", "Delivered"]
+		status: DF.Literal[
+			"",
+			"Draft",
+			"On Hold",
+			"To Receive and Bill",
+			"To Bill",
+			"To Receive",
+			"Completed",
+			"Cancelled",
+			"Closed",
+			"Delivered",
+		]
 		supplied_items: DF.Table[PurchaseOrderItemSupplied]
 		supplier: DF.Link
 		supplier_address: DF.Link | None
+		supplier_group: DF.Link | None
 		supplier_name: DF.Data | None
 		supplier_warehouse: DF.Link | None
 		tax_category: DF.Link | None
-		tax_withholding_category: DF.Link | None
-		tax_withholding_net_total: DF.Currency
 		taxes: DF.Table[PurchaseTaxesandCharges]
 		taxes_and_charges: DF.Link | None
 		taxes_and_charges_added: DF.Currency
@@ -152,6 +167,7 @@ class PurchaseOrder(BuyingController):
 		total_qty: DF.Float
 		total_taxes_and_charges: DF.Currency
 		transaction_date: DF.Date
+		transaction_time: DF.Time | None
 	# end: auto-generated types
 
 	def __init__(self, *args, **kwargs):
@@ -171,17 +187,19 @@ class PurchaseOrder(BuyingController):
 		]
 
 	def onload(self):
-		supplier_tds = frappe.db.get_value("Supplier", self.supplier, "tax_withholding_category")
-		self.set_onload("supplier_tds", supplier_tds)
 		self.set_onload("can_update_items", self.can_update_items())
+
+	def before_validate(self):
+		self.set_has_unit_price_items()
+		self.flags.allow_zero_qty = self.has_unit_price_items
+
+		if self.is_subcontracted:
+			self.status_updater[0]["source_field"] = "fg_item_qty"
 
 	def validate(self):
 		super().validate()
 
 		self.set_status()
-
-		# apply tax withholding only if checked and applicable
-		self.set_tax_withholding()
 
 		self.validate_supplier()
 		self.validate_schedule_date()
@@ -202,27 +220,29 @@ class PurchaseOrder(BuyingController):
 
 		self.validate_fg_item_for_subcontracting()
 		self.set_received_qty_for_drop_ship_items()
+
+		if not self.advance_payment_status:
+			self.advance_payment_status = "Not Initiated"
+
 		validate_inter_company_party(
 			self.doctype, self.supplier, self.company, self.inter_company_order_reference
 		)
 		self.reset_default_field_value("set_warehouse", "items", "warehouse")
-		validate_available_budget(self)
 
-	def before_cancel(self):
-		update_committed_overall_budget(self,"Cancel")
+	def set_has_unit_price_items(self):
+		"""
+		If permitted in settings and any item has 0 qty, the PO has unit price items.
+		"""
+		if not frappe.db.get_single_value("Buying Settings", "allow_zero_qty_in_purchase_order"):
+			return
 
-	def before_submit(self):
-		pass
-		# create_budget_entry(self)
-	
-		
+		self.has_unit_price_items = any(
+			not row.qty for row in self.get("items") if (row.item_code and not row.qty)
+		)
+
 	def validate_with_previous_doc(self):
-		is_projects_installed = "projects" in frappe.get_installed_apps()
-		mri_compare_fields = [["item_code", "="]] if not is_projects_installed else [["project", "="], ["item_code", "="]]
-		sqi_compare_fields = [["item_code", "="], ["uom", "="], ["conversion_factor", "="]]
-		if is_projects_installed:
-			sqi_compare_fields.append(["project", "="])
-		if self.is_subcontracted and is_projects_installed:
+		mri_compare_fields = [["project", "="], ["item_code", "="]]
+		if self.is_subcontracted:
 			mri_compare_fields = [["project", "="]]
 
 		super().validate_with_previous_doc(
@@ -233,7 +253,12 @@ class PurchaseOrder(BuyingController):
 				},
 				"Supplier Quotation Item": {
 					"ref_dn_field": "supplier_quotation_item",
-					"compare_fields": sqi_compare_fields,
+					"compare_fields": [
+						["project", "="],
+						["item_code", "="],
+						["uom", "="],
+						["conversion_factor", "="],
+					],
 					"is_child_table": True,
 				},
 				"Material Request": {
@@ -252,36 +277,6 @@ class PurchaseOrder(BuyingController):
 			self.validate_rate_with_reference_doc(
 				[["Supplier Quotation", "supplier_quotation", "supplier_quotation_item"]]
 			)
-
-	def set_tax_withholding(self):
-		if not self.apply_tds:
-			return
-
-		tax_withholding_details = get_party_tax_withholding_details(self, self.tax_withholding_category)
-
-		if not tax_withholding_details:
-			return
-
-		accounts = []
-		for d in self.taxes:
-			if d.account_head == tax_withholding_details.get("account_head"):
-				d.update(tax_withholding_details)
-			accounts.append(d.account_head)
-
-		if not accounts or tax_withholding_details.get("account_head") not in accounts:
-			self.append("taxes", tax_withholding_details)
-
-		to_remove = [
-			d
-			for d in self.taxes
-			if not d.tax_amount and d.account_head == tax_withholding_details.get("account_head")
-		]
-
-		for d in to_remove:
-			self.remove(d)
-
-		# calculate totals again after applying TDS
-		self.calculate_taxes_and_totals()
 
 	def validate_supplier(self):
 		prevent_po = frappe.db.get_value("Supplier", self.supplier, "prevent_pos")
@@ -359,7 +354,7 @@ class PurchaseOrder(BuyingController):
 									item.idx, item.fg_item
 								)
 							)
-						elif not frappe.get_value("Item", item.fg_item, "default_bom"):
+						elif not item.bom and not frappe.get_value("Item", item.fg_item, "default_bom"):
 							frappe.throw(
 								_("Row #{0}: Default BOM not found for FG Item {1}").format(
 									item.idx, item.fg_item
@@ -434,7 +429,7 @@ class PurchaseOrder(BuyingController):
 
 	def check_modified_date(self):
 		mod_db = frappe.db.sql("select modified from `tabPurchase Order` where name = %s", self.name)
-		date_diff = frappe.db.sql("SELECT AGE(TIMESTAMP %s, TIMESTAMP %s)", (mod_db[0][0], cstr(self.modified)))
+		date_diff = frappe.db.sql(f"select '{mod_db[0][0]}' - '{cstr(self.modified)}' ")
 
 		if date_diff and date_diff[0][0]:
 			msgprint(
@@ -459,6 +454,9 @@ class PurchaseOrder(BuyingController):
 		if self.is_against_so():
 			self.update_status_updater()
 
+		if self.is_against_pp():
+			self.update_status_updater_if_from_pp()
+
 		self.update_prevdoc_status()
 		if not self.is_subcontracted or self.is_old_subcontracting_flow:
 			self.update_requested_qty()
@@ -467,7 +465,7 @@ class PurchaseOrder(BuyingController):
 		self.validate_budget()
 		self.update_reserved_qty_for_subcontract()
 
-		frappe.get_doc("Authorization Control").validate_approving_authority(
+		frappe.get_cached_doc("Authorization Control").validate_approving_authority(
 			self.doctype, self.company, self.base_grand_total
 		)
 
@@ -476,9 +474,6 @@ class PurchaseOrder(BuyingController):
 		update_linked_doc(self.doctype, self.name, self.inter_company_order_reference)
 
 		self.auto_create_subcontracting_order()
-		update_committed_overall_budget(self,"Submit")
-
-		
 
 	def on_cancel(self):
 		self.ignore_linked_doctypes = (
@@ -488,11 +483,14 @@ class PurchaseOrder(BuyingController):
 			"Unreconcile Payment",
 			"Unreconcile Payment Entries",
 		)
-		self.flags.ignore_links = True
+
 		super().on_cancel()
 
 		if self.is_against_so():
 			self.update_status_updater()
+
+		if self.is_against_pp():
+			self.update_status_updater_if_from_pp()
 
 		if self.has_drop_ship_item():
 			self.update_delivered_qty_in_sales_order()
@@ -514,9 +512,6 @@ class PurchaseOrder(BuyingController):
 		self.update_blanket_order()
 
 		unlink_inter_company_doc(self.doctype, self.name, self.inter_company_order_reference)
-
-	def on_update(self):
-		pass
 
 	def update_status_updater(self):
 		self.status_updater.append(
@@ -544,6 +539,20 @@ class PurchaseOrder(BuyingController):
 			}
 		)
 
+	def update_status_updater_if_from_pp(self):
+		self.status_updater.append(
+			{
+				"source_dt": "Purchase Order Item",
+				"target_dt": "Production Plan Sub Assembly Item",
+				"join_field": "production_plan_sub_assembly_item",
+				"target_field": "received_qty",
+				"target_parent_dt": "Production Plan",
+				"target_parent_field": "",
+				"target_ref_field": "qty",
+				"source_field": "fg_item_qty",
+			}
+		)
+
 	def update_delivered_qty_in_sales_order(self):
 		"""Update delivered qty in Sales Order for drop ship"""
 		sales_orders_to_update = []
@@ -553,7 +562,7 @@ class PurchaseOrder(BuyingController):
 					sales_orders_to_update.append(item.sales_order)
 
 		for so_name in sales_orders_to_update:
-			so = frappe.get_doc("Sales Order", so_name)
+			so = frappe.get_lazy_doc("Sales Order", so_name)
 			so.update_delivery_status()
 			so.set_status(update=True)
 			so.notify_update()
@@ -563,6 +572,9 @@ class PurchaseOrder(BuyingController):
 
 	def is_against_so(self):
 		return any(d.sales_order for d in self.items if d.sales_order)
+
+	def is_against_pp(self):
+		return any(d.production_plan for d in self.items if d.production_plan)
 
 	def set_received_qty_for_drop_ship_items(self):
 		for item in self.items:
@@ -626,6 +638,7 @@ class PurchaseOrder(BuyingController):
 			prev_ordered_qty = flt(
 				frappe.get_cached_value("Sales Order Item", item.get("sales_order_item"), "ordered_qty")
 			)
+
 			frappe.db.set_value(
 				"Sales Order Item", item.get("sales_order_item"), "ordered_qty", prev_ordered_qty - item.qty
 			)
@@ -645,12 +658,6 @@ class PurchaseOrder(BuyingController):
 
 			if sco:
 				update_sco_status(sco, "Closed" if self.status == "Closed" else None)
-
-	def set_missing_values(self, for_validate=False):
-		tds_category = frappe.db.get_value("Supplier", self.supplier, "tax_withholding_category")
-		if tds_category and not for_validate:
-			self.set_onload("supplier_tds", tds_category)
-		super().set_missing_values(for_validate)
 
 
 @frappe.request_cache
@@ -672,13 +679,13 @@ def item_last_purchase_rate(name, conversion_rate, item_code, conversion_factor=
 
 
 @frappe.whitelist()
-def close_or_unclose_purchase_orders(names, status):
+def close_or_unclose_purchase_orders(names: str, status: str):
 	if not frappe.has_permission("Purchase Order", "write"):
 		frappe.throw(_("Not permitted"), frappe.PermissionError)
 
 	names = json.loads(names)
 	for name in names:
-		po = frappe.get_doc("Purchase Order", name)
+		po = frappe.get_lazy_doc("Purchase Order", name)
 		if po.docstatus == 1:
 			if status == "Closed":
 				if po.status not in ("Cancelled", "Closed") and (
@@ -700,25 +707,36 @@ def set_missing_values(source, target):
 
 
 @frappe.whitelist()
-def make_purchase_receipt(source_name, target_doc=None, args=None):
+def make_purchase_receipt(
+	source_name: str, target_doc: str | Document | None = None, args: str | dict | None = None
+):
 	if args is None:
 		args = {}
 	if isinstance(args, str):
 		args = json.loads(args)
+
+	has_unit_price_items = frappe.db.get_value("Purchase Order", source_name, "has_unit_price_items")
+
+	def is_unit_price_row(source):
+		return has_unit_price_items and source.qty == 0
+
 	def update_item(obj, target, source_parent):
-		target.qty = flt(obj.qty) - flt(obj.received_qty)
+		target.qty = flt(obj.qty) if is_unit_price_row(obj) else flt(obj.qty) - flt(obj.received_qty)
 		target.stock_qty = (flt(obj.qty) - flt(obj.received_qty)) * flt(obj.conversion_factor)
 		target.amount = (flt(obj.qty) - flt(obj.received_qty)) * flt(obj.rate)
 		target.base_amount = (
 			(flt(obj.qty) - flt(obj.received_qty)) * flt(obj.rate) * flt(source_parent.conversion_rate)
 		)
-	
+
 	def select_item(d):
 		filtered_items = args.get("filtered_children", [])
 		child_filter = d.name in filtered_items if filtered_items else True
 		return child_filter
 
-	fields = {
+	doc = get_mapped_doc(
+		"Purchase Order",
+		source_name,
+		{
 			"Purchase Order": {
 				"doctype": "Purchase Receipt",
 				"field_map": {"supplier_warehouse": "supplier_warehouse"},
@@ -736,22 +754,17 @@ def make_purchase_receipt(source_name, target_doc=None, args=None):
 					"material_request_item": "material_request_item",
 					"sales_order": "sales_order",
 					"sales_order_item": "sales_order_item",
+					"wip_composite_asset": "wip_composite_asset",
 				},
 				"postprocess": update_item,
-				"condition": lambda doc: abs(doc.received_qty) < abs(doc.qty)
+				"condition": lambda doc: (
+					True if is_unit_price_row(doc) else abs(doc.received_qty) < abs(doc.qty)
+				)
 				and doc.delivered_by_supplier != 1
 				and select_item(doc),
 			},
 			"Purchase Taxes and Charges": {"doctype": "Purchase Taxes and Charges", "reset_value": True},
-		}
-	
-	if "assets" in frappe.get_installed_apps():
-		fields["Purchase Order Item"]["field_map"].update({"wip_composite_asset": "wip_composite_asset"})
-
-	doc = get_mapped_doc(
-		"Purchase Order",
-		source_name,
-		fields,
+		},
 		target_doc,
 		set_missing_values,
 	)
@@ -760,17 +773,20 @@ def make_purchase_receipt(source_name, target_doc=None, args=None):
 
 
 @frappe.whitelist()
-def make_purchase_invoice(source_name, target_doc=None, args=None):
+def make_purchase_invoice(
+	source_name: str, target_doc: str | Document | None = None, args: str | dict | None = None
+):
 	return get_mapped_purchase_invoice(source_name, target_doc, args=args)
 
 
 @frappe.whitelist()
-def make_purchase_invoice_from_portal(purchase_order_name):
+def make_purchase_invoice_from_portal(purchase_order_name: str):
 	doc = get_mapped_purchase_invoice(purchase_order_name, ignore_permissions=True)
-	if doc.contact_email != frappe.session.user:
+	if frappe.session.user not in frappe.get_all("Portal User", {"parent": doc.supplier}, pluck="user"):
 		frappe.throw(_("Not Permitted"), frappe.PermissionError)
 	doc.save()
-	frappe.db.commit()
+	if not frappe.in_test:
+		frappe.db.commit()
 	frappe.response["type"] = "redirect"
 	frappe.response.location = "/purchase-invoices/" + doc.name
 
@@ -780,12 +796,11 @@ def get_mapped_purchase_invoice(source_name, target_doc=None, ignore_permissions
 		args = {}
 	if isinstance(args, str):
 		args = json.loads(args)
+
 	def postprocess(source, target):
 		target.flags.ignore_permissions = ignore_permissions
 		set_missing_values(source, target)
-		# set tax_withholding_category from Purchase Order
-		if source.apply_tds and source.tax_withholding_category and target.apply_tds:
-			target.tax_withholding_category = source.tax_withholding_category
+
 		# Get the advance paid Journal Entries in Purchase Invoice Advance
 		if target.get("allocate_advances_automatically"):
 			target.set_advances()
@@ -816,11 +831,11 @@ def get_mapped_purchase_invoice(source_name, target_doc=None, ignore_permissions
 			or item.get("buying_cost_center")
 			or item_group.get("buying_cost_center")
 		)
+
 	def select_item(d):
 		filtered_items = args.get("filtered_children", [])
 		child_filter = d.name in filtered_items if filtered_items else True
 		return child_filter
-
 
 	fields = {
 		"Purchase Order": {
@@ -841,6 +856,7 @@ def get_mapped_purchase_invoice(source_name, target_doc=None, ignore_permissions
 				"parent": "purchase_order",
 				"material_request": "material_request",
 				"material_request_item": "material_request_item",
+				"wip_composite_asset": "wip_composite_asset",
 			},
 			"postprocess": update_item,
 			"condition": lambda doc: (doc.base_amount == 0 or abs(doc.billed_amt) < abs(doc.amount))
@@ -848,9 +864,6 @@ def get_mapped_purchase_invoice(source_name, target_doc=None, ignore_permissions
 		},
 		"Purchase Taxes and Charges": {"doctype": "Purchase Taxes and Charges", "reset_value": True},
 	}
-
-	if "assets" in frappe.get_installed_apps():
-		fields["Purchase Order Item"]["field_map"].update({"wip_composite_asset": "wip_composite_asset"})
 
 	doc = get_mapped_doc(
 		"Purchase Order",
@@ -874,39 +887,46 @@ def get_list_context(context=None):
 			"show_search": True,
 			"no_breadcrumbs": True,
 			"title": _("Purchase Orders"),
+			"list_template": "templates/includes/list/list.html",
 		}
 	)
 	return list_context
 
 
 @frappe.whitelist()
-def update_status(status, name):
-	po = frappe.get_doc("Purchase Order", name)
+def update_status(status: str, name: str):
+	po = frappe.get_lazy_doc("Purchase Order", name, check_permission="write")
 	po.update_status(status)
 	po.update_delivered_qty_in_sales_order()
 
 
 @frappe.whitelist()
-def make_inter_company_sales_order(source_name, target_doc=None):
+def make_inter_company_sales_order(source_name: str, target_doc: str | Document | None = None):
 	from erpnext.accounts.doctype.sales_invoice.sales_invoice import make_inter_company_transaction
 
 	return make_inter_company_transaction("Purchase Order", source_name, target_doc)
 
 
 @frappe.whitelist()
-def make_subcontracting_order(source_name, target_doc=None, save=False, submit=False, notify=False):
+def make_subcontracting_order(
+	source_name: str,
+	target_doc: str | Document | None = None,
+	save: bool = False,
+	submit: bool = False,
+	notify: bool = False,
+):
 	if not is_po_fully_subcontracted(source_name):
 		target_doc = get_mapped_subcontracting_order(source_name, target_doc)
-		
+
 		if (save or submit) and frappe.has_permission(target_doc.doctype, "create"):
 			target_doc.save()
-			
+
 			if submit and frappe.has_permission(target_doc.doctype, "submit", target_doc):
 				try:
 					target_doc.submit()
 				except Exception as e:
 					target_doc.add_comment("Comment", _("Submit Action Failed") + "<br><br>" + str(e))
-			
+
 			if notify:
 				frappe.msgprint(
 					_("Subcontracting Order {0} created.").format(
@@ -918,7 +938,7 @@ def make_subcontracting_order(source_name, target_doc=None, save=False, submit=F
 
 		return target_doc
 	else:
-		frappe.throw(_("This PO has been fully subcontracted."))
+		frappe.throw(_("This Purchase Order has been fully subcontracted."))
 
 
 def is_po_fully_subcontracted(po_name):
@@ -926,7 +946,7 @@ def is_po_fully_subcontracted(po_name):
 	query = (
 		frappe.qb.from_(table)
 		.select(table.name)
-		.where((table.parent == po_name) & (table.qty != table.subcontracted_quantity))
+		.where((table.parent == po_name) & (table.qty != table.subcontracted_qty))
 	)
 	return not query.run(as_dict=True)
 
@@ -934,6 +954,7 @@ def is_po_fully_subcontracted(po_name):
 def get_mapped_subcontracting_order(source_name, target_doc=None):
 	def post_process(source_doc, target_doc):
 		target_doc.populate_items_table()
+
 		if target_doc.set_warehouse:
 			for item in target_doc.items:
 				item.warehouse = target_doc.set_warehouse
@@ -944,6 +965,21 @@ def get_mapped_subcontracting_order(source_name, target_doc=None):
 			else:
 				for idx, item in enumerate(target_doc.items):
 					item.warehouse = source_doc.items[idx].warehouse
+
+		for idx, item in enumerate(target_doc.items):
+			item.job_card = source_doc.items[idx].job_card
+			if not target_doc.supplier_warehouse:
+				# WIP warehouse is set as Supplier Warehouse in Job Card
+				target_doc.supplier_warehouse = frappe.get_cached_value(
+					"Job Card", item.job_card, "wip_warehouse"
+				)
+
+		production_plan = set([item.production_plan for item in source_doc.items if item.production_plan])
+		if production_plan:
+			target_doc.production_plan = production_plan.pop()
+		target_doc.reserve_stock = frappe.get_single_value(
+			"Stock Settings", "auto_reserve_stock"
+		) or frappe.get_value("Production Plan", target_doc.production_plan, "reserve_stock")
 
 	if target_doc and isinstance(target_doc, str):
 		target_doc = json.loads(target_doc)
@@ -972,7 +1008,7 @@ def get_mapped_subcontracting_order(source_name, target_doc=None):
 					"material_request_item": "material_request_item",
 				},
 				"field_no_map": ["qty", "fg_item_qty", "amount"],
-				"condition": lambda item: item.qty != item.subcontracted_quantity,
+				"condition": lambda item: item.qty != item.subcontracted_qty,
 			},
 		},
 		target_doc,
@@ -980,196 +1016,3 @@ def get_mapped_subcontracting_order(source_name, target_doc=None):
 	)
 
 	return target_doc
-
-
-def update_committed_overall_budget(self,event):
-	wbs_dict = []
-	wbs_list = []
-	for i in self.items:
-		if i.get("work_breakdown_structure") not in wbs_list:
-			wbs_list.append(i.get("work_breakdown_structure"))
-	if wbs_list:
-		for i in wbs_list:
-			wbs_dict.append(
-				{
-					"wbs_id": i,
-					"credit": 0.0,
-					"debit": 0.0,
-					"txn_date": "",
-					"document_date": "",
-					"voucher_creation_date": "",
-					"submit_date": "",
-					"project": "",
-					"voucher_name": "",
-					"voucher_type": "",
-				}
-			)
-	for i in self.items:
-		po_amt = i.get("net_amount")
-
-		if i.get("work_breakdown_structure") and not i.get("material_request_item"):
-			for j in wbs_dict:
-				if i.get("work_breakdown_structure") == j.get("wbs_id"):
-					wbs_name,wbs_level = frappe.db.get_value("Work Breakdown Structure",i.get("work_breakdown_structure"),['wbs_name','wbs_level'])
-					j.update(
-						{
-							"credit": j.get("credit") + i.get("net_amount"),
-							"txn_date": self.transaction_date,
-							"document_date": self.transaction_date,
-							"voucher_creation_date": self.creation,
-							"project": i.get("project") if "projects" in frappe.get_installed_apps() else "",
-							"voucher_type": self.doctype,
-							"voucher_name": self.name,
-							"wbs_name": wbs_name,
-							"wbs_level": wbs_level
-						}
-					)
-			po_amt = i.get("net_amount")
-			wbs = frappe.get_doc("Work Breakdown Structure", i.get("work_breakdown_structure"))
-			if event == "Submit":
-				wbs.committed_overall_budget = wbs.committed_overall_budget + po_amt
-	
-				wbs.assigned_overall_budget = wbs.actual_overall_budget + wbs.committed_overall_budget
-				wbs.available_budget = wbs.overall_budget - wbs.assigned_overall_budget
-				if wbs.locked:
-					frappe.throw(
-						"Transaction Not Allowed for  WBS Element - {0} as this WBS is locked !".format(wbs.name)
-					)
-			elif event == "Cancel":
-				wbs.committed_overall_budget = wbs.committed_overall_budget - po_amt
-
-				wbs.assigned_overall_budget = wbs.actual_overall_budget + wbs.committed_overall_budget
-				wbs.available_budget = wbs.overall_budget - wbs.assigned_overall_budget
-				if wbs.locked:
-					frappe.throw(
-						"Transaction Not Allowed for  WBS Element - {0} as this WBS is locked !".format(wbs.name)
-					)
-			wbs.save(ignore_permissions=True)
-
-		elif i.get("work_breakdown_structure") and i.get("material_request_item"):
-			po_amt = i.get("net_amount")
-			mri = frappe.qb.DocType("Material Request Item")
-			query = (
-				frappe.qb.from_(mri)
-				.select(mri.amount,mri.qty,mri.ordered_qty,mri.rate)
-				.where(mri.name == i.get("material_request_item"))
-			)
-			mr_details = query.run(as_dict=True)
-			if mr_details:
-				if mr_details[0].get("qty") == i.get("qty"):
-						
-					debit_amt = i.get("qty") * mr_details[0].get("rate")
-					for j in wbs_dict:
-						if i.get("work_breakdown_structure") == j.get("wbs_id"):
-							wbs_name,wbs_level = frappe.db.get_value("Work Breakdown Structure",i.get("work_breakdown_structure"),['wbs_name','wbs_level'])
-							j.update(
-								{
-									"credit": j.get("credit") + po_amt,
-									"debit": j.get("debit") + debit_amt,
-									"txn_date": self.transaction_date,
-									"document_date": self.transaction_date,
-									"voucher_creation_date": self.creation,
-									"project": i.get("project") if "projects" in frappe.get_installed_apps() else "",
-									"voucher_type": self.doctype,
-									"voucher_name": self.name,
-									"wbs_name": wbs_name,
-									"wbs_level": wbs_level
-								}
-							)
-					wbs = frappe.get_doc("Work Breakdown Structure",i.get("work_breakdown_structure"))
-					if event == "Submit":
-						wbs.committed_overall_budget = (
-							wbs.committed_overall_budget + po_amt - mr_details[0].get("amount")
-						)
-						wbs.assigned_overall_budget = wbs.actual_overall_budget + wbs.committed_overall_budget
-						wbs.available_budget = wbs.overall_budget - wbs.assigned_overall_budget
-						if wbs.locked:
-							frappe.throw(
-								"Transaction Not Allowed for  WBS Element - {0} as this WBS is locked !".format(wbs.name)
-							)
-						wbs.save(ignore_permissions=True)
-					elif event == "Cancel":
-						wbs.committed_overall_budget = (
-							wbs.committed_overall_budget - po_amt + mr_details[0].get("amount")
-						)
-						wbs.assigned_overall_budget = wbs.actual_overall_budget + wbs.committed_overall_budget
-						wbs.available_budget = wbs.overall_budget - wbs.assigned_overall_budget
-						if wbs.locked:
-							frappe.throw(
-								"Transaction Not Allowed for  WBS Element - {0} as this WBS is locked !".format(wbs.name)
-							)
-					wbs.save(ignore_permissions=True)
-	
-	if wbs_dict:
-		for i in wbs_dict:
-			create_budget_entry(self,i, event, self.company)
-
-
-def create_budget_entry(self,data, event, company):
-	if data.get("credit") > 0.0 and data.get("wbs_id"):
-		bgt_ent = frappe.new_doc("Budget Entry")
-		if "projects" in frappe.get_installed_apps():
-			bgt_ent.project = data.get("project")
-		bgt_ent.wbs = data.get("wbs_id")
-		bgt_ent.posting_date = data.get("document_date")
-		bgt_ent.voucher_submit_date = data.get("voucher_creation_date")
-		bgt_ent.submit_date = data.get("submit_date")
-		bgt_ent.company = company
-		bgt_ent.wbs_name = data.get("wbs_name")
-		bgt_ent.wbs_level = data.get("wbs_level")
-		if event == "Submit":
-			bgt_ent.committed_overall_credit = data.get("credit")
-			if data.get("debit") > 0.0:
-				bgt_ent.committed_overall_debit = data.get("debit")
-		elif event == "Cancel":
-			bgt_ent.committed_overall_debit = data.get("credit")
-			if data.get("debit") > 0.0:
-				bgt_ent.committed_overall_credit = data.get("debit")
-		bgt_ent.voucher_type = "Purchase Order"
-		bgt_ent.voucher_no = self.name
-		bgt_ent.save(ignore_permissions=True)
-		bgt_ent.submit()
-		
-def get_wbs_amount(self, wbs):
-	wbs_amount = 0.0
-	if self.items:
-		for i in self.items:
-			if i.work_breakdown_structure == wbs:
-				wbs_amount += i.amount
-
-	return wbs_amount
-
-
-def validate_available_budget(self):
-	wbs_list = []
-	if self.items:
-		for i in self.items:
-			if i.work_breakdown_structure:
-				if i.work_breakdown_structure not in wbs_list:
-					wbs_list.append(i.work_breakdown_structure)
-
-	if wbs_list:
-		if len(set(wbs_list)) == 1:
-			amt = get_wbs_amount(self, wbs_list[0])
-			ab = check_available_budget(wbs_list[0], amt, "Material Request",self.transaction_date)
-			abl = abs(ab.get("available_bgt"))
-			msg = _("Available Budget Limit Exceeded For This WBS - {0} by {1}".format(ab.get("wbs"), abl))
-			if ab.get("available_bgt") < 0.0:
-				abl = abs(ab.get("available_bgt"))
-				if ab.get("action") == "Stop":
-					frappe.throw(msg,title=_("Budget Exceeded"))
-				else:
-					frappe.msgprint(msg, indicator="orange", title=_("Budget Exceeded"))
-					
-		elif len(set(wbs_list)) > 1:
-			for i in set(wbs_list):
-				amt = get_wbs_amount(self, i)
-				ab = check_available_budget(i, amt, "Material Request",self.transaction_date)
-				abl = abs(ab.get("available_bgt"))
-				msg = _("Available Budget Limit Exceeded For This WBS - {0} by {1}".format(ab.get("wbs"), abl))
-				if ab.get("available_bgt") < 0.0:
-					abl = abs(ab.get("available_bgt"))
-					if ab.get("action") == "Stop":
-						frappe.throw(msg,title=_("Budget Exceeded"))
-					else:
-						frappe.msgprint(msg, indicator="orange", title=_("Budget Exceeded"))

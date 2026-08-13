@@ -15,7 +15,7 @@ from erpnext.accounts.party import get_party_details
 from erpnext.buying.utils import update_last_purchase_rate, validate_for_items
 from erpnext.controllers.sales_and_purchase_return import get_rate_for_return
 from erpnext.controllers.subcontracting_controller import SubcontractingController
-from erpnext.stock.get_item_details import get_conversion_factor
+from erpnext.stock.get_item_details import NOT_APPLICABLE_TAX, get_conversion_factor
 from erpnext.stock.utils import get_incoming_rate
 from erpnext.controllers.accounts_controller import get_taxes_and_charges
 
@@ -291,49 +291,48 @@ class BuyingController(SubcontractingController):
 		TODO: rename item_tax_amount to valuation_tax_amount
 		"""
 		stock_and_asset_items = []
-		stock_and_asset_items = self.get_stock_items() + get_asset_items(self)
+		stock_and_asset_items = self.get_stock_items() + self.get_asset_items()
 
 		stock_and_asset_items_qty, stock_and_asset_items_amount = 0, 0
 		last_item_idx = 1
-		total_rejected_qty = 0
-
 		for d in self.get("items"):
 			if d.item_code and d.item_code in stock_and_asset_items:
 				stock_and_asset_items_qty += flt(d.qty)
 				stock_and_asset_items_amount += flt(d.base_net_amount)
-				last_item_idx = d.idx
 
-		total_valuation_amount = sum(
-			flt(d.base_tax_amount_after_discount_amount)
-			for d in self.get("taxes")
-			if d.category in ["Valuation", "Valuation and Total"]
-		)
+			last_item_idx = d.idx
 
-		valuation_amount_adjustment = total_valuation_amount
+		tax_accounts, total_valuation_amount, total_actual_tax_amount = self.get_tax_details()
+
 		for i, item in enumerate(self.get("items")):
-			if (
-				item.item_code
-				and (item.qty or item.get("rejected_qty"))
-				and item.item_code in stock_and_asset_items
-			):
-				if stock_and_asset_items_qty:
-					item_proportion = (
-						flt(item.base_net_amount) / stock_and_asset_items_amount
-						if stock_and_asset_items_amount
-						else flt(item.qty) / stock_and_asset_items_qty
-					)
-				elif total_rejected_qty:
-					item_proportion = flt(item.get("rejected_qty")) / flt(total_rejected_qty)
-
+			if item.item_code and (item.qty or item.get("rejected_qty")):
+				item_tax_amount, actual_tax_amount = 0.0, 0.0
 				if i == (last_item_idx - 1):
-					item.item_tax_amount = flt(
-						valuation_amount_adjustment, self.precision("item_tax_amount", item)
-					)
+					item_tax_amount = total_valuation_amount
+					actual_tax_amount = total_actual_tax_amount
 				else:
-					item.item_tax_amount = flt(
-						item_proportion * total_valuation_amount, self.precision("item_tax_amount", item)
-					)
-					valuation_amount_adjustment -= item.item_tax_amount
+					# calculate item tax amount
+					item_tax_amount = self.get_item_tax_amount(item, tax_accounts)
+					total_valuation_amount -= item_tax_amount
+
+					if total_actual_tax_amount:
+						actual_tax_amount = self.get_item_actual_tax_amount(
+							item,
+							total_actual_tax_amount,
+							stock_and_asset_items_amount,
+							stock_and_asset_items_qty,
+						)
+						total_actual_tax_amount -= actual_tax_amount
+
+				# This code is required here to calculate the correct valuation for stock items
+				if item.item_code not in stock_and_asset_items:
+					item.valuation_rate = 0.0
+					continue
+
+				# Item tax amount is the total tax amount applied on that item and actual tax type amount
+				item.item_tax_amount = flt(
+					item_tax_amount + actual_tax_amount, self.precision("item_tax_amount", item)
+				)
 
 				self.round_floats_in(item)
 				if flt(item.conversion_factor) == 0.0:
@@ -341,7 +340,17 @@ class BuyingController(SubcontractingController):
 						get_conversion_factor(item.item_code, item.uom).get("conversion_factor") or 1.0
 					)
 
-				net_rate = item.base_net_amount
+				net_rate = (
+					flt(
+						(item.base_net_amount / item.received_qty) * item.qty,
+						item.precision("base_net_amount"),
+					)
+					if item.received_qty
+					and frappe.get_single_value(
+						"Buying Settings", "bill_for_rejected_quantity_in_purchase_invoice"
+					)
+					else item.base_net_amount
+				)
 				if item.sales_incoming_rate:  # for internal transfer
 					net_rate = item.qty * item.sales_incoming_rate
 
@@ -355,10 +364,8 @@ class BuyingController(SubcontractingController):
 					net_rate = item.rejected_qty * item.net_rate
 
 				qty_in_stock_uom = flt(item.qty * item.conversion_factor)
-
 				if not qty_in_stock_uom and item.get("rejected_qty"):
 					qty_in_stock_uom = flt(item.rejected_qty * item.conversion_factor)
-
 
 				if self.get("is_old_subcontracting_flow"):
 					item.rm_supp_cost = self.get_supplied_items_cost(item.name, reset_outgoing_rate)
@@ -377,7 +384,58 @@ class BuyingController(SubcontractingController):
 					) / qty_in_stock_uom
 			else:
 				item.valuation_rate = 0.0
+
 		update_regional_item_valuation_rate(self)
+
+	def get_tax_details(self):
+		tax_accounts = []
+		total_valuation_amount = 0.0
+		total_actual_tax_amount = 0.0
+
+		for d in self.get("taxes"):
+			if d.category not in ["Valuation", "Valuation and Total"]:
+				continue
+
+			amount = flt(d.base_tax_amount_after_discount_amount) * (
+				-1 if d.get("add_deduct_tax") == "Deduct" else 1
+			)
+
+			if d.charge_type == "On Net Total":
+				total_valuation_amount += amount
+				tax_accounts.append(d.account_head)
+			else:
+				total_actual_tax_amount += amount
+
+		return tax_accounts, total_valuation_amount, total_actual_tax_amount
+	def get_item_tax_amount(self, item, tax_accounts):
+		item_tax_amount = 0.0
+		if item.item_tax_rate:
+			tax_details = json.loads(item.item_tax_rate)
+			for account, rate in tax_details.items():
+				if account not in tax_accounts:
+					continue
+
+				if rate == NOT_APPLICABLE_TAX:
+					continue
+
+				net_rate = item.base_net_amount
+				if item.sales_incoming_rate:
+					net_rate = item.qty * item.sales_incoming_rate
+
+				item_tax_amount += flt(net_rate) * flt(rate) / 100
+
+		return item_tax_amount
+
+	def get_item_actual_tax_amount(
+		self, item, actual_tax_amount, stock_and_asset_items_amount, stock_and_asset_items_qty
+	):
+		item_proportion = (
+			flt(item.base_net_amount) / stock_and_asset_items_amount
+			if stock_and_asset_items_amount
+			else flt(item.qty) / stock_and_asset_items_qty
+		)
+
+		return flt(item_proportion * actual_tax_amount, self.precision("item_tax_amount", item))
 
 	def set_incoming_rate(self):
 		"""
@@ -800,6 +858,56 @@ class BuyingController(SubcontractingController):
 			validate_item_type(self, "is_sub_contracted_item", "subcontracted")
 		else:
 			validate_item_type(self, "is_purchase_item", "purchase")
+
+	def make_asset(self, row, accounting_dimensions, is_grouped_asset=False):
+		if not row.asset_location:
+			frappe.throw(
+				_("Row #{idx}: Please enter a location for the asset item {item_code}.").format(
+					idx=row.idx,
+					item_code=frappe.bold(row.item_code),
+				)
+			)
+
+		item_data = frappe.get_cached_value(
+			"Item", row.item_code, ["asset_naming_series", "asset_category"], as_dict=1
+		)
+		asset_quantity = row.qty if is_grouped_asset else 1
+		purchase_amount = flt(row.valuation_rate) * asset_quantity
+
+		asset = frappe.get_doc(
+			{
+				"doctype": "Asset",
+				"item_code": row.item_code,
+				"asset_name": row.item_name,
+				"naming_series": item_data.get("asset_naming_series") or "AST",
+				"asset_category": item_data.get("asset_category"),
+				"location": row.asset_location,
+				"company": self.company,
+				"status": "Draft",
+				"supplier": self.supplier,
+				"purchase_date": self.posting_date,
+				"calculate_depreciation": 0,
+				"purchase_amount": purchase_amount,
+				"net_purchase_amount": purchase_amount,
+				"asset_quantity": asset_quantity,
+				"purchase_receipt": self.name if self.doctype == "Purchase Receipt" else None,
+				"purchase_invoice": self.name if self.doctype == "Purchase Invoice" else None,
+				"purchase_receipt_item": row.name if self.doctype == "Purchase Receipt" else None,
+				"purchase_invoice_item": row.name if self.doctype == "Purchase Invoice" else None,
+			}
+		)
+		for dimension in accounting_dimensions[0]:
+			fieldname = dimension["fieldname"]
+			default_dimension = accounting_dimensions[1].get(self.company, {}).get(fieldname)
+			if not asset.get(fieldname):
+				asset.update({fieldname: row.get(fieldname) or self.get(fieldname) or default_dimension})
+
+		asset.flags.ignore_validate = True
+		asset.flags.ignore_mandatory = True
+		asset.set_missing_values()
+		asset.db_insert()
+
+		return asset.name
 
 
 def validate_item_type(doc, fieldname, message):

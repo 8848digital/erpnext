@@ -8,7 +8,6 @@
  "document_type": "Document",
  "engine": "InnoDB",
  "field_order": [
-  "title",
   "naming_series",
   "customer",
   "tax_id",
@@ -26,6 +25,7 @@
   "accounting_dimensions_section",
   "cost_center",
   "column_break_18",
+  "project",
   "dimension_col_break",
   "currency_and_price_list",
   "currency",
@@ -66,17 +66,19 @@
   "base_total_taxes_and_charges",
   "column_break_47",
   "total_taxes_and_charges",
-  "totals",
-  "base_grand_total",
-  "base_rounding_adjustment",
-  "base_rounded_total",
-  "base_in_words",
-  "column_break3",
+  "totals_section",
   "grand_total",
+  "in_words",
+  "column_break3",
+  "disable_rounded_total",
   "rounding_adjustment",
   "rounded_total",
-  "in_words",
-  "disable_rounded_total",
+  "base_totals_section",
+  "base_grand_total",
+  "base_in_words",
+  "column_break_ydwe",
+  "base_rounding_adjustment",
+  "base_rounded_total",
   "section_break_49",
   "apply_discount_on",
   "base_discount_amount",
@@ -85,6 +87,7 @@
   "discount_amount",
   "sec_tax_breakup",
   "other_charges_calculation",
+  "item_wise_tax_details",
   "packing_list",
   "packed_items",
   "product_bundle_help",
@@ -124,18 +127,27 @@
   "per_returned",
   "transporter_info",
   "transporter",
-  "driver",
   "lr_no",
-  "vehicle_no",
+  "delivery_trip",
+  "driver",
   "col_break34",
   "transporter_name",
-  "driver_name",
   "lr_date",
+  "vehicle_no",
+  "driver_name",
   "customer_po_details",
   "po_no",
   "column_break_17",
   "po_date",
-  "subscription_section",
+  "sales_team_section_break",
+  "sales_partner",
+  "amount_eligible_for_commission",
+  "column_break7",
+  "commission_rate",
+  "total_commission",
+  "section_break1",
+  "sales_team",
+  "auto_repeat_section",
   "auto_repeat",
   "printing_details",
   "letter_head",
@@ -144,6 +156,12 @@
   "column_break_88",
   "select_print_heading",
   "language",
+  "utm_analytics_section",
+  "utm_source",
+  "utm_medium",
+  "column_break_neoj",
+  "utm_campaign",
+  "utm_content",
   "more_info",
   "is_internal_customer",
   "represents_company",
@@ -156,16 +174,6 @@
   "connections_tab"
  ],
  "fields": [
-  {
-   "allow_on_submit": 1,
-   "default": "{customer_name}",
-   "fieldname": "title",
-   "fieldtype": "Data",
-   "hidden": 1,
-   "label": "Title",
-   "no_copy": 1,
-   "print_hide": 1
-  },
   {
    "fieldname": "naming_series",
    "fieldtype": "Select",
@@ -238,6 +246,7 @@
    "default": "Today",
    "fieldname": "posting_date",
    "fieldtype": "Date",
+   "in_list_view": 1,
    "label": "Date",
    "no_copy": 1,
    "oldfieldname": "posting_date",
@@ -342,7 +351,7 @@
   },
   {
    "fieldname": "shipping_address",
-   "fieldtype": "Small Text",
+   "fieldtype": "Text Editor",
    "label": "Shipping Address",
    "read_only": 1
   },
@@ -399,7 +408,7 @@
   },
   {
    "fieldname": "address_display",
-   "fieldtype": "Small Text",
+   "fieldtype": "Text Editor",
    "label": "Billing Address",
    "read_only": 1
   },
@@ -411,7 +420,7 @@
   },
   {
    "fieldname": "company_address_display",
-   "fieldtype": "Small Text",
+   "fieldtype": "Text Editor",
    "label": "Company Address",
    "read_only": 1
   },
@@ -746,16 +755,9 @@
    "print_hide": 1
   },
   {
-   "fieldname": "totals",
-   "fieldtype": "Section Break",
-   "label": "Totals",
-   "oldfieldtype": "Section Break",
-   "options": "fa fa-money"
-  },
-  {
    "fieldname": "base_grand_total",
    "fieldtype": "Currency",
-   "label": "Grand Total (Company Currency)",
+   "label": "Grand Total",
    "oldfieldname": "grand_total",
    "oldfieldtype": "Currency",
    "options": "Company:company:default_currency",
@@ -768,7 +770,7 @@
    "depends_on": "eval:!doc.disable_rounded_total",
    "fieldname": "base_rounding_adjustment",
    "fieldtype": "Currency",
-   "label": "Rounding Adjustment (Company Currency)",
+   "label": "Rounding Adjustment",
    "no_copy": 1,
    "options": "Company:company:default_currency",
    "print_hide": 1,
@@ -778,7 +780,7 @@
    "depends_on": "eval:!doc.disable_rounded_total",
    "fieldname": "base_rounded_total",
    "fieldtype": "Currency",
-   "label": "Rounded Total (Company Currency)",
+   "label": "Rounded Total",
    "oldfieldname": "rounded_total",
    "oldfieldtype": "Currency",
    "options": "Company:company:default_currency",
@@ -791,7 +793,7 @@
    "description": "In Words will be visible once you save the Delivery Note.",
    "fieldname": "base_in_words",
    "fieldtype": "Data",
-   "label": "In Words (Company Currency)",
+   "label": "In Words",
    "length": 240,
    "oldfieldname": "in_words",
    "oldfieldtype": "Data",
@@ -952,6 +954,14 @@
    "print_hide": 1
   },
   {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "oldfieldname": "project",
+   "oldfieldtype": "Link",
+   "options": "Project"
+  },
+  {
    "fieldname": "column_break5",
    "fieldtype": "Column Break",
    "oldfieldtype": "Column Break",
@@ -962,6 +972,7 @@
   {
    "fieldname": "per_billed",
    "fieldtype": "Percent",
+   "in_list_view": 1,
    "label": "% Amount Billed",
    "no_copy": 1,
    "print_hide": 1,
@@ -1011,9 +1022,12 @@
    "report_hide": 1
   },
   {
+   "fetch_from": "customer.language",
+   "fetch_if_empty": 1,
    "fieldname": "language",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "label": "Print Language",
+   "options": "Language",
    "print_hide": 1,
    "read_only": 1
   },
@@ -1049,12 +1063,13 @@
    "default": "Draft",
    "fieldname": "status",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
    "no_copy": 1,
    "oldfieldname": "status",
    "oldfieldtype": "Select",
-   "options": "\nDraft\nTo Bill\nCompleted\nReturn Issued\nCancelled\nClosed",
+   "options": "\nDraft\nTo Bill\nPartially Billed\nCompleted\nReturn\nReturn Issued\nCancelled\nClosed",
    "print_hide": 1,
    "print_width": "150px",
    "read_only": 1,
@@ -1066,7 +1081,6 @@
    "depends_on": "eval:!doc.__islocal",
    "fieldname": "per_installed",
    "fieldtype": "Percent",
-   "in_list_view": 1,
    "label": "% Installed",
    "no_copy": 1,
    "oldfieldname": "per_installed",
@@ -1102,11 +1116,6 @@
    "oldfieldtype": "Text"
   },
   {
-   "fieldname": "subscription_section",
-   "fieldtype": "Section Break",
-   "label": "Subscription Section"
-  },
-  {
    "fieldname": "auto_repeat",
    "fieldtype": "Link",
    "label": "Auto Repeat",
@@ -1114,6 +1123,73 @@
    "options": "Auto Repeat",
    "print_hide": 1,
    "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "collapsible_depends_on": "total_commission",
+   "fieldname": "sales_team_section_break",
+   "fieldtype": "Section Break",
+   "label": "Commission",
+   "oldfieldtype": "Section Break",
+   "options": "fa fa-group",
+   "print_hide": 1
+  },
+  {
+   "fieldname": "sales_partner",
+   "fieldtype": "Link",
+   "label": "Sales Partner",
+   "oldfieldname": "sales_partner",
+   "oldfieldtype": "Link",
+   "options": "Sales Partner",
+   "print_hide": 1,
+   "print_width": "150px",
+   "width": "150px"
+  },
+  {
+   "fieldname": "column_break7",
+   "fieldtype": "Column Break",
+   "print_hide": 1,
+   "print_width": "50%",
+   "width": "50%"
+  },
+  {
+   "fetch_from": "sales_partner.commission_rate",
+   "fetch_if_empty": 1,
+   "fieldname": "commission_rate",
+   "fieldtype": "Float",
+   "label": "Commission Rate (%)",
+   "oldfieldname": "commission_rate",
+   "oldfieldtype": "Currency",
+   "print_hide": 1,
+   "print_width": "100px",
+   "width": "100px"
+  },
+  {
+   "fieldname": "total_commission",
+   "fieldtype": "Currency",
+   "label": "Total Commission",
+   "oldfieldname": "total_commission",
+   "oldfieldtype": "Currency",
+   "options": "Company:company:default_currency",
+   "print_hide": 1
+  },
+  {
+   "collapsible": 1,
+   "collapsible_depends_on": "sales_team",
+   "fieldname": "section_break1",
+   "fieldtype": "Section Break",
+   "label": "Sales Team",
+   "print_hide": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "sales_team",
+   "fieldtype": "Table",
+   "label": "Sales Team",
+   "oldfieldname": "sales_team",
+   "oldfieldtype": "Table",
+   "options": "Sales Team",
+   "print_hide": 1
   },
   {
    "default": "0",
@@ -1133,6 +1209,7 @@
    "depends_on": "eval:!doc.__islocal",
    "fieldname": "per_returned",
    "fieldtype": "Percent",
+   "in_list_view": 1,
    "label": "% Returned",
    "no_copy": 1,
    "print_hide": 1,
@@ -1178,9 +1255,15 @@
   {
    "depends_on": "dispatch_address_name",
    "fieldname": "dispatch_address",
-   "fieldtype": "Small Text",
+   "fieldtype": "Text Editor",
    "label": "Dispatch Address",
    "print_hide": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "amount_eligible_for_commission",
+   "fieldtype": "Currency",
+   "label": "Amount Eligible for Commission",
    "read_only": 1
   },
   {
@@ -1276,25 +1359,104 @@
    "label": "Named Place"
   },
   {
+   "fieldname": "delivery_trip",
+   "fieldtype": "Link",
+   "label": "Delivery Trip",
+   "options": "Delivery Trip",
+   "print_hide": 1
+  },
+  {
+   "fieldname": "utm_medium",
+   "fieldtype": "Link",
+   "label": "Medium",
+   "options": "UTM Medium",
+   "print_hide": 1
+  },
+  {
+   "fieldname": "utm_content",
+   "fieldtype": "Data",
+   "label": "Content",
+   "print_hide": 1
+  },
+  {
+   "fieldname": "utm_source",
+   "fieldtype": "Link",
+   "label": "Source",
+   "oldfieldname": "source",
+   "oldfieldtype": "Select",
+   "options": "UTM Source",
+   "print_hide": 1
+  },
+  {
+   "fieldname": "utm_campaign",
+   "fieldtype": "Link",
+   "label": "Campaign",
+   "oldfieldname": "campaign",
+   "oldfieldtype": "Link",
+   "options": "UTM Campaign",
+   "print_hide": 1
+  },
+  {
    "fieldname": "company_contact_person",
    "fieldtype": "Link",
    "label": "Company Contact Person",
    "options": "Contact",
    "print_hide": 1
-   },
+  },
   {
    "depends_on": "eval: doc.last_scanned_warehouse",
    "fieldname": "last_scanned_warehouse",
    "fieldtype": "Data",
    "is_virtual": 1,
    "label": "Last Scanned Warehouse"
+  },
+  {
+   "fieldname": "item_wise_tax_details",
+   "fieldtype": "Table",
+   "hidden": 1,
+   "label": "Item Wise Tax Details",
+   "no_copy": 1,
+   "options": "Item Wise Tax Detail",
+   "print_hide": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "utm_analytics_section",
+   "fieldtype": "Section Break",
+   "label": "UTM Analytics"
+  },
+  {
+   "fieldname": "column_break_neoj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "totals_section",
+   "fieldtype": "Section Break",
+   "label": "Totals",
+   "oldfieldtype": "Section Break",
+   "options": "fa fa-money"
+  },
+  {
+   "fieldname": "base_totals_section",
+   "fieldtype": "Section Break",
+   "label": "Totals (Company Currency)",
+   "options": "Company:company:default_currency"
+  },
+  {
+   "fieldname": "column_break_ydwe",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "auto_repeat_section",
+   "fieldtype": "Section Break",
+   "label": "Auto Repeat"
   }
  ],
  "icon": "fa fa-truck",
  "idx": 146,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-11-26 12:44:28.258215",
+ "modified": "2026-03-09 17:15:27.932956",
  "modified_by": "Administrator",
  "module": "Stock",
  "name": "Delivery Note",
@@ -1385,13 +1547,14 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "search_fields": "status,customer,customer_name, territory,base_grand_total",
  "show_name_in_global_search": 1,
- "sort_field": "modified",
+ "sort_field": "creation",
  "sort_order": "DESC",
  "states": [],
  "timeline_field": "customer",
- "title_field": "title",
+ "title_field": "customer_name",
  "track_changes": 1,
  "track_seen": 1
 }

@@ -29,6 +29,7 @@ frappe.ui.form.on("Subcontracting Receipt", {
 
 	refresh: (frm) => {
 		frappe.dynamic_link = { doc: frm.doc, fieldname: "supplier", doctype: "Supplier" };
+		erpnext.toggle_serial_batch_fields(frm);
 
 		if (frm.doc.docstatus === 1) {
 			frm.add_custom_button(
@@ -418,6 +419,12 @@ frappe.ui.form.on("Subcontracting Receipt Item", {
 
 	rate(frm) {
 		set_missing_values(frm);
+	},
+
+	before_items_remove(frm, cdt, cdn) {
+		const filtered_rows = frm.doc.supplied_items.filter((item) => item.reference_name !== cdn);
+		frm.doc.supplied_items = filtered_rows;
+		frm.refresh_field("supplied_items");
 	},
 
 	items_delete: (frm) => {

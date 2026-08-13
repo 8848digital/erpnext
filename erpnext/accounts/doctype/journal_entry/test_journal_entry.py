@@ -424,9 +424,9 @@ class TestJournalEntry(unittest.TestCase):
 		from erpnext.accounts.doctype.cost_center.test_cost_center import create_cost_center
 
 		# Configure Repost Accounting Ledger for JVs
-		settings = frappe.get_doc("Repost Accounting Ledger Settings")
-		if not [x for x in settings.allowed_types if x.document_type == "Journal Entry"]:
-			settings.append("allowed_types", {"document_type": "Journal Entry", "allowed": True})
+		settings = frappe.get_doc("Accounts Settings")
+		if "Journal Entry" not in [x.document_type for x in settings.repost_allowed_types]:
+			settings.append("repost_allowed_types", {"document_type": "Journal Entry"})
 		settings.save()
 
 		# Create JV with defaut cost center - _Test Cost Center
@@ -532,7 +532,7 @@ class TestJournalEntry(unittest.TestCase):
 		jv = frappe.new_doc("Journal Entry")
 		jv.posting_date = nowdate()
 		jv.company = "_Test Company"
-		jv.user_remark = "test"
+		jv.remark = "test"
 		jv.extend(
 			"accounts",
 			[
@@ -2759,7 +2759,6 @@ class TestJournalEntry(unittest.TestCase):
 
 		self.assertEqual(jv.pay_to_recd_from, "_Test Receiver 2")
 
-
 def make_journal_entry(
 	account1,
 	account2,
@@ -2777,7 +2776,7 @@ def make_journal_entry(
 	jv = frappe.new_doc("Journal Entry")
 	jv.posting_date = posting_date or nowdate()
 	jv.company = "_Test Company"
-	jv.user_remark = "test"
+	jv.remark = "test"
 	jv.multi_currency = 1
 	jv.set(
 		"accounts",

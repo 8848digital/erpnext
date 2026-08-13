@@ -204,7 +204,7 @@ class POSInvoiceMergeLog(Document):
 		return return_invoices
 
 	def merge_pos_invoice_into(self, invoice, data):
-		items, payments, taxes = [], [], []
+		items, payments, taxes, item_tax_details = [], [], [], []
 
 		loyalty_amount_sum, loyalty_points_sum = 0, 0
 
@@ -214,6 +214,8 @@ class POSInvoiceMergeLog(Document):
 		loyalty_amount_sum, loyalty_points_sum, idx = 0, 0, 1
 
 		for doc in data:
+			old_new_item_map = frappe._dict()
+			old_new_tax_map = frappe._dict()
 			map_doc(doc, invoice, table_map={"doctype": invoice.doctype})
 
 			if doc.get("posting_date"):
@@ -241,6 +243,7 @@ class POSInvoiceMergeLog(Document):
 				if item.serial_and_batch_bundle:
 					si_item.serial_and_batch_bundle = item.serial_and_batch_bundle
 				items.append(si_item)
+				old_new_item_map[item.name] = si_item
 
 			for tax in doc.get("taxes"):
 				found = False
@@ -250,7 +253,7 @@ class POSInvoiceMergeLog(Document):
 						t.base_tax_amount = flt(t.base_tax_amount) + flt(
 							tax.base_tax_amount_after_discount_amount
 						)
-						update_item_wise_tax_detail(t, tax)
+						old_new_tax_map[tax.name] = t
 						found = True
 				if not found:
 					tax.charge_type = "Actual"
@@ -260,8 +263,9 @@ class POSInvoiceMergeLog(Document):
 					tax.included_in_print_rate = 0
 					tax.tax_amount = tax.tax_amount_after_discount_amount
 					tax.base_tax_amount = tax.base_tax_amount_after_discount_amount
-					tax.item_wise_tax_detail = tax.item_wise_tax_detail
+					tax.dont_recompute_tax = 1
 					taxes.append(tax)
+					old_new_tax_map[tax.name] = tax
 
 			for payment in doc.get("payments"):
 				found = False
@@ -277,6 +281,16 @@ class POSInvoiceMergeLog(Document):
 			rounded_total += doc.rounded_total
 			base_rounding_adjustment += doc.base_rounding_adjustment
 			base_rounded_total += doc.base_rounded_total
+
+			for d in doc.get("item_wise_tax_details"):
+				row = frappe._dict(
+					item=old_new_item_map[d.item_row],
+					tax=old_new_tax_map[d.tax_row],
+					amount=d.amount,
+					rate=d.rate,
+					taxable_amount=d.taxable_amount,
+				)
+				item_tax_details.append(row)
 
 		if loyalty_points_sum:
 			invoice.redeem_loyalty_points = 1
@@ -342,6 +356,7 @@ class POSInvoiceMergeLog(Document):
 		invoice.set("sales_partner", None)
 		invoice.set("commission_rate", 0)
 		invoice.set("total_commission", 0)
+		invoice._item_wise_tax_details = item_tax_details
 
 		return invoice
 
@@ -412,25 +427,6 @@ class POSInvoiceMergeLog(Document):
 			si = frappe.get_doc("Sales Invoice", si_name)
 			si.flags.ignore_validate = True
 			si.cancel()
-
-
-def update_item_wise_tax_detail(consolidate_tax_row, tax_row):
-	consolidated_tax_detail = json.loads(consolidate_tax_row.item_wise_tax_detail)
-	tax_row_detail = json.loads(tax_row.item_wise_tax_detail)
-
-	if not consolidated_tax_detail:
-		consolidated_tax_detail = {}
-
-	for item_code, tax_data in tax_row_detail.items():
-		if consolidated_tax_detail.get(item_code):
-			consolidated_tax_data = consolidated_tax_detail.get(item_code)
-			consolidated_tax_detail.update(
-				{item_code: [consolidated_tax_data[0], consolidated_tax_data[1] + tax_data[1]]}
-			)
-		else:
-			consolidated_tax_detail.update({item_code: [tax_data[0], tax_data[1]]})
-
-	consolidate_tax_row.item_wise_tax_detail = json.dumps(consolidated_tax_detail, separators=(",", ":"))
 
 
 def get_all_unconsolidated_invoices():
@@ -573,7 +569,7 @@ def split_invoices(invoices):
 
 
 def create_merge_logs(invoice_by_customer, closing_entry=None):
-	try:
+	def merge_and_close():
 		for customer, invoices_acc_dim in invoice_by_customer.items():
 			for invoices in invoices_acc_dim.values():
 				for _invoices in split_invoices(invoices):
@@ -595,25 +591,30 @@ def create_merge_logs(invoice_by_customer, closing_entry=None):
 			closing_entry.db_set("error_message", "")
 			closing_entry.update_opening_entry()
 
-	except Exception as e:
-		frappe.db.rollback()
-		message_log = frappe.message_log.pop() if frappe.message_log else str(e)
-		error_message = get_error_message(message_log)
+	if frappe.in_test:
+		merge_and_close()
+	else:
+		try:
+			merge_and_close()
+		except Exception as e:
+			frappe.db.rollback()
+			message_log = frappe.message_log.pop() if frappe.message_log else str(e)
+			error_message = get_error_message(message_log)
 
-		if closing_entry:
-			closing_entry.set_status(update=True, status="Failed")
-			if isinstance(error_message, list):
-				error_message = json.dumps(error_message)
-			closing_entry.db_set("error_message", error_message)
-		raise
+			if closing_entry:
+				closing_entry.set_status(update=True, status="Failed")
+				if isinstance(error_message, list):
+					error_message = json.dumps(error_message)
+				closing_entry.db_set("error_message", error_message)
+			raise
 
-	finally:
-		frappe.db.commit()
-		frappe.publish_realtime("closing_process_complete", user=frappe.session.user)
+		finally:
+			frappe.db.commit()
+			frappe.publish_realtime("closing_process_complete", user=frappe.session.user)
 
 
 def cancel_merge_logs(merge_logs, closing_entry=None):
-	try:
+	def merge_cancel_and_close():
 		for log in merge_logs:
 			merge_log = frappe.get_doc("POS Invoice Merge Log", log)
 			if merge_log.docstatus == 2:
@@ -626,19 +627,24 @@ def cancel_merge_logs(merge_logs, closing_entry=None):
 			closing_entry.db_set("error_message", "")
 			closing_entry.update_opening_entry(for_cancel=True)
 
-	except Exception as e:
-		frappe.db.rollback()
-		message_log = frappe.message_log.pop() if frappe.message_log else str(e)
-		error_message = get_error_message(message_log)
+	if frappe.flags.in_test:
+		merge_cancel_and_close()
+	else:
+		try:
+			merge_cancel_and_close()
+		except Exception as e:
+			frappe.db.rollback()
+			message_log = frappe.message_log.pop() if frappe.message_log else str(e)
+			error_message = get_error_message(message_log)
 
-		if closing_entry:
-			closing_entry.set_status(update=True, status="Submitted")
-			closing_entry.db_set("error_message", error_message)
-		raise
+			if closing_entry:
+				closing_entry.set_status(update=True, status="Submitted")
+				closing_entry.db_set("error_message", error_message)
+			raise
 
-	finally:
-		frappe.db.commit()
-		frappe.publish_realtime("closing_process_complete", user=frappe.session.user)
+		finally:
+			frappe.db.commit()
+			frappe.publish_realtime("closing_process_complete", user=frappe.session.user)
 
 
 def enqueue_job(job, **kwargs):

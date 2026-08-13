@@ -2,15 +2,18 @@
 # License: GNU General Public License v3. See license.txt
 
 
+from collections import defaultdict
 from json import loads
 from typing import TYPE_CHECKING, Optional
-from pypika.functions import Coalesce
+
 import frappe
 import frappe.defaults
 from frappe import _, qb, throw
+from frappe.desk.reportview import build_match_conditions
 from frappe.model.meta import get_field_precision
-from frappe.query_builder import AliasedQuery, Case, Criterion, Table
-from frappe.query_builder.functions import Count, Max, Sum
+from frappe.model.naming import determine_consecutive_week_number
+from frappe.query_builder import AliasedQuery, Case, Criterion, Field, Table
+from frappe.query_builder.functions import Count, IfNull, Max, Round, Sum
 from frappe.query_builder.utils import DocType
 from frappe.utils import (
 	add_days,
@@ -23,12 +26,15 @@ from frappe.utils import (
 	get_number_format_info,
 	getdate,
 	now,
-	nowdate,
+	now_datetime,
+	nowdate
 )
+from frappe.utils.caching import site_cache
+from frappe.utils.data import DateTimeLikeObject
 from pypika import Order
+from pypika.functions import Coalesce
 from pypika.terms import ExistsCriterion
-from pypika.functions import Min
-from collections import defaultdict
+
 import erpnext
 
 # imported to enable erpnext.accounts.utils.get_account_currency
@@ -36,7 +42,6 @@ from erpnext.accounts.doctype.account.account import get_account_currency
 from erpnext.accounts.doctype.accounting_dimension.accounting_dimension import get_dimensions
 from erpnext.stock import get_warehouse_account_map
 from erpnext.stock.utils import get_stock_value_on
-from frappe.utils.caching import site_cache
 
 if TYPE_CHECKING:
 	from erpnext.stock.doctype.repost_item_valuation.repost_item_valuation import RepostItemValuation
@@ -56,6 +61,7 @@ GL_REPOSTING_CHUNK = 100
 @frappe.whitelist()
 def get_fiscal_year(
 	date=None, fiscal_year=None, label="Date", verbose=1, company=None, as_dict=False, boolean=False
+
 ):
 	if isinstance(boolean, str):
 		boolean = loads(boolean)
@@ -186,6 +192,7 @@ def get_balance_on(
 	ignore_account_permission=False,
 	account_type=None,
 	start_date=None,
+
 ):
 	if not account and frappe.form_dict.get("account"):
 		account = frappe.form_dict.get("account")
@@ -502,7 +509,8 @@ def reconcile_against_document(
 					dimensions_dict=dimensions_dict,
 				)
 
-				if referenced_row.get("outstanding_amount"):
+				if referenced_row.get("outstanding_amount") and entry.get("outstanding_amount") is None:
+
 					referenced_row.outstanding_amount -= flt(entry.allocated_amount)
 				reposting_rows.append(referenced_row)
 
@@ -747,7 +755,7 @@ def get_reconciliation_effect_date(against_voucher_type, against_voucher, compan
 		"Company", company, "reconciliation_takes_effect_on"
 	)
 
-	reconcile_on = posting_dat
+	reconcile_on = posting_date
 
 	if reconciliation_takes_effect_on == "Advance Payment Date":
 		reconcile_on = posting_date
@@ -1426,14 +1434,38 @@ def get_autoname_with_number(number_value, doc_title, company):
 
 
 def parse_naming_series_variable(doc, variable):
-	if variable == "FY":
+	if variable in ["FY", "TFY"]:
 		if doc:
 			date = doc.get("posting_date") or doc.get("transaction_date") or getdate()
 			company = doc.get("company")
 		else:
 			date = getdate()
 			company = None
-		return get_fiscal_year(date=date, company=company)[0]
+		return get_fiscal_year(date=date, company=company, truncate=variable == "TFY")[0]
+
+	elif variable == "ABBR":
+		if doc:
+			company = doc.get("company") or frappe.db.get_default("company")
+		else:
+			company = frappe.db.get_default("company")
+
+		return frappe.db.get_value("Company", company, "abbr") if company else ""
+
+	else:
+		data = {"YY": "%y", "YYYY": "%Y", "MM": "%m", "DD": "%d", "JJJ": "%j"}
+
+		if doc and doc.doctype in ["Batch", "Serial No"] and doc.reference_doctype and doc.reference_name:
+			doc = frappe.get_doc(doc.reference_doctype, doc.reference_name)
+
+		date = (
+			(
+				getdate(doc.get("posting_date") or doc.get("transaction_date") or doc.get("posting_datetime"))
+				or now_datetime()
+			)
+			if doc and frappe.get_single_value("Global Defaults", "use_posting_datetime_for_naming_documents")
+			else now_datetime()
+		)
+		return date.strftime(data[variable]) if variable in data else determine_consecutive_week_number(date)
 
 
 @frappe.whitelist()
@@ -2384,6 +2416,7 @@ def create_gain_loss_journal(
 	ref2_detail_no,
 	cost_center,
 	dimensions,
+	project=None,
 ) -> str:
 	journal_entry = frappe.new_doc("Journal Entry")
 	journal_entry.voucher_type = "Exchange Gain Or Loss"
@@ -2410,6 +2443,7 @@ def create_gain_loss_journal(
 			"account_currency": party_account_currency,
 			"exchange_rate": 0,
 			"cost_center": cost_center or erpnext.get_default_cost_center(company),
+			"project": project,
 			"reference_type": ref1_dt,
 			"reference_name": ref1_dn,
 			"reference_detail_no": ref1_detail_no,
@@ -2427,6 +2461,7 @@ def create_gain_loss_journal(
 			"account_currency": gain_loss_account_currency,
 			"exchange_rate": 1,
 			"cost_center": cost_center or erpnext.get_default_cost_center(company),
+			"project": project,
 			"reference_type": ref2_dt,
 			"reference_name": ref2_dn,
 			"reference_detail_no": ref2_detail_no,
@@ -2528,3 +2563,106 @@ def sync_auto_reconcile_config(auto_reconciliation_job_trigger: int = 15):
 				"frequency": "Cron",
 			}
 		).save()
+
+
+PRE_SUBMIT_DOCTYPE_CONFIG = {
+	"Sales Invoice": {
+		"check_prev_docstatus": True,
+		"check_credit_limit": True,
+	},
+	"Purchase Invoice": {
+		"check_prev_docstatus": True,
+	},
+	"Delivery Note": {
+		"check_prev_docstatus": True,
+		"check_credit_limit": True,
+	},
+	"Purchase Receipt": {
+		"check_prev_docstatus": True,
+	},
+	"Sales Order": {
+		"check_prev_docstatus": True,
+		"check_credit_limit": True,
+	},
+}
+
+
+def pre_submit_validation(doc, method=None):
+	if doc.docstatus != 0:
+		return
+
+	if not frappe.get_cached_value("Accounts Settings", None, "preview_mode"):
+		return
+	cfg = PRE_SUBMIT_DOCTYPE_CONFIG.get(doc.doctype)
+	if not cfg or not doc.company:
+		return
+	_run_pre_submit_checks(doc, cfg)
+
+
+def _run_pre_submit_checks(doc, cfg):
+	if cfg.get("check_prev_docstatus"):
+		_check_prev_docstatus(doc)
+
+	if cfg.get("check_credit_limit"):
+		_check_credit_limit_warn(doc)
+
+
+def _check_prev_docstatus(doc):
+	try:
+		if doc.get("check_prev_docstatus"):
+			doc.check_prev_docstatus()
+	except Exception as e:
+		frappe.msgprint(str(e), title=_("Pre-Submit Warning"), indicator="orange")
+
+
+def _check_credit_limit_warn(doc):
+	if doc.get("is_return"):
+		return
+	if not doc.get("customer"):
+		return
+
+	from erpnext.selling.doctype.customer.customer import check_credit_limit
+
+	try:
+		bypass = cint(
+			frappe.db.get_value(
+				"Customer Credit Limit",
+				filters={"parent": doc.customer, "parenttype": "Customer", "company": doc.company},
+				fieldname="bypass_credit_limit_check",
+			)
+			or 0
+		)
+
+		if doc.doctype == "Sales Invoice":
+			validate_against_credit_limit = bypass or any(
+				not (d.sales_order or d.delivery_note) for d in doc.get("items")
+			)
+			if validate_against_credit_limit:
+				check_credit_limit(doc.customer, doc.company, bypass, extra_amount=flt(doc.base_grand_total))
+
+		elif doc.doctype == "Sales Order":
+			if not bypass:
+				check_credit_limit(doc.customer, doc.company, extra_amount=flt(doc.base_grand_total))
+
+		elif doc.doctype == "Delivery Note":
+			if doc.per_billed == 100:
+				return
+
+			if bypass:
+				doc.check_credit_limit()
+			else:
+				unlinked = [
+					d for d in doc.get("items") if not (d.against_sales_order or d.against_sales_invoice)
+				]
+				if unlinked and flt(doc.base_net_total):
+					unlinked_net = sum(flt(d.base_amount) for d in unlinked)
+					extra_amount = (unlinked_net / flt(doc.base_net_total)) * flt(doc.base_grand_total)
+					if extra_amount:
+						check_credit_limit(doc.customer, doc.company, False, extra_amount=extra_amount)
+
+	except frappe.ValidationError as e:
+		frappe.msgprint(
+			_("Credit limit warning — submission may be blocked: {0}").format(str(e)),
+			title=_("Pre-Submit Warning: Credit Limit"),
+			indicator="orange",
+		)
