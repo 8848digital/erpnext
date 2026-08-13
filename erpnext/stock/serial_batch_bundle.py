@@ -627,7 +627,7 @@ class SerialNoValuation(DeprecatedSerialNoValuation):
 				& (bundle.item_code == self.sle.item_code)
 				& (bundle_child.warehouse == self.sle.warehouse)
 			)
-			.orderby(_PostgresTimestamp(bundle.posting_date, bundle.posting_time), order=Order.desc)
+			.orderby(CombineDatetime(bundle.posting_date, bundle.posting_time), order=Order.desc)
 			.limit(1)
 		)
 

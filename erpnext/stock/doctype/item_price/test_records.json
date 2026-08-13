@@ -5,13 +5,15 @@
   "price_list": "_Test Price List",
   "price_list_rate": 100,
   "valid_from": "2017-04-18",
-  "valid_upto": "2017-04-26"
+  "valid_upto": "2017-04-26",
+  "uom": "_Test UOM"
  },
  {
   "doctype": "Item Price",
   "item_code": "_Test Item",
   "price_list": "_Test Price List Rest of the World",
-  "price_list_rate": 10
+  "price_list_rate": 10,
+  "uom": "_Test UOM"
  },
  {
   "doctype": "Item Price",
@@ -29,7 +31,8 @@
   "price_list": "_Test Price List",
   "price_list_rate": 1000,
   "valid_from": "2017-04-10",
-  "valid_upto": "2017-04-17"
+  "valid_upto": "2017-04-17",
+  "uom": "_Test UOM"
  },
  {
   "doctype": "Item Price",
@@ -37,20 +40,23 @@
   "price_list": "_Test Price List",
   "price_list_rate": 1000,
   "valid_from": "2017-04-10",
-  "valid_upto": "2017-04-17"
+  "valid_upto": "2017-04-17",
+  "uom": "_Test UOM"
  },
  {
   "doctype": "Item Price",
   "item_code": "_Test Item",
   "price_list": "_Test Buying Price List",
   "price_list_rate": 100,
-  "supplier": "_Test Supplier"
+  "supplier": "_Test Supplier",
+  "uom": "_Test UOM"
  },
  {
   "doctype": "Item Price",
   "item_code": "_Test Item",
   "price_list": "_Test Selling Price List",
   "price_list_rate": 200,
-  "customer": "_Test Customer"
+  "customer": "_Test Customer",
+  "uom": "_Test UOM"
  }
 ]

@@ -221,7 +221,7 @@ def get_items(start, page_length, price_list, item_group, pos_profile, search_te
 		item_uom_price = stock_uom_price
 
 		if item.sales_uom and item.sales_uom != item.stock_uom:
-			item_uom = item.sales_uomerpnext/accounts/doctype/journal_entry/journal_entry.py
+			item_uom = item.sales_uom
 			sales_uom_price = next((d for d in item_prices if d.get("uom") == item.sales_uom), {})
 			if sales_uom_price:
 				item_uom_price = sales_uom_price

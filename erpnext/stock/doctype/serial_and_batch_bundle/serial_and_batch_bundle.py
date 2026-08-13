@@ -324,7 +324,7 @@ class SerialandBatchBundle(Document):
 		else:
 			self.set_incoming_rate_for_inward_transaction(row, save, prev_sle=prev_sle)
 
-	def set_valuation_rate_for_return_entry(self, return_against, row, save=False):
+	def set_valuation_rate_for_return_entry(self, return_against, row, save=False, prev_sle=None):
 		if valuation_details := self.get_valuation_rate_for_return_entry(return_against):
 			for row in self.entries:
 				if valuation_details:

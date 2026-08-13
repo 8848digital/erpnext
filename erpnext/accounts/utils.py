@@ -760,7 +760,7 @@ def get_reconciliation_effect_date(against_voucher_type, against_voucher, compan
 		"Company", company, "reconciliation_takes_effect_on"
 	)
 
-	reconcile_on = posting_dat
+	reconcile_on = posting_date
 
 	if reconciliation_takes_effect_on == "Advance Payment Date":
 		reconcile_on = posting_date
@@ -1835,6 +1835,8 @@ def get_link_fields_grouped_by_option(doctype):
 
 
 def build_qb_match_conditions(doctype, user=None) -> list:
+	from frappe.desk.reportview import build_match_conditions
+
 	match_filters = build_match_conditions(doctype, user, False)
 	link_fields_map = get_link_fields_grouped_by_option(doctype)
 	criterion = []

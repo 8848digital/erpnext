@@ -77,7 +77,7 @@ class BankAccount(Document):  # pragma: no cover
 	@deprecated
 	def validate_iban(self):
 		"""Kept for backward compatibility, will be removed in v16."""
-		validate_iban(self.iban, throw=True)
+		frappe.utils.validate_iban(self.iban, throw=True)
 
 	def update_default_bank_account(self):
 		if self.is_default and not self.disabled:
