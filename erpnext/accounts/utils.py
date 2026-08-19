@@ -1750,8 +1750,16 @@ def get_stock_and_account_balance(account=None, posting_date=None, company=None)
 			for wh, wh_details in warehouse_account.items()
 			if wh_details.account == account and not wh_details.is_group
 		]
+		stock_value_warehouses = related_warehouses
+	else:
+		# With at most one stock account for the company, every warehouse's
+		# activity legitimately belongs to it — there's nothing to scope by, so
+		# pass None (unfiltered) rather than the empty `related_warehouses`,
+		# which get_stock_value_on() now correctly treats as "zero warehouses"
+		# (see #3095) and would return 0 for instead of the company total.
+		stock_value_warehouses = None
 
-	total_stock_value = get_stock_value_on(related_warehouses, posting_date, company=company)
+	total_stock_value = get_stock_value_on(stock_value_warehouses, posting_date, company=company)
 
 	precision = frappe.get_precision("Journal Entry Account", "debit_in_account_currency")
 	return flt(account_balance, precision), flt(total_stock_value, precision), related_warehouses

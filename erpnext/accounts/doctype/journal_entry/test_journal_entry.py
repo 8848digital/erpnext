@@ -640,6 +640,13 @@ class TestJournalEntry(unittest.TestCase):
 
 			self.check_gl_entries()
 
+	# The round-off allowance for a Journal Entry is 5.0 / (10 ** currency_precision)
+	# (get_debit_credit_allowance() in accounts/general_ledger.py). The 0.01
+	# imbalance below only produces a round-off entry while that allowance is
+	# >= 0.01, i.e. precision <= 2 — pin it rather than depending on whatever
+	# precision an earlier test happened to leave behind (see #3090 for the
+	# same issue in gl_entry.py's test_round_off_entry).
+	@change_settings("System Settings", {"currency_precision": 2, "float_precision": 2})
 	def test_round_off_entry_TC_ACC_050(self):
 		# Set up round-off account and cost center
 		frappe.db.set_value("Company", "_Test Company", "round_off_account", "_Test Write Off - _TC")
@@ -2352,17 +2359,26 @@ class TestJournalEntry(unittest.TestCase):
 		create_company(company_name=company)
 		abbr = frappe.get_cached_value("Company", company, "abbr")
 
-		if not frappe.db.exists("Account", f"Stock In Hand - {abbr}"):
-			frappe.get_doc(
-				{
-					"doctype": "Account",
-					"account_name": "Stock In Hand",
-					"parent_account": f"Current Assets - {abbr}",
-					"company": company,
-					"is_group": 0,
-					"root_type": "Asset",
-				}
-			).insert(ignore_permissions=True)
+		# validate_stock_accounts() throws only when the account's GL ledger
+		# balance exactly equals its computed stock valuation balance (i.e. the
+		# two are still in sync, so a manual JV would desync them). The shared
+		# "Stock In Hand - {abbr}" account already carries substantial activity
+		# from the rest of the suite by the time this test runs, so its ledger
+		# and valuation balances never coincidentally match — use a uniquely
+		# named account instead, which starts genuinely empty on both sides.
+		stock_account_name = "Test Stock Account " + frappe.generate_hash(length=10)
+		frappe.get_doc(
+			{
+				"doctype": "Account",
+				"account_name": stock_account_name,
+				"parent_account": f"Current Assets - {abbr}",
+				"company": company,
+				"is_group": 0,
+				"root_type": "Asset",
+				"account_type": "Stock",
+			}
+		).insert(ignore_permissions=True)
+		stock_account = f"{stock_account_name} - {abbr}"
 
 		if not frappe.db.exists("Account", f"Cash - {abbr}"):
 			frappe.get_doc(
@@ -2376,9 +2392,7 @@ class TestJournalEntry(unittest.TestCase):
 				}
 			).insert(ignore_permissions=True)
 
-		je = make_journal_entry(
-			account1=f"Stock In Hand - {abbr}", account2=f"Cash - {abbr}", amount=100, save=True
-		)
+		je = make_journal_entry(account1=stock_account, account2=f"Cash - {abbr}", amount=100, save=True)
 		with self.assertRaises(frappe.ValidationError) as cm:
 			je.validate_stock_accounts()
 

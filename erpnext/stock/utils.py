@@ -73,7 +73,14 @@ def get_stock_value_on(
 		.where((sle.posting_date <= posting_date) & (sle.is_cancelled == 0))
 	)
 
-	if warehouses:
+	# `is not None` rather than truthy: a caller passing an explicit empty list
+	# means "scope to these (zero) warehouses", i.e. the result should be 0 —
+	# not "no filter, use every warehouse company-wide". Only an omitted/None
+	# argument means unfiltered. Without this distinction, callers computing a
+	# specific account's stock value via its linked warehouses (e.g.
+	# get_stock_and_account_balance() in accounts/utils.py) get the grand
+	# total instead of 0 whenever the account has no warehouses linked to it.
+	if warehouses is not None:
 		if isinstance(warehouses, str):
 			warehouses = [warehouses]
 
@@ -81,6 +88,12 @@ def get_stock_value_on(
 		for wh in list(warehouses):
 			if frappe.db.get_value("Warehouse", wh, "is_group"):
 				warehouses.update(get_child_warehouses(wh))
+
+		if not warehouses:
+			# `sle.warehouse.isin(set())` would render as the invalid SQL
+			# `IN ()`; scoping to zero warehouses means zero stock value, so
+			# short-circuit instead of running a query that can't match anything.
+			return 0.0
 
 		query = query.where(sle.warehouse.isin(warehouses))
 
