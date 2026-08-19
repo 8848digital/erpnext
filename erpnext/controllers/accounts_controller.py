@@ -2227,19 +2227,42 @@ class AccountsController(TransactionBase):
 	def set_total_advance_paid(self):
 		party = self.customer if self.doctype == "Sales Order" else self.supplier
 
+		# Advances made via Payment Entry land in `Payment Ledger Entry` with
+		# `against_voucher` pointing directly at this order. Advances made via
+		# Journal Entry instead point their GL Entry's `against_voucher` at the
+		# Journal Entry itself (so `Payment Ledger Entry` alone misses them) and
+		# record the actual order link separately in `Advance Payment Ledger
+		# Entry` — both sources have to be combined to get the true total.
 		advance = frappe.db.sql(
-			f"""SELECT
-				(ARRAY_AGG(ple.account_currency))[1] as account_currency,
-				ABS(SUM(ple.amount_in_account_currency)) AS amount
-			FROM
-				"tabPayment Ledger Entry" as ple
-			WHERE
-				ple.against_voucher_type = '{self.doctype}'
-				AND ple.against_voucher_no = '{ self.name}'
-				AND ple.party = '{party}'
-				AND ple.delinked = 0
-				AND ple.company = '{self.company}'
+			"""SELECT
+				(ARRAY_AGG(account_currency))[1] as account_currency,
+				ABS(SUM(amount)) AS amount
+			FROM (
+				SELECT
+					ple.account_currency AS account_currency,
+					ple.amount_in_account_currency AS amount
+				FROM "tabPayment Ledger Entry" as ple
+				WHERE
+					ple.against_voucher_type = %(doctype)s
+					AND ple.against_voucher_no = %(name)s
+					AND ple.party = %(party)s
+					AND ple.delinked = 0
+					AND ple.company = %(company)s
+
+				UNION ALL
+
+				SELECT
+					aple.currency AS account_currency,
+					aple.amount AS amount
+				FROM "tabAdvance Payment Ledger Entry" as aple
+				WHERE
+					aple.against_voucher_type = %(doctype)s
+					AND aple.against_voucher_no = %(name)s
+					AND aple.delinked = 0
+					AND aple.company = %(company)s
+			) combined
 			""",
+			{"doctype": self.doctype, "name": self.name, "party": party, "company": self.company},
 			as_dict=True,
 		)
 
