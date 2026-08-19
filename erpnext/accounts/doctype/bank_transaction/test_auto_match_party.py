@@ -142,6 +142,14 @@ def create_bank_transaction(
 			"currency": "INR",
 			"bank_account": "Checking Account - Citi Bank",
 			"transaction_id": transaction_id,
+			# Tests in this class share one transaction (FrappeTestCase only
+			# rolls back a savepoint if its test failed, so passing tests'
+			# fixtures accumulate for the rest of the class) — without a
+			# reference_number distinguishing each call, before_save()'s
+			# duplicate check (date + withdrawal + reference_number +
+			# description) collides with an earlier passing test's leftover
+			# transaction whenever both use the default description/amount.
+			"reference_number": transaction_id,
 			"bank_party_name": party_name,
 			"bank_party_account_number": account_no,
 			"bank_party_iban": iban,
