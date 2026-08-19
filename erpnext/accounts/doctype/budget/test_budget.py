@@ -131,11 +131,11 @@ class TestBudget(unittest.TestCase):
 		with self.assertRaises(BudgetError):
 			pi = make_purchase_invoice(
 				company=company,
-				item=service_item,
+				item=service_item.item_code,
 				qty=100,
 				rate=10000,
 				expense_account=expense_account,
-				supplier=supplier
+				supplier=supplier.name,
 			)
 			pi.submit()
 

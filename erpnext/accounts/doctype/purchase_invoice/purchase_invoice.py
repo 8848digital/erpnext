@@ -691,6 +691,7 @@ class PurchaseInvoice(BuyingController):
 		super().on_submit()
 
 		self.check_prev_docstatus()
+		self.validate_budget()
 		update_actual_overall_budget(self,"Submit")
 
 		if self.is_return and not self.update_billed_amount_in_purchase_order:
