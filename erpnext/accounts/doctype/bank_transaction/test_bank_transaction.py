@@ -25,6 +25,7 @@ test_dependencies = ["Item", "Cost Center"]
 
 class TestBankTransaction(FrappeTestCase):
 	def setUp(self):
+		super().setUp()
 		for dt in [
 			"Bank Transaction",
 			"Payment Entry",
