@@ -6,12 +6,20 @@ import unittest
 
 import frappe
 from frappe.model.naming import parse_naming_series
+from frappe.tests.utils import change_settings
 
 from erpnext.accounts.doctype.gl_entry.gl_entry import rename_gle_sle_docs
 from erpnext.accounts.doctype.journal_entry.test_journal_entry import make_journal_entry
 
 
 class TestGLEntry(unittest.TestCase):
+	# The round-off allowance for a Journal Entry is 5.0 / (10 ** currency_precision)
+	# (see get_debit_credit_allowance). The 0.01 imbalance below only produces a
+	# round-off entry while that allowance is >= 0.01, i.e. precision <= 2. Pin it
+	# here instead of depending on whatever precision earlier tests happened to
+	# leave behind — at frappe's default of 3 the allowance is 0.005 and this
+	# throws "Debit and Credit not equal" instead.
+	@change_settings("System Settings", {"currency_precision": 2, "float_precision": 2})
 	def test_round_off_entry(self):
 		frappe.db.set_value("Company", "_Test Company", "round_off_account", "_Test Write Off - _TC")
 		frappe.db.set_value("Company", "_Test Company", "round_off_cost_center", "_Test Cost Center - _TC")
