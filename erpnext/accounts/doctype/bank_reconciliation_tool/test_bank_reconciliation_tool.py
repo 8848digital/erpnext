@@ -50,6 +50,7 @@ class TestBankReconciliationTool(AccountsTestMixin, FrappeTestCase):
 					"account_name": "HDFC _current_",
 					"bank": bank,
 					"is_company_account": True,
+					"company": self.company,
 					"account": self.bank,  # account from Chart of Accounts
 				}
 			)
