@@ -229,7 +229,17 @@ class TestBankTransaction(FrappeTestCase):
 		self.assertEqual(linked_payments[0]["name"], repayment_entry.name)
 
 	def test_validate_currency_TC_ACC_270(self):
-		bank_account = create_bank_account()
+		# Use a uniquely-named GL account rather than the shared "_Test Bank - _TC"
+		# default: other tests in this class post GL Entries against that shared
+		# account in INR, and FrappeTestCase only rolls back a test's changes if
+		# it failed — a passing test's postings persist for the rest of the
+		# class — so reusing it here would make the currency change below
+		# collide with whichever earlier test happened to post first.
+		uniq_identifier = frappe.generate_hash(length=10)
+		gl_account = create_gl_account("_Test Bank " + uniq_identifier)
+		bank_account = create_bank_account(
+			gl_account=gl_account, bank_account_name="Checking Account " + uniq_identifier
+		)
 		account = frappe.get_doc("Account", frappe.get_value("Bank Account", bank_account, "account"))
 		account.account_currency = "USD"
 		account.save()
