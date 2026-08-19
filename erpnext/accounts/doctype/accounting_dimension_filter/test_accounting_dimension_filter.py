@@ -13,7 +13,7 @@ from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_sal
 from erpnext.exceptions import InvalidAccountDimensionError, MandatoryAccountDimensionError
 
 test_dependencies = ["Cost Center", "Department"]
-if "Assets" in frappe.get_installed_apps():
+if "assets" in frappe.get_installed_apps():
 	test_dependencies = ["Location", "Cost Center", "Department"]
 
 

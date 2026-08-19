@@ -82,7 +82,7 @@ def test_create_test_data():
 		)
 		item_pricing_rule.insert()
 	# create test item sales partner
-	if "Sales Commission" in frappe.get_installed_apps():
+	if "sales_commission" in frappe.get_installed_apps():
 		if not frappe.db.exists("Sales Partner", "_Test Coupon Partner"):
 			sales_partner = frappe.get_doc(
 				{
@@ -94,10 +94,10 @@ def test_create_test_data():
 			)
 			sales_partner.insert()
 	# create test item coupon code
+	pricing_rule = frappe.db.get_value(
+		"Pricing Rule", {"title": "_Test Pricing Rule for _Test Item"}, ["name"]
+	)
 	if not frappe.db.exists("Coupon Code", "SAVE30"):
-		pricing_rule = frappe.db.get_value(
-			"Pricing Rule", {"title": "_Test Pricing Rule for _Test Item"}, ["name"]
-		)
 		coupon_code = frappe.get_doc(
 			{
 				"doctype": "Coupon Code",
@@ -110,6 +110,12 @@ def test_create_test_data():
 			}
 		)
 		coupon_code.insert()
+	else:
+		# A SAVE30 left over from an earlier run points at whichever Pricing Rule
+		# existed back then; that rule may since have been deleted, leaving a
+		# dangling link so the discount silently never applies. Re-point it at
+		# the rule this fixture just ensured exists.
+		frappe.db.set_value("Coupon Code", "SAVE30", "pricing_rule", pricing_rule)
 
 
 class TestCouponCode(unittest.TestCase):

@@ -204,7 +204,7 @@ class TestInventoryDimension(FrappeTestCase):
 		self.assertEqual(sle_rack, "Rack 1")
 
 	def test_check_standard_dimensions(self):
-		if "Projects" not in frappe.get_installed_apps():
+		if "projects" not in frappe.get_installed_apps():
 			return
 		create_inventory_dimension(
 			reference_document="Project",
