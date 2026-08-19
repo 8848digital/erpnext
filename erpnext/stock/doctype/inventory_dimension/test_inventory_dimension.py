@@ -23,6 +23,7 @@ from erpnext.stock.doctype.warehouse.test_warehouse import create_warehouse
 
 class TestInventoryDimension(FrappeTestCase):
 	def setUp(self):
+		super().setUp()
 		prepare_test_data()
 		create_store_dimension()
 
