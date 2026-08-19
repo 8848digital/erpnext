@@ -760,7 +760,7 @@ class BuyingController(SubcontractingController):
 						"posting_date": (
 							self.schedule_date
 							if self.doctype == "Material Request"
-							else self.transaction_date
+							else self.get("transaction_date") or self.get("posting_date")
 						),
 					}
 				)

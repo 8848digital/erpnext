@@ -265,6 +265,13 @@ def compare_expense_with_budget(args, budget_amount, action_for, action, budget_
 		elif args.get("doctype") == "Purchase Order" and args.for_purchase_order:
 			amount = args.ordered_amount
 
+		elif args.get("doctype") == "Purchase Invoice":
+			# `validate_budget()` runs from on_submit, before this invoice's own
+			# GL Entries are written, so `actual_expense` doesn't include it yet
+			# — unlike Material Request/Purchase Order there's no separate
+			# "pending" total to look up, so use the invoice line's own amount.
+			amount = flt(args.get("amount"))
+
 	total_expense = args.actual_expense + amount
 
 	if total_expense > budget_amount:
