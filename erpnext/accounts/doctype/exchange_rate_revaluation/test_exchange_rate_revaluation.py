@@ -854,8 +854,26 @@ class TestExchangeRateRevaluation(AccountsTestMixin, FrappeTestCase):
 		self.assertEqual(rate, 2.0)
   
 	def test_check_journal_entry_condition_mismatch_TC_ACC_530(self):
+		# setUp() calls clear_old_entries(), so there is no forex balance to
+		# revalue unless this test creates one — without it get_accounts_data()
+		# returns [] and err.accounts[0] raises IndexError.
+		frappe.db.set_value("Customer", self.customer, "default_currency", "USD")
+		create_sales_invoice(
+			item=self.item,
+			company=self.company,
+			customer=self.customer,
+			debit_to=self.debtors_usd,
+			posting_date=today(),
+			parent_cost_center=self.cost_center,
+			cost_center=self.cost_center,
+			rate=100,
+			price_list_rate=100,
+			currency="USD",
+			conversion_rate=80,
+		)
+
 		err = frappe.new_doc("Exchange Rate Revaluation")
-		err.company = "_Test Company"
+		err.company = self.company
 		err.posting_date = today()
 		accounts = err.get_accounts_data()
 		err.extend("accounts", accounts)
@@ -874,18 +892,32 @@ class TestExchangeRateRevaluation(AccountsTestMixin, FrappeTestCase):
 			"doctype": "Journal Entry",
 			"voucher_type": "Bank Entry",
 			"posting_date": nowdate(),
+			"company": self.company,
+			# voucher_type "Bank Entry" requires cheque details
+			"cheque_no": "TEST-ERR-530",
+			"cheque_date": nowdate(),
 			"accounts": [
 				{
 					"account": exchange_gain_loss_account,
 					"debit": 0,
 					"credit": 200,
+					# JE recomputes the base debit/credit from the account-currency
+					# amounts, so these must be set or the row lands as 0/0.
+					"debit_in_account_currency": 0,
+					"credit_in_account_currency": 200,
 					"reference_type": "Exchange Rate Revaluation",
 					"reference_name": err.name,
 				},
 				{
-					"account": "_Test Receivable - _TC",
+					# Balancing row only — check_journal_entry_condition() looks
+					# solely at the gain/loss account rows. Must not be a
+					# Receivable/Payable account, which would require party_type
+					# and party to be set.
+					"account": self.cash,
 					"debit": 200,
 					"credit": 0,
+					"debit_in_account_currency": 200,
+					"credit_in_account_currency": 0,
 				},
 			],
 		})
