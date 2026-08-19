@@ -543,7 +543,14 @@ def send_mail(deferred_process):
 	content += _(
 		"Please check Process Deferred Accounting {0} and submit manually after resolving errors."
 	).format(link)
-	sendmail_to_system_managers(title, content)
+	try:
+		sendmail_to_system_managers(title, content)
+	except frappe.OutgoingEmailError:
+		# This is a best-effort notification about a failure that already
+		# happened elsewhere in deferred accounting processing — a missing
+		# outgoing Email Account shouldn't turn that into a second, unrelated
+		# failure that aborts the whole submit(). Log it instead.
+		frappe.log_error(title=title, message=content)
 
 
 def book_revenue_via_journal_entry(
