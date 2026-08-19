@@ -9860,6 +9860,13 @@ def validate_fiscal_year(company):
 	year = get_fiscal_year(today())
 	if len(year) > 1:
 		fiscal_year = frappe.get_doc("Fiscal Year", year[0])
+		if not fiscal_year.companies:
+			# A Fiscal Year with no companies listed is unrestricted and already
+			# applies to every company (see get_fiscal_years() in accounts/utils.py).
+			# Appending one here would restrict it to just that company and break
+			# every other company relying on it — same fix as
+			# erpnext/stock/utils.py's get_or_create_fiscal_year().
+			return
 		company_list = {d.company for d in fiscal_year.companies}
 		if company not in company_list:
 			fiscal_year.append("companies", {"company": company})
