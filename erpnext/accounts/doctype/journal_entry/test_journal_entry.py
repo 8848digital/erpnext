@@ -2393,108 +2393,79 @@ class TestJournalEntry(unittest.TestCase):
 		get_or_create_supplier("_Test Supplier")
 		get_or_create_customer("_Test Customer")
 
-		debtors_account = f"Debtors - {abbr}"
-		liabilities_account = f"Current Liabilities - {abbr}"
+		# "Debtors - JV"/"Creditors - JV" are dedicated ledger accounts for this
+		# test, parented under the same standing group accounts that
+		# "Debtors - {abbr}"/"Creditors - {abbr}" already use ("Accounts
+		# Receivable"/"Accounts Payable") rather than under those accounts
+		# themselves. Those two are leaf ledgers other tests post GL entries
+		# against directly; forcing them into groups (as this test used to do)
+		# to hold a child, then flipping is_group back to 0 afterwards, left
+		# them as leaves with orphaned children the moment this test's own
+		# accounts stuck around - corrupting them for every later test run.
+		asset_account = get_or_create_account(
+			"Debtors - JV", company, f"Accounts Receivable - {abbr}", "Receivable", "Asset"
+		)
+		liability_account = get_or_create_account(
+			"Creditors - JV", company, f"Accounts Payable - {abbr}", "Payable", "Liability"
+		)
 
-		try:
-			if not frappe.db.exists("Account", debtors_account):
-				frappe.get_doc(
-					{
-						"doctype": "Account",
-						"account_name": "Debtors",
-						"parent_account": f"Accounts Receivable - {abbr}",
-						"company": company,
-						"is_group": 1,
-						"root_type": "Asset",
-					}
-				).insert(ignore_permissions=True)
-			else:
-				frappe.db.set_value("Account", debtors_account, "is_group", 1)
+		je1 = make_journal_entry(
+			account1=asset_account, account2=liability_account, amount=200, save=False
+		)
+		je1.accounts[0].reference_type = "Journal Entry"
+		je1.accounts[0].debit = 200
+		je1.accounts[0].credit = 0
+		with self.assertRaises(frappe.ValidationError) as cm1:
+			je1.validate_against_jv()
+		self.assertIn(
+			"you can select reference document only if account gets credited", str(cm1.exception)
+		)
 
-			if not frappe.db.exists("Account", liabilities_account):
-				frappe.get_doc(
-					{
-						"doctype": "Account",
-						"account_name": "Current Liabilities",
-						"parent_account": f"Liabilities - {abbr}",
-						"company": company,
-						"is_group": 1,
-						"root_type": "Liability",
-					}
-				).insert(ignore_permissions=True)
-			else:
-				frappe.db.set_value("Account", liabilities_account, "is_group", 1)
+		je2 = make_journal_entry(
+			account1=liability_account, account2=asset_account, amount=300, save=False
+		)
+		je2.accounts[0].reference_type = "Journal Entry"
+		je2.accounts[0].credit = 300
+		je2.accounts[0].debit = 0
+		with self.assertRaises(frappe.ValidationError) as cm2:
+			je2.validate_against_jv()
+		self.assertIn(
+			"you can select reference document only if account gets debited", str(cm2.exception)
+		)
 
-			asset_account = get_or_create_account(
-				"Debtors - JV", company, debtors_account, "Receivable", "Asset"
-			)
-			liability_account = get_or_create_account(
-				"Creditors - JV", company, liabilities_account, "Payable", "Liability"
-			)
+		je3 = make_journal_entry(
+			account1=asset_account, account2=liability_account, amount=400, save=False
+		)
+		je3.accounts[0].party_type = "Customer"
+		je3.accounts[0].party = "_Test Customer"
+		je3.accounts[0].reference_type = "Journal Entry"
+		je3.accounts[0].reference_name = je3.name
+		with self.assertRaises(frappe.ValidationError) as cm3:
+			je3.validate_against_jv()
+		self.assertIn(
+			"You can not enter current voucher in 'Against Journal Entry' column", str(cm3.exception)
+		)
 
-			je1 = make_journal_entry(
-				account1=asset_account, account2=liability_account, amount=200, save=False
-			)
-			je1.accounts[0].reference_type = "Journal Entry"
-			je1.accounts[0].debit = 200
-			je1.accounts[0].credit = 0
-			with self.assertRaises(frappe.ValidationError) as cm1:
-				je1.validate_against_jv()
-			self.assertIn(
-				"you can select reference document only if account gets credited", str(cm1.exception)
-			)
+		ref_je = make_journal_entry(
+			account1=asset_account, account2=liability_account, amount=500, save=False
+		)
+		ref_je.accounts[0].party_type = "Customer"
+		ref_je.accounts[0].party = "_Test Customer"
+		ref_je.accounts[1].party_type = "Supplier"
+		ref_je.accounts[1].party = "_Test Supplier"
+		ref_je.submit()
 
-			je2 = make_journal_entry(
-				account1=liability_account, account2=asset_account, amount=300, save=False
-			)
-			je2.accounts[0].reference_type = "Journal Entry"
-			je2.accounts[0].credit = 300
-			je2.accounts[0].debit = 0
-			with self.assertRaises(frappe.ValidationError) as cm2:
-				je2.validate_against_jv()
-			self.assertIn(
-				"you can select reference document only if account gets debited", str(cm2.exception)
-			)
+		je4 = make_journal_entry(
+			account1=asset_account, account2=liability_account, amount=500, save=False
+		)
+		je4.accounts[0].reference_type = "Journal Entry"
+		je4.accounts[0].reference_name = ref_je.name
+		je4.accounts[0].party_type = "Customer"
+		je4.accounts[0].party = "_Test Customer"
 
-			je3 = make_journal_entry(
-				account1=asset_account, account2=liability_account, amount=400, save=False
-			)
-			je3.accounts[0].party_type = "Customer"
-			je3.accounts[0].party = "_Test Customer"
-			je3.accounts[0].reference_type = "Journal Entry"
-			je3.accounts[0].reference_name = je3.name
-			with self.assertRaises(frappe.ValidationError) as cm3:
-				je3.validate_against_jv()
-			self.assertIn(
-				"You can not enter current voucher in 'Against Journal Entry' column", str(cm3.exception)
-			)
-
-			ref_je = make_journal_entry(
-				account1=asset_account, account2=liability_account, amount=500, save=False
-			)
-			ref_je.accounts[0].party_type = "Customer"
-			ref_je.accounts[0].party = "_Test Customer"
-			ref_je.accounts[1].party_type = "Supplier"
-			ref_je.accounts[1].party = "_Test Supplier"
-			ref_je.submit()
-
-			je4 = make_journal_entry(
-				account1=asset_account, account2=liability_account, amount=500, save=False
-			)
-			je4.accounts[0].reference_type = "Journal Entry"
-			je4.accounts[0].reference_name = ref_je.name
-			je4.accounts[0].party_type = "Customer"
-			je4.accounts[0].party = "_Test Customer"
-
-			with self.assertRaises(frappe.ValidationError) as cm4:
-				je4.validate_against_jv()
-			self.assertIn("does not have any unmatched", str(cm4.exception))
-
-		finally:
-			if frappe.db.exists("Account", debtors_account):
-				frappe.db.set_value("Account", debtors_account, "is_group", 0)
-			if frappe.db.exists("Account", liabilities_account):
-				frappe.db.set_value("Account", liabilities_account, "is_group", 0)
+		with self.assertRaises(frappe.ValidationError) as cm4:
+			je4.validate_against_jv()
+		self.assertIn("does not have any unmatched", str(cm4.exception))
 
 	def test_get_outstanding_for_journal_entry_TC_ACC_563(self):
 		from erpnext.accounts.doctype.journal_entry.journal_entry import get_outstanding
