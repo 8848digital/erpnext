@@ -372,7 +372,13 @@ def create_accounting_dimensions_for_doctype(doctype):
 	if not accounting_dimensions:
 		return
 
+	meta = frappe.get_meta(doctype, cached=False)
+	fieldnames = [d.fieldname for d in meta.get("fields")]
+
 	for d in accounting_dimensions:
+		if d.fieldname in fieldnames:
+			continue
+
 		field = frappe.db.get_value("Custom Field", {"dt": doctype, "fieldname": d.fieldname})
 
 		if field:
