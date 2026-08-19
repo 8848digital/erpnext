@@ -8,6 +8,7 @@ from erpnext.accounts.doctype.bank_transaction import bank_transaction_upload as
 
 class TestBankTransactionUpload(FrappeTestCase):
 	def setUp(self):
+		super().setUp()
 		# ensure we don't leak global upload state between tests
 		for attr in ("uploaded_file",):
 			if hasattr(frappe, attr):
