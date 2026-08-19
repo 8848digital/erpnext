@@ -212,7 +212,7 @@ def make_payment_entry():
 		allow_credit=1,
 	)
 	pi = make_purchase_invoice(
-		supplier=supplier,
+		supplier=supplier.name,
 		supplier_warehouse="_Test Warehouse - _TC",
 		expense_account="Cost of Goods Sold - _TC",
 		uom="Nos",
