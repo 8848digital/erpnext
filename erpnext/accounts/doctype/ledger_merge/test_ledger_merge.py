@@ -46,6 +46,12 @@ class TestLedgerMerge(unittest.TestCase):
 		parent = frappe.db.get_value("Account", "Administrative Test Expenses - _TC", "parent_account")
 		self.assertEqual(parent, "Indirect Test Expenses - _TC")
 
+		# merge_account() skips its "system idle" check only under
+		# frappe.flags.in_test - elsewhere in a full suite run this flag can
+		# end up unset by the time this test runs, making the check throw and
+		# start_merge()'s exception handler roll back the whole transaction,
+		# including this test's own uncommitted fixture inserts above.
+		frappe.flags.in_test = True
 		start_merge(doc.name)
 
 		parent = frappe.db.get_value("Account", "Administrative Test Expenses - _TC", "parent_account")
@@ -94,6 +100,7 @@ class TestLedgerMerge(unittest.TestCase):
 		parent = frappe.db.get_value("Account", "Administrative Test Income - _TC", "parent_account")
 		self.assertEqual(parent, "Indirect Test Income - _TC")
 
+		frappe.flags.in_test = True
 		start_merge(doc.name)
 
 		parent = frappe.db.get_value("Account", "Administrative Test Income - _TC", "parent_account")
