@@ -7152,7 +7152,7 @@ class TestSalesInvoice(FrappeTestCase):
 
 		get_or_create_fiscal_year("_Test Company")
 		fiscal_year = get_fiscal_year(nowdate())[0]
-		if "Sales Commission" in frappe.get_installed_apps():
+		if "sales_commission" in frappe.get_installed_apps():
 			if not frappe.db.exists("Monthly Distribution", "_Test Sales Distribution"):
 				month_distribution = frappe.get_doc(
 					{
