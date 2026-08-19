@@ -259,12 +259,16 @@ class TestJournalEntry(unittest.TestCase):
 
 		jv.submit()
 
-		# create jv in USD, but account currency in INR
+		# Account in INR against a party whose default currency is USD.
+		# validate_party_gle_currency() (erpnext/accounts/party.py) was
+		# deliberately turned into a no-op — "Removed validation for party
+		# account currency for multicurrency support" — so this no longer
+		# raises; it's expected to submit like any other cross-currency entry.
 		jv = make_journal_entry("_Test Bank - _TC", "Debtors - _TC", 100, save=False)
 
 		jv.accounts[1].update({"party_type": "Customer", "party": "_Test Customer USD"})
 
-		self.assertRaises(InvalidAccountCurrency, jv.submit)
+		jv.submit()
 
 		# back in USD
 		jv = make_journal_entry("_Test Bank USD - _TC", "_Test Receivable USD - _TC", 100, save=False)
