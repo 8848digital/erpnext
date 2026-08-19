@@ -33,6 +33,16 @@ class TestProcessDeferredAccounting(unittest.TestCase):
 		backdate = getdate(add_years(nowdate(), -2))
 		create_fiscal_year("_Test Company", date(backdate.year, 1, 1), date(backdate.year, 12, 31))
 
+	def tearDown(self):
+		# Individual tests set a global acc_frozen_upto via change_acc_settings()
+		# and are meant to reset it back to "" before returning — but that only
+		# happens on the success path. If a test fails/errors partway through,
+		# the frozen-accounts date leaks and blocks GL postings (with old
+		# fixture dates especially) in every other test module for the rest of
+		# the run, since this class uses plain unittest.TestCase (no automatic
+		# per-test rollback). Reset unconditionally instead.
+		change_acc_settings()
+
 	def test_creation_of_ledger_entry_on_submit(self):
 		"""test creation of gl entries on submission of document"""
 		change_acc_settings(acc_frozen_upto="2023-05-31", book_deferred_entries_based_on="Months")
