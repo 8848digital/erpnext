@@ -95,15 +95,14 @@ class TestFiscalYear(unittest.TestCase):
 		end_date = add_days(getdate(), 3)
 		start_date = add_years(end_date, -1) + timedelta(days=1)
 
-		for fy in frappe.get_all(
-			"Fiscal Year",
-			filters=[
-				["year_start_date", "<=", end_date],
-				["year_end_date", ">=", start_date],
-			],
-			fields=["name"]
-		):
-			frappe.delete_doc("Fiscal Year", fy.name, force=True)
+		# Deliberately does NOT delete pre-existing overlapping Fiscal Years.
+		# validate_overlap() is company-scoped: it only reports an overlap when
+		# both years are global, or when they share a company. The year below is
+		# restricted to the brand-new company created above, so it never
+		# conflicts. Force-deleting the overlapping years (as this test used to)
+		# destroyed the real current-year Fiscal Year and, because the deletion
+		# was never restored and this test passes, left every later test that
+		# posts a dated GL entry failing with FiscalYearError.
 
 		fy = frappe.get_doc({
 			"doctype": "Fiscal Year",
@@ -139,16 +138,11 @@ class TestFiscalYear(unittest.TestCase):
 		start_date = getdate()
 		end_date = add_years(start_date, 1) - timedelta(days=1)
 
-		for fy in frappe.get_all(
-			"Fiscal Year",
-			filters=[
-				["year_start_date", "<=", end_date],
-				["year_end_date", ">=", start_date],
-			],
-			fields=["name"]
-		):
-			frappe.delete_doc("Fiscal Year", fy.name, force=True)
-
+		# As in test_auto_create_fiscal_year_TC_ACC_338, do NOT force-delete
+		# pre-existing overlapping Fiscal Years: the year created below is scoped
+		# to _Test Company, and validate_overlap() only flags an overlap when
+		# both years are global or they share a company. Deleting them destroyed
+		# the real current-year Fiscal Year for the rest of the run.
 		if frappe.db.exists("Fiscal Year", fy_name):
 			frappe.delete_doc("Fiscal Year", fy_name, force=True)
 
