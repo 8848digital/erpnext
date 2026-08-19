@@ -120,6 +120,7 @@ class AccountsTestMixin:
 						"doctype": "Account",
 						"account_name": acc.account_name,
 						"parent_account": acc.parent_account,
+						"account_type": acc.get("account_type"),
 						"company": self.company,
 					}
 				)
