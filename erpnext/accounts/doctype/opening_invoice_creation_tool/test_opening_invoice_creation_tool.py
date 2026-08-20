@@ -362,8 +362,15 @@ class TestOpeningInvoiceCreationTool(FrappeTestCase):
 
 		frappe.flags.in_test = False
 
-	def tearDown(self):
+	@classmethod
+	def tearDownClass(cls):
+		# Undoes setUpClass()'s create_dimension() once for the whole class,
+		# not per-test - a per-test tearDown() here left "Department" disabled
+		# again after the first test method ran, so every other test in this
+		# class (e.g. test_opening_invoice_with_accounting_dimension) saw it
+		# disabled despite setUpClass() having enabled it.
 		disable_dimension()
+		return super().tearDownClass()
 
 
 def get_opening_invoice_creation_dict(**args):
