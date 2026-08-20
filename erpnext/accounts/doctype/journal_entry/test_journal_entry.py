@@ -2248,102 +2248,59 @@ class TestJournalEntry(unittest.TestCase):
 		create_company(company_name=company)
 		abbr = frappe.get_cached_value("Company", company, "abbr")
 
-		ar_account = f"Accounts Receivable - {abbr}"
-		cr_account = f"Creditors - {abbr}"
-
-		# Backup current state so we can restore later
-		ar_was_group = (
-			frappe.db.get_value("Account", ar_account, "is_group")
-			if frappe.db.exists("Account", ar_account)
-			else None
-		)
-		cr_was_group = (
-			frappe.db.get_value("Account", cr_account, "is_group")
-			if frappe.db.exists("Account", cr_account)
-			else None
+		# "Debtors - ADV"/"Creditors - ADV" are dedicated ledger accounts for
+		# this test. They're parented under the standing group accounts that
+		# "Debtors - {abbr}"/"Creditors - {abbr}" themselves already sit under
+		# ("Accounts Receivable"/"Accounts Payable") rather than under those
+		# accounts directly - both are leaf ledgers other tests post GL
+		# entries against, so forcing either into a group to hold a child
+		# (as this test used to do for "Creditors - {abbr}") corrupts it for
+		# every later test the moment this test's own account sticks around.
+		receivable_account = get_or_create_account(
+			"Debtors - ADV", company, f"Accounts Receivable - {abbr}", "Receivable", "Asset"
 		)
 
-		try:
-			if not frappe.db.exists("Account", ar_account):
-				frappe.get_doc(
-					{
-						"doctype": "Account",
-						"account_name": "Accounts Receivable",
-						"parent_account": f"Debtors - {abbr}",
-						"company": company,
-						"is_group": 1,
-						"root_type": "Asset",
-					}
-				).insert(ignore_permissions=True)
-			else:
-				frappe.db.set_value("Account", ar_account, "is_group", 1)
+		payable_account = get_or_create_account(
+			"Creditors - ADV", company, f"Accounts Payable - {abbr}", "Payable", "Liability"
+		)
 
-			if not frappe.db.exists("Account", cr_account):
-				frappe.get_doc(
-					{
-						"doctype": "Account",
-						"account_name": "Creditors",
-						"parent_account": f"Current Liabilities - {abbr}",
-						"company": company,
-						"is_group": 1,
-						"root_type": "Liability",
-					}
-				).insert(ignore_permissions=True)
-			else:
-				frappe.db.set_value("Account", cr_account, "is_group", 1)
+		je1 = make_journal_entry(
+			account1=receivable_account, account2=payable_account, amount=300, save=False
+		)
+		je1.accounts[0].party_type = "Customer"
+		je1.accounts[0].credit = 300
+		je1.accounts[0].is_advance = ""
+		je1.accounts[0].reference_type = "Sales Order"
 
-			receivable_account = get_or_create_account(
-				"Debtors - ADV", company, ar_account, "Receivable", "Asset"
-			)
+		with self.assertRaises(frappe.ValidationError) as cm1:
+			je1.validate_entries_for_advance()
+		self.assertIn(
+			"Payment against Sales/Purchase Order should always be marked as advance", str(cm1.exception)
+		)
 
-			payable_account = get_or_create_account(
-				"Creditors - ADV", company, cr_account, "Payable", "Liability"
-			)
+		je2 = make_journal_entry(
+			account1=receivable_account, account2=payable_account, amount=400, save=False
+		)
+		je2.accounts[0].party_type = "Customer"
+		je2.accounts[0].is_advance = "Yes"
+		je2.accounts[0].debit = 400
+		je2.accounts[0].credit = 0
 
-			je1 = make_journal_entry(
-				account1=receivable_account, account2=payable_account, amount=300, save=False
-			)
-			je1.accounts[0].party_type = "Customer"
-			je1.accounts[0].credit = 300
-			je1.accounts[0].is_advance = ""
-			je1.accounts[0].reference_type = "Sales Order"
+		with self.assertRaises(frappe.ValidationError) as cm2:
+			je2.validate_entries_for_advance()
 
-			with self.assertRaises(frappe.ValidationError) as cm1:
-				je1.validate_entries_for_advance()
-			self.assertIn(
-				"Payment against Sales/Purchase Order should always be marked as advance", str(cm1.exception)
-			)
+		self.assertIn("Advance against Customer must be credit", str(cm2.exception))
+		je3 = make_journal_entry(
+			account1=receivable_account, account2=payable_account, amount=500, save=False
+		)
+		je3.accounts[0].party_type = "Supplier"
+		je3.accounts[0].is_advance = "Yes"
+		je3.accounts[0].credit = 500
+		je3.accounts[0].debit = 0
 
-			je2 = make_journal_entry(
-				account1=receivable_account, account2=payable_account, amount=400, save=False
-			)
-			je2.accounts[0].party_type = "Customer"
-			je2.accounts[0].is_advance = "Yes"
-			je2.accounts[0].debit = 400
-			je2.accounts[0].credit = 0
-
-			with self.assertRaises(frappe.ValidationError) as cm2:
-				je2.validate_entries_for_advance()
-
-			self.assertIn("Advance against Customer must be credit", str(cm2.exception))
-			je3 = make_journal_entry(
-				account1=receivable_account, account2=payable_account, amount=500, save=False
-			)
-			je3.accounts[0].party_type = "Supplier"
-			je3.accounts[0].is_advance = "Yes"
-			je3.accounts[0].credit = 500
-			je3.accounts[0].debit = 0
-
-			with self.assertRaises(frappe.ValidationError) as cm3:
-				je3.validate_entries_for_advance()
-			self.assertIn("Advance against Supplier must be debit", str(cm3.exception))
-
-		finally:
-			# Always restore accounts to their original is_group state
-			if ar_was_group is not None:
-				frappe.db.set_value("Account", ar_account, "is_group", ar_was_group)
-			if cr_was_group is not None:
-				frappe.db.set_value("Account", cr_account, "is_group", cr_was_group)
+		with self.assertRaises(frappe.ValidationError) as cm3:
+			je3.validate_entries_for_advance()
+		self.assertIn("Advance against Supplier must be debit", str(cm3.exception))
 
 	def test_validate_stock_accounts_exceptions_TC_ACC_561(self):
 		from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_company
