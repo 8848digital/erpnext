@@ -249,6 +249,16 @@ def start_import(invoices):
 	errors = 0
 	names = []
 	for idx, d in enumerate(invoices):
+		# Scope each attempt to its own savepoint rather than a bare
+		# frappe.db.rollback(): a bare rollback unwinds the *entire*
+		# transaction back to the last commit, not just this iteration's
+		# failed insert - so if invoice N fails right after invoice N-1
+		# also failed (nothing committed in between), its rollback wipes
+		# out invoice N-1's already-inserted Error Log too, and can even
+		# roll back unrelated setup done earlier in the same request/test
+		# before this loop started.
+		savepoint_name = f"opening_invoice_{idx}"
+		frappe.db.savepoint(savepoint_name)
 		try:
 			invoice_number = None
 			if d.invoice_number:
@@ -262,7 +272,7 @@ def start_import(invoices):
 			names.append(doc.name)
 		except Exception:
 			errors += 1
-			frappe.db.rollback()
+			frappe.db.rollback(save_point=savepoint_name)
 			doc.log_error("Opening invoice creation failed")
 	if errors:
 		frappe.msgprint(
