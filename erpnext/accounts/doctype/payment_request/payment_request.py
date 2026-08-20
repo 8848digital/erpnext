@@ -809,7 +809,10 @@ def update_payment_requests_as_per_pe_references(references=None, cancel=False):
 	if not references:
 		return
 
-	precision = references[0].precision("allocated_amount")
+	# references may be plain dict rows (e.g. from a query builder result in
+	# remove_ref_doc_link_from_pe()) rather than real Payment Entry Reference
+	# documents, so row.precision() isn't reliably available.
+	precision = frappe.get_precision("Payment Entry Reference", "allocated_amount")
 
 	referenced_payment_requests = frappe.get_all(
 		"Payment Request",
