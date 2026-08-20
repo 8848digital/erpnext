@@ -81,7 +81,17 @@ class TestOpeningInvoiceCreationTool(FrappeTestCase):
 
 	def test_opening_sales_invoice_creation_with_missing_debit_account(self):
 		company = "_Test Opening Invoice Company"
-		party_1, party_2 = make_customer("Customer A"), make_customer("Customer B")
+		# Use uniquely-named customers rather than the shared "Customer A"/
+		# "Customer B" fixtures: get_party_account() falls back to reusing
+		# whichever account any PRIOR submitted GL Entry for a party used
+		# (get_party_gle_currency/get_party_gle_account), so once this test
+		# has ever (incorrectly) succeeded once for a given customer, every
+		# later run finds that old GL Entry and reuses its account -
+		# silently bypassing the missing-account scenario this test exists
+		# to check, permanently.
+		uniq = frappe.generate_hash(length=10)
+		party_1 = make_customer(f"Customer MissingDebit A {uniq}")
+		party_2 = make_customer(f"Customer MissingDebit B {uniq}")
 
 		old_default_receivable_account = frappe.db.get_value("Company", company, "default_receivable_account")
 		frappe.db.set_value("Company", company, "default_receivable_account", "")
@@ -109,6 +119,15 @@ class TestOpeningInvoiceCreationTool(FrappeTestCase):
 
 		frappe.db.set_value("Company", company, "cost_center", "Main - _TOIC")
 
+		# get_party_account() (for the receivable account) and get_item_dict()
+		# (for the cost center) both resolve Company fields via
+		# frappe.get_cached_value(), which keeps serving the stale values
+		# from before the two db.set_value() calls above until the cached
+		# doc is dropped - without this, invoice creation succeeds using the
+		# old default_receivable_account instead of raising
+		# AccountMissingError as this test expects.
+		frappe.clear_document_cache("Company", company)
+
 		self.make_invoices(company="_Test Opening Invoice Company", party_1=party_1, party_2=party_2)
 
 		# Check if missing debit account error raised
@@ -120,6 +139,7 @@ class TestOpeningInvoiceCreationTool(FrappeTestCase):
 
 		# teardown
 		frappe.db.set_value("Company", company, "default_receivable_account", old_default_receivable_account)
+		frappe.clear_document_cache("Company", company)
 
 	def test_renaming_of_invoice_using_invoice_number_field(self):
 		company = "_Test Opening Invoice Company"
