@@ -123,14 +123,25 @@ class TestOpeningInvoiceCreationTool(FrappeTestCase):
 
 	def test_renaming_of_invoice_using_invoice_number_field(self):
 		company = "_Test Opening Invoice Company"
-		party_1, party_2 = make_customer("Customer A"), make_customer("Customer B")
+		# Use a uniquely-named invoice_number and customers each run: reusing
+		# fixed names ("Customer A"/"Customer B", "TEST-NEW-INV-11") means a
+		# second run's insert(set_name="TEST-NEW-INV-11") collides with the
+		# still-around, already-cancelled Sales Invoice from a PRIOR run
+		# ("duplicate key value violates unique constraint"), so no new
+		# invoice gets created this time - frappe.get_all() then picks up
+		# that stale cancelled invoice instead, and doc.cancel() on it fails
+		# with "Cannot edit cancelled document".
+		uniq = frappe.generate_hash(length=10)
+		party_1 = make_customer(f"Customer Rename A {uniq}")
+		party_2 = make_customer(f"Customer Rename B {uniq}")
+		invoice_number = f"TEST-NEW-INV-{uniq}"
 		self.make_invoices(
-			company=company, party_1=party_1, party_2=party_2, invoice_number="TEST-NEW-INV-11"
+			company=company, party_1=party_1, party_2=party_2, invoice_number=invoice_number
 		)
 
-		sales_inv1 = frappe.get_all("Sales Invoice", filters={"customer": "Customer A"})[0].get("name")
-		sales_inv2 = frappe.get_all("Sales Invoice", filters={"customer": "Customer B"})[0].get("name")
-		self.assertEqual(sales_inv1, "TEST-NEW-INV-11")
+		sales_inv1 = frappe.get_all("Sales Invoice", filters={"customer": party_1})[0].get("name")
+		sales_inv2 = frappe.get_all("Sales Invoice", filters={"customer": party_2})[0].get("name")
+		self.assertEqual(sales_inv1, invoice_number)
 
 		# teardown
 		for inv in [sales_inv1, sales_inv2]:
