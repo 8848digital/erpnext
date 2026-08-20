@@ -2233,6 +2233,15 @@ class AccountsController(TransactionBase):
 		# Journal Entry itself (so `Payment Ledger Entry` alone misses them) and
 		# record the actual order link separately in `Advance Payment Ledger
 		# Entry` — both sources have to be combined to get the true total.
+		#
+		# `Advance Payment Ledger Entry` rows are also created (in addition to
+		# a `Payment Ledger Entry` row) for the *reconciliation* GL entries of
+		# a Payment-Entry-based advance (e.g. when a Purchase Invoice's own
+		# `advances` table reconciles against an already-submitted Payment
+		# Entry) - counting those here as well as the original PLE row would
+		# double the total. Scope the union to voucher_type = "Journal Entry"
+		# so it only fills the actual gap (JE advances, which have no PLE row
+		# of their own) instead of double-counting PE advances that do.
 		advance = frappe.db.sql(
 			"""SELECT
 				(ARRAY_AGG(account_currency))[1] as account_currency,
@@ -2258,6 +2267,7 @@ class AccountsController(TransactionBase):
 				WHERE
 					aple.against_voucher_type = %(doctype)s
 					AND aple.against_voucher_no = %(name)s
+					AND aple.voucher_type = 'Journal Entry'
 					AND aple.delinked = 0
 					AND aple.company = %(company)s
 			) combined
