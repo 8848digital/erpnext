@@ -419,18 +419,19 @@ def create_records():
 
 	# create an item
 	if not frappe.db.exists("Item", "Loyal Item"):
-		frappe.get_doc(
-			{
-				"doctype": "Item",
-				"item_code": "Loyal Item",
-				"item_name": "Loyal Item",
-				"item_group": "All Item Groups",
-				"company": "_Test Company",
-				"is_stock_item": 1,
-				"opening_stock": 100,
-				"valuation_rate": 10000,
-			}
-		).insert()
+		item_fields = {
+			"doctype": "Item",
+			"item_code": "Loyal Item",
+			"item_name": "Loyal Item",
+			"item_group": "All Item Groups",
+			"company": "_Test Company",
+			"is_stock_item": 1,
+			"opening_stock": 100,
+			"valuation_rate": 10000,
+		}
+		if frappe.db.has_column("Item", "gst_hsn_code"):
+			item_fields["gst_hsn_code"] = "01011010"
+		frappe.get_doc(item_fields).insert()
 
 	# create item price
 	if not frappe.db.exists("Item Price", {"price_list": "Standard Selling", "item_code": "Loyal Item"}):
