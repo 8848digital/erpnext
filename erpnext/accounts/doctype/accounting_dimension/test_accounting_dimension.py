@@ -516,3 +516,11 @@ def disable_dimension():
 		dimension2 = frappe.get_doc("Accounting Dimension", "Location")
 		dimension2.disabled = 1
 		dimension2.save()
+	# Without an explicit commit here, this disable only sticks if something
+	# else happens to commit later in the same test process (e.g. a
+	# subsequent test's own frappe.db.commit()). If nothing does, the
+	# disable is silently lost when the process exits/rolls back, while
+	# create_dimension()'s earlier enable can persist anyway via one of
+	# those same incidental commits - leaving the dimension permanently
+	# enabled for every later test run.
+	frappe.db.commit()
