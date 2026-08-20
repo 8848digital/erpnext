@@ -109,6 +109,15 @@ class TestOpeningInvoiceCreationTool(FrappeTestCase):
 
 		frappe.db.set_value("Company", company, "cost_center", "Main - _TOIC")
 
+		# get_party_account() (for the receivable account) and get_item_dict()
+		# (for the cost center) both resolve Company fields via
+		# frappe.get_cached_value(), which keeps serving the stale values
+		# from before the two db.set_value() calls above until the cached
+		# doc is dropped - without this, invoice creation succeeds using the
+		# old default_receivable_account instead of raising
+		# AccountMissingError as this test expects.
+		frappe.clear_document_cache("Company", company)
+
 		self.make_invoices(company="_Test Opening Invoice Company", party_1=party_1, party_2=party_2)
 
 		# Check if missing debit account error raised
@@ -120,6 +129,7 @@ class TestOpeningInvoiceCreationTool(FrappeTestCase):
 
 		# teardown
 		frappe.db.set_value("Company", company, "default_receivable_account", old_default_receivable_account)
+		frappe.clear_document_cache("Company", company)
 
 	def test_renaming_of_invoice_using_invoice_number_field(self):
 		company = "_Test Opening Invoice Company"
