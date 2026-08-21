@@ -667,9 +667,11 @@ class TestPaymentLedgerEntry(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError) as e:
 			ple.validate_allowed_dimensions()
 		#validate cost center
+		# frappe.bold() wraps each interpolated value in <strong> tags, since
+		# these are user-facing error messages rendered as rich text.
 		self.assertEqual(
 			str(e.exception).strip(),
-			f"Cost Center is mandatory for account _Test Ledger Account - _TC"
+			f"<strong>Cost Center</strong> is mandatory for account <strong>_Test Ledger Account - _TC</strong>"
 		)
 		ple.cost_center = "Test Cost Center - _TC1"
 		with self.assertRaises(frappe.ValidationError) as e:
@@ -677,7 +679,7 @@ class TestPaymentLedgerEntry(FrappeTestCase):
 
 		self.assertEqual(
 			str(e.exception).strip(),
-			f"Invalid value Test Cost Center - _TC1 for Cost Center against account _Test Ledger Account - _TC"
+			f"Invalid value <strong>Test Cost Center - _TC1</strong> for <strong>Cost Center</strong> against account <strong>_Test Ledger Account - _TC</strong>"
 		)
 	
 	def test_validate_dimensions_for_pl_and_bs_TC_ACC_347(self):
