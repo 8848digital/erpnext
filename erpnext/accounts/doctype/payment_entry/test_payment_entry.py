@@ -1038,7 +1038,10 @@ class TestPaymentEntry(FrappeTestCase):
 			(paid_from, 0.0, 8440.0, 0.0, 100.0, 0.0, 100.0),
 			("_Test Payable USD - _TC", 8440.0, 0.0, 100.0, 0.0, 100.0, 0.0),
 		)
-		self.assertEqual(gl_entries, expected_gl_entries)
+		# frappe.qb's .run() returns a list of tuples on Postgres, not a
+		# tuple of tuples - compare as lists so the outer container type
+		# doesn't affect the comparison.
+		self.assertEqual(list(gl_entries), list(expected_gl_entries))
 
 	def test_multi_currency_payment_entry_with_taxes(self):
 		payment_entry = create_payment_entry(
