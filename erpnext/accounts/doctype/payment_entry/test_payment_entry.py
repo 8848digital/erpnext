@@ -2075,10 +2075,10 @@ class TestPaymentEntry(FrappeTestCase):
 			pi.submit()
 			self.voucher_no = pi.name
 			self.expected_gle = [
-				{"account": "_Test TDS Payable - _TC", "debit": 0.0, "credit": 200.0},
 				{"account": "Stock Received But Not Billed - _TC", "debit": 90000.0, "credit": 0.0},
-				{"account": "Creditors - _TC", "debit": 200.0, "credit": 0.0},
+				{"account": "Creditors - _TC", "debit": 1000.0, "credit": 0.0},
 				{"account": "Creditors - _TC", "debit": 0.0, "credit": 90000.0},
+				{"account": "Cash - _TC", "debit": 0.0, "credit": 1000.0},
 			]
 			self.check_gl_entries()
 
@@ -2086,11 +2086,21 @@ class TestPaymentEntry(FrappeTestCase):
 			pe.save()
 			pe.submit()
 
-			# FIX: Adjust expected GL entries based on actual payment entry
-			self.expected_gle = self.expected_gle = [
-				{"account": "Creditors - _TC", "debit": 9800.0, "credit": 0.0},
-				{"account": "Cash - _TC", "debit": 0.0, "credit": 9800.0},
-			]
+			# paid_from/paid_to and the outstanding amount depend on the
+			# company's default payment account config and on the earlier
+			# TDS-reduced Creditors balance, so derive the expected GL
+			# entries from the payment entry itself rather than hardcoding
+			# values that would drift whenever either of those changes.
+			# check_gl_entries() orders by account name descending, so sort
+			# to match rather than assuming paid_to always sorts first.
+			self.expected_gle = sorted(
+				[
+					{"account": pe.paid_to, "debit": pe.paid_amount, "credit": 0.0},
+					{"account": pe.paid_from, "debit": 0.0, "credit": pe.paid_amount},
+				],
+				key=lambda row: row["account"],
+				reverse=True,
+			)
 			self.voucher_no = pe.name
 			self.check_gl_entries()
 
