@@ -759,9 +759,11 @@ class TestPaymentLedgerEntry(FrappeTestCase):
 		}).insert(ignore_permissions=True)
 		with self.assertRaises(frappe.ValidationError) as e:
 			ple.validate_dimensions_for_pl_and_bs()
+		# the format string itself hardcodes <b>...</b> around the dimension
+		# label, since these are user-facing error messages rendered as rich text.
 		self.assertEqual(
 			str(e.exception).strip(),
-			f"Accounting Dimension {ad.label} is required for 'Profit and Loss' account {account_name.name}."
+			f"Accounting Dimension <b>{ad.label}</b> is required for 'Profit and Loss' account {account_name.name}."
 		)
 
 		account_name.db_set("report_type", "Balance Sheet")
@@ -770,6 +772,6 @@ class TestPaymentLedgerEntry(FrappeTestCase):
 			ple.validate_dimensions_for_pl_and_bs()
 		self.assertEqual(
 			str(e.exception).strip(),
-			f"Accounting Dimension {ad.label} is required for 'Balance Sheet' account {account_name.name}."
+			f"Accounting Dimension <b>{ad.label}</b> is required for 'Balance Sheet' account {account_name.name}."
 		)
 		
