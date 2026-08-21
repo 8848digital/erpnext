@@ -94,7 +94,7 @@ def make_employee(user, company=None, **kwargs):
 				"prefered_contact_email": "Company Email",
 				"prefered_email": user,
 				"status": "Active",
-				"employment_type": "Intern",
+				"employment_type": "_Test Employment Type",
 			}
 		)
 		if kwargs:
