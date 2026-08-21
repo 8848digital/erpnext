@@ -5707,6 +5707,30 @@ def create_tax_witholding_category(category_name, company, account):
 
 	fiscal_year = get_fiscal_year(date=nowdate())
 
+	# Different test files reuse the same category name (e.g.
+	# "Test - TDS - 194C - Company") with different accounts. Since this
+	# doc is shared/persistent across runs, insert(ignore_if_duplicate=True)
+	# alone silently keeps whichever account/rate config was saved by
+	# whichever call happened to create it first, forever - update it in
+	# place on every call so it always reflects this call's own args.
+	if frappe.db.exists("Tax Withholding Category", category_name):
+		doc = frappe.get_doc("Tax Withholding Category", category_name)
+		doc.set("accounts", [])
+		doc.append("accounts", {"company": company, "account": account})
+		doc.set("rates", [])
+		doc.append(
+			"rates",
+			{
+				"from_date": fiscal_year[1],
+				"to_date": fiscal_year[2],
+				"tax_withholding_rate": 10,
+				"single_threshold": 2500,
+				"cumulative_threshold": 0,
+			},
+		)
+		doc.save()
+		return doc
+
 	return frappe.get_doc(
 		{
 			"doctype": "Tax Withholding Category",
