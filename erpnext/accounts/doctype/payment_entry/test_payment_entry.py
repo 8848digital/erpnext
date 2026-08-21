@@ -419,8 +419,12 @@ class TestPaymentEntry(FrappeTestCase):
 		# Test if tax loss is booked on enabling configuration
 		frappe.db.set_single_value("Accounts Settings", "book_tax_discount_loss", 1)
 		pe_with_tax_loss = get_payment_entry("Sales Invoice", si.name, bank_account="_Test Cash - _TC")
-		self.assertEqual(pe_with_tax_loss.deductions[0].amount, 42.37)  # Loss on Income
-		self.assertEqual(pe_with_tax_loss.deductions[1].amount, 7.63)  # Loss on Tax
+		# proportionally splitting a Rs.50 discount across net total/tax
+		# doesn't divide evenly, so the stored amounts carry a
+		# currency-precision-level fraction of a rupee - round to money
+		# precision (2 decimals) rather than comparing the raw value.
+		self.assertEqual(flt(pe_with_tax_loss.deductions[0].amount, 2), 42.37)  # Loss on Income
+		self.assertEqual(flt(pe_with_tax_loss.deductions[1].amount, 2), 7.63)  # Loss on Tax
 		self.assertEqual(pe_with_tax_loss.deductions[1].account, "_Test Account Service Tax - _TC")
 
 		frappe.db.set_single_value("Accounts Settings", "book_tax_discount_loss", 0)
