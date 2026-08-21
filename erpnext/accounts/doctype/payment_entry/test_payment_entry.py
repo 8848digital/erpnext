@@ -291,8 +291,12 @@ class TestPaymentEntry(FrappeTestCase):
 
 		self.assertEqual(pe.references[0].payment_term, "Basic Amount Receivable")
 		self.assertEqual(pe.references[1].payment_term, "Tax Receivable")
-		self.assertEqual(si.payment_schedule[0].paid_amount, 200.0)
-		self.assertEqual(si.payment_schedule[1].paid_amount, 36.0)
+		# The template's invoice_portion percentages (84.746%/15.254%) don't
+		# divide the grand total into perfectly round amounts, so the stored
+		# values carry a currency-precision-level fraction of a rupee - round
+		# to 2 decimals (money precision) rather than comparing the raw value.
+		self.assertEqual(flt(si.payment_schedule[0].paid_amount, 2), 200.0)
+		self.assertEqual(flt(si.payment_schedule[1].paid_amount, 2), 36.0)
 
 	def test_payment_entry_against_payment_terms_with_discount_on_pi(self):
 		pi = make_purchase_invoice(do_not_save=1)
