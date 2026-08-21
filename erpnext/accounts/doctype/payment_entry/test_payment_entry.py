@@ -3157,9 +3157,6 @@ class TestPaymentEntry(FrappeTestCase):
 		pe.insert()
 		pe.submit()
 
-		# Step 3: Trigger update_advance_paid explicitly
-		pe.update_advance_paid()
-
 		# Reload SO and verify advance updated
 		so.reload()
 		self.assertEqual(so.advance_paid, 500)
