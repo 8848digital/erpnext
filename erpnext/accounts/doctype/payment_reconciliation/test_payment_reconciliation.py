@@ -1074,6 +1074,14 @@ class TestPaymentReconciliation(FrappeTestCase):
 		self.assertEqual(si.outstanding_amount, 0)
 
 		cr_note.reload()
+		# Cancelling the Credit Note requires cancelling the Payment
+		# Reconciliation Record created by pr.reconcile() first, or it's
+		# blocked by frappe's LinkExistsError back-link check.
+		with patch(
+			"erpnext.accounts.doctype.payment_reconciliation_record.payment_reconciliation_record.PaymentReconciliationRecord.on_cancel",
+			lambda x: None,
+		):
+			frappe.get_last_doc("Payment Reconciliation Record").cancel()
 		cr_note.cancel()
 		# 'Credit Note' Journal should be auto cancelled
 		journals = frappe.db.get_all(
