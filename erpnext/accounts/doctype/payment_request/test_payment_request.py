@@ -60,16 +60,23 @@ payment_method = [
 
 class TestPaymentRequest(FrappeTestCase):
 	def setUp(self):
-		if not frappe.db.get_value("Payment Gateway", payment_gateway["gateway"], "name"):
-			frappe.get_doc(payment_gateway).insert(ignore_permissions=True)
+		if frappe.db.exists("DocType", "Payment Gateway"):
+			if not frappe.db.get_value("Payment Gateway", payment_gateway["gateway"], "name"):
+				frappe.get_doc(payment_gateway).insert(ignore_permissions=True)
 
-		for method in payment_method:
-			if not frappe.db.get_value(
-				"Payment Gateway Account",
-				{"payment_gateway": method["payment_gateway"], "currency": method["currency"]},
-				"name",
-			):
-				frappe.get_doc(method).insert(ignore_permissions=True)
+			for method in payment_method:
+				if not frappe.db.get_value(
+					"Payment Gateway Account",
+					{"payment_gateway": method["payment_gateway"], "currency": method["currency"]},
+					"name",
+				):
+					frappe.get_doc(method).insert(ignore_permissions=True)
+		# "Payment Gateway" doctype ships with the separate `payments` app,
+		# which is not installed in this bench; skip gateway setup above so
+		# unrelated tests in this class can still run, but always call
+		# super().setUp() or FrappeTestCase's per-test savepoint is never
+		# created and tearDown() fails with an AttributeError.
+		return super().setUp()
 
 	def test_payment_request_linkings(self):
 		so_inr = make_sales_order(currency="INR", do_not_save=True)
