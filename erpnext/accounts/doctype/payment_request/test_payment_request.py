@@ -1941,6 +1941,7 @@ def create_bank_account(account_name, company_account, is_company_account=False)
 		)
 		if is_company_account == True:
 			bank_account.account = company_account
+			bank_account.company = "_Test Company"
 		bank_account.insert(ignore_permissions=True)
 	else:
 		bank_account = frappe.get_doc("Bank Account", full_name)
