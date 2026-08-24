@@ -170,6 +170,15 @@ class TestPaymentRequest(FrappeTestCase):
 		self.assertEqual(purchase_invoice.status, "Paid")
 
 	def test_payment_entry(self):
+		if not frappe.db.exists("DocType", "Payment Gateway"):
+			# This test relies on the _Test Gateway - INR/USD Payment Gateway
+			# Accounts that setUp() can only create when the separate
+			# `payments` app is installed. Without them the Payment Request
+			# has no payment_account and the Payment Entry silently falls back
+			# to the company's default bank account, so the GL assertions
+			# below compare against the wrong account.
+			self.skipTest("payments app not installed, skipping Payment Gateway dependent test")
+
 		frappe.db.set_value(
 			"Company", "_Test Company", "exchange_gain_loss_account", "_Test Exchange Gain/Loss - _TC"
 		)
