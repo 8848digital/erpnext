@@ -1793,8 +1793,10 @@ class TestPaymentRequest(FrappeTestCase):
 
 
 	def test_partial_paid_invoice_with_submitted_payment_entry(self):
+		# make_purchase_invoice() already inserts and submits; saving the
+		# submitted doc again bumps its modified timestamp and makes the
+		# following submit() fail with TimestampMismatchError.
 		pi = make_purchase_invoice(currency="INR", qty=1, rate=5000)
-		pi.save()
 		pi.submit()
 
 		pe = get_payment_entry("Purchase Invoice", pi.name, bank_account="_Test Bank - _TC")
