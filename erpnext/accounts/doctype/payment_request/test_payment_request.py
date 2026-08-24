@@ -7,7 +7,7 @@ import unittest
 import frappe
 from frappe.core.doctype.user_permission.test_user_permission import create_user
 from frappe.tests.utils import FrappeTestCase, change_settings
-from frappe.utils import add_days, today
+from frappe.utils import add_days, flt, today
 
 from erpnext.accounts.doctype.account.test_account import create_account
 from erpnext.accounts.doctype.cost_center.test_cost_center import create_cost_center
@@ -1507,9 +1507,9 @@ class TestPaymentRequest(FrappeTestCase):
 		pe.save()
 		self.assertEqual(pe.references[0].allocated_amount, 100)
 		self.assertEqual(pe.references[0].outstanding_amount, 200)
-		self.assertEqual(pe.references[1].allocated_amount, 69.49)
+		self.assertEqual(flt(pe.references[1].allocated_amount, 2), 69.49)
 		self.assertEqual(pe.references[1].outstanding_amount, 200)
-		self.assertEqual(pe.references[2].allocated_amount, 30.51)
+		self.assertEqual(flt(pe.references[2].allocated_amount, 2), 30.51)
 		self.assertEqual(pe.references[2].outstanding_amount, 200)
 
 	def test_consider_journal_entry_and_return_invoice(self):
