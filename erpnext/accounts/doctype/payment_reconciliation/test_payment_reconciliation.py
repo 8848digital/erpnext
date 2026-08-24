@@ -291,6 +291,12 @@ class TestPaymentReconciliation(FrappeTestCase):
 			return
 		for fiscal_year in fiscal_years:
 			fiscal_year_doc = frappe.get_doc("Fiscal Year", fiscal_year["name"])
+			if not fiscal_year_doc.companies:
+				# No company restrictions means this Fiscal Year already
+				# applies to every company (see get_fiscal_years' NOT
+				# EXISTS fallback) - restricting it here would break it
+				# for every other company relying on this shared fixture.
+				break
 			if any(company.company == self.company for company in fiscal_year_doc.companies):
 				break  # Company is already linked; no further action needed
 			fiscal_year_doc.append("companies", {"company": self.company})
