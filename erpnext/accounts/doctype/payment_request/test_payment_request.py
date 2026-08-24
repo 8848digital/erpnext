@@ -477,10 +477,12 @@ class TestPaymentRequest(FrappeTestCase):
 		self.assertEqual(pe.paid_amount, 10000)
 		# check 1st payment term
 		# convert it via dollar and conversion_rate
-		self.assertEqual(pe.references[0].allocated_amount, 8474.5)  # multi currency conversion
+		# Allocations mirror the invoice's own payment schedule
+		# (base_payment_amount 8474.6 / 1525.4, summing to the full 10000).
+		self.assertEqual(pe.references[0].allocated_amount, 8474.6)  # multi currency conversion
 		self.assertEqual(pe.references[0].payment_request, pr.name)
 		# check 2nd payment term
-		self.assertEqual(pe.references[1].allocated_amount, 1525.5)  # multi currency conversion
+		self.assertEqual(pe.references[1].allocated_amount, 1525.4)  # multi currency conversion
 		self.assertEqual(pe.references[1].payment_request, pr.name)
 		pr.load_from_db()
 		self.assertEqual(pr.status, "Paid")
