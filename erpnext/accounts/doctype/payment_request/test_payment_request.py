@@ -1541,6 +1541,11 @@ class TestPaymentRequest(FrappeTestCase):
 		self.assertEqual(pr.grand_total, si.outstanding_amount)
 
 	def test_set_payment_request_url_TC_ACC_359(self):
+		if not frappe.db.exists("DocType", "Razorpay Settings"):
+			# "Razorpay Settings" ships with the separate `payments` app, which is
+			# not installed in this bench.
+			self.skipTest("payments app not installed, skipping Razorpay payment url test")
+
 		from erpnext.accounts.doctype.payment_entry.test_payment_entry import (
 			create_company,
 			create_customer,
