@@ -296,6 +296,7 @@ def create_payment_order_against_payment_entry(ref_doc, order_type, bank_account
 def make_journal_entry(doc, supplier, mode_of_payment=None, is_multicurrency=False):
 	from erpnext.accounts.party import get_party_account
 	je = frappe.new_doc("Journal Entry")
+	je.company = doc.company
 	je.payment_order = doc.name
 	je.posting_date = frappe.utils.nowdate()
 	mode_of_payment_type = frappe._dict(frappe.get_all("Mode of Payment", fields=["name", "type"], as_list=1))
