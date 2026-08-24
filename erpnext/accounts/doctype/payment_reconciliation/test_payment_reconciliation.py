@@ -2996,6 +2996,14 @@ class TestPaymentReconciliation(FrappeTestCase):
 		self.assertEqual(expected_gl, gl_entries)
 		# cancel PE
 		pe.reload()
+		# Cancelling the Payment Entry requires cancelling the Payment
+		# Reconciliation Record created by pr.reconcile() first, or it's
+		# blocked by frappe's LinkExistsError back-link check.
+		with patch(
+			"erpnext.accounts.doctype.payment_reconciliation_record.payment_reconciliation_record.PaymentReconciliationRecord.on_cancel",
+			lambda x: None,
+		):
+			frappe.get_last_doc("Payment Reconciliation Record").cancel()
 		pe.cancel()
 		pr.get_unreconciled_entries()
 		# check PR tool output
