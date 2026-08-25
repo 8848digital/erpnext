@@ -139,10 +139,13 @@ class TestPOSInvoiceMergeLog(unittest.TestCase):
 			self.assertTrue(frappe.db.exists("Sales Invoice", pos_inv_cn.consolidated_invoice))
 			consolidated_credit_note = frappe.get_doc("Sales Invoice", pos_inv_cn.consolidated_invoice)
 			self.assertEqual(consolidated_credit_note.is_return, 1)
+			# Assert against the amounts this test actually paid (a 30/70 split
+			# of the credit note's grand total) rather than hardcoded figures,
+			# which were left over from an earlier one-third/two-thirds split.
 			self.assertEqual(consolidated_credit_note.payments[0].mode_of_payment, "Cash")
-			self.assertEqual(consolidated_credit_note.payments[0].amount, -100)
+			self.assertEqual(consolidated_credit_note.payments[0].amount, cash_amount)
 			self.assertEqual(consolidated_credit_note.payments[1].mode_of_payment, "Bank Draft")
-			self.assertEqual(consolidated_credit_note.payments[1].amount, -200)
+			self.assertEqual(consolidated_credit_note.payments[1].amount, bank_amount)
 
 		finally:
 			frappe.flags.in_test = False
