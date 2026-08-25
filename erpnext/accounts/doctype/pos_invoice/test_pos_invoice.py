@@ -853,6 +853,12 @@ class TestPOSInvoice(unittest.TestCase):
 		create_batch_item_with_batch("_BATCH ITEM", "TestBatch 01")
 		item = frappe.get_doc("Item", "_BATCH ITEM")
 
+		# This class is a plain unittest.TestCase, so nothing is rolled back
+		# between tests. Register the cleanup with addCleanup (LIFO) instead
+		# of running it inline at the end of the test body: an assertion
+		# failure would otherwise skip it and leak the stock entry's qty into
+		# the batch, so every later run starts with more stock than the test
+		# expects and can never pass again.
 		se = make_stock_entry(
 			target="_Test Warehouse - _TC",
 			item_code="_BATCH ITEM",
@@ -860,6 +866,7 @@ class TestPOSInvoice(unittest.TestCase):
 			basic_rate=100,
 			batch_no="TestBatch 01",
 		)
+		self.addCleanup(se.cancel)
 
 		pos_inv1 = create_pos_invoice(
 			item=item.name, rate=300, qty=1, do_not_submit=1, batch_no="TestBatch 01"
@@ -871,7 +878,20 @@ class TestPOSInvoice(unittest.TestCase):
 		pos_inv1.save()
 		pos_inv1.submit()
 
+		def _cleanup_pos_inv1():
+			pos_inv1.reload()
+			pos_inv1.cancel()
+			pos_inv1.delete()
+
+		self.addCleanup(_cleanup_pos_inv1)
+
 		pos_inv2 = create_pos_invoice(item=item.name, rate=300, qty=2, do_not_submit=1)
+
+		def _cleanup_pos_inv2():
+			pos_inv2.reload()
+			pos_inv2.delete()
+
+		self.addCleanup(_cleanup_pos_inv2)
 
 		sn_doc = SerialBatchCreation(
 			{
@@ -888,14 +908,6 @@ class TestPOSInvoice(unittest.TestCase):
 		)
 
 		self.assertRaises(BatchNegativeStockError, sn_doc.make_serial_and_batch_bundle)
-
-		# teardown
-		pos_inv1.reload()
-		pos_inv1.cancel()
-		pos_inv1.delete()
-		pos_inv2.reload()
-		pos_inv2.delete()
-		se.cancel()
 
 	def test_ignore_pricing_rule(self):
 		from erpnext.accounts.doctype.pricing_rule.test_pricing_rule import make_pricing_rule
