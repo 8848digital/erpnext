@@ -6,6 +6,7 @@ import unittest
 
 import frappe
 from frappe import _
+from frappe.tests.utils import change_settings
 from frappe.utils import cint, flt, getdate, today
 
 from erpnext.accounts.doctype.mode_of_payment.test_mode_of_payment import (
@@ -70,6 +71,9 @@ class TestPOSInvoice(unittest.TestCase):
 
 		self.assertRaises(frappe.CannotChangeConstantError, inv.save)
 
+	# This test asserts exact 2-decimal money values, so it has to pin the
+	# currency precision instead of inheriting whatever the site is set to.
+	@change_settings("System Settings", {"currency_precision": 2, "float_precision": 2})
 	def test_discount_and_inclusive_tax(self):
 		inv = create_pos_invoice(qty=100, rate=50, do_not_save=1)
 		inv.append(
