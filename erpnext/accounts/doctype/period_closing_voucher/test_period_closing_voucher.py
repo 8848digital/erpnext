@@ -78,7 +78,10 @@ class TestPeriodClosingVoucher(unittest.TestCase):
 		)
 		pcv.reload()
 		self.assertEqual(pcv.gle_processing_status, "Completed")
-		self.assertEqual(pcv_gle, expected_gle)
+		# frappe.db.sql() returns a list of tuples on Postgres, not a tuple
+		# of tuples - compare as lists so the outer container type doesn't
+		# affect the comparison.
+		self.assertEqual(list(pcv_gle), list(expected_gle))
 
 	def test_cost_center_wise_posting(self):
 		frappe.db.sql("delete from `tabGL Entry` where company='Test PCV Company'")
