@@ -744,6 +744,12 @@ class TestTaxWithholdingCategory(FrappeTestCase):
 		category = "Cumulative Threshold TDS"
 
 		def add_company_to_fy(fy, company):
+			if not fy.companies:
+				# A Fiscal Year with no companies listed is unrestricted and
+				# already applies to every company (see `get_fiscal_years`).
+				# Appending one here would restrict it to that single company
+				# and break all the others relying on it, so leave it alone.
+				return
 			if not [x.company for x in fy.companies if x.company == company]:
 				fy.append("companies", {"company": company})
 				fy.save()

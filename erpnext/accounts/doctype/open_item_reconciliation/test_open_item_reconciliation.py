@@ -512,6 +512,12 @@ def validate_fiscal_year(company):
 	year = get_fiscal_year(frappe.utils.today())
 	if len(year) > 1:
 		fiscal_year = frappe.get_doc("Fiscal Year", year[0])
+		if not fiscal_year.companies:
+			# A Fiscal Year with no companies listed is unrestricted and already
+			# applies to every company (see `get_fiscal_years`). Appending one
+			# here would restrict it to that single company and break all the
+			# others relying on it, so leave it alone.
+			return
 		company_list = {d.company for d in fiscal_year.companies}
 		if company not in company_list:
 			fiscal_year.append("companies", {"company": company})
