@@ -656,7 +656,11 @@ class TestPOSInvoiceMergeLog(unittest.TestCase):
 			else:
 				fy_name = existing_fiscal_years[0]
 				fy = frappe.get_doc("Fiscal Year", fy_name)
-				if not any(c.company == pos_profile_doc.company for c in fy.companies):
+				# A Fiscal Year with no companies listed is unrestricted and already
+				# applies to every company (see `get_fiscal_years`). Appending one
+				# here would restrict it to that single company and break all the
+				# others relying on it, so leave it alone.
+				if fy.companies and not any(c.company == pos_profile_doc.company for c in fy.companies):
 					fy.append("companies", {"company": pos_profile_doc.company})
 					fy.disabled = 0
 					fy.save(ignore_permissions=True)

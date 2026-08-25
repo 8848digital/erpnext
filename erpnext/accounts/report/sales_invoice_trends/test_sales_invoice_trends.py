@@ -70,7 +70,11 @@ class TestSalesInvoiceTrends(FrappeTestCase):
 			if fy.year_start_date <= today <= fy.year_end_date:
 				fy_doc = frappe.get_doc("Fiscal Year", fy.name)
 
-				if not any(c.company == company for c in fy_doc.companies):
+				# A Fiscal Year with no companies listed is unrestricted and
+				# already applies to every company (see `get_fiscal_years`).
+				# Appending one here would restrict it to that single company and
+				# break all the others relying on it, so leave it alone.
+				if fy_doc.companies and not any(c.company == company for c in fy_doc.companies):
 					fy_doc.append("companies", {"company": company})
 					fy_doc.save()
 

@@ -9709,8 +9709,13 @@ def create_company_and_suppliers():
 		company.insert()
 
 		add_company_fiscal_year = frappe.get_doc("Fiscal Year", fiscal_year)
-		add_company_fiscal_year.append("companies", {"company": company})
-		add_company_fiscal_year.save()
+		# A Fiscal Year with no companies listed is unrestricted and already
+		# applies to every company (see `get_fiscal_years`). Appending one here
+		# would restrict it to that single company and break all the others
+		# relying on it, so leave it alone.
+		if add_company_fiscal_year.companies:
+			add_company_fiscal_year.append("companies", {"company": company})
+			add_company_fiscal_year.save()
 
 		company_address = frappe.get_doc(
 			{
@@ -9860,6 +9865,12 @@ def validate_fiscal_year(company):
 	year = get_fiscal_year(today())
 	if len(year) > 1:
 		fiscal_year = frappe.get_doc("Fiscal Year", year[0])
+		# A Fiscal Year with no companies listed is unrestricted and already
+		# applies to every company (see `get_fiscal_years`). Appending one here
+		# would restrict it to that single company and break all the others
+		# relying on it, so leave it alone.
+		if not fiscal_year.companies:
+			return
 		company_list = {d.company for d in fiscal_year.companies}
 		if company not in company_list:
 			fiscal_year.append("companies", {"company": company})
@@ -9897,7 +9908,13 @@ def get_company_or_supplier():
 		).insert()
 
 	fiscal_year_doc = frappe.get_doc("Fiscal Year", fiscal_year)
-	linked_companies = {d.company for d in fiscal_year_doc.companies}
+	# A Fiscal Year with no companies listed is unrestricted and already applies
+	# to every company (see `get_fiscal_years`). Appending one here would
+	# restrict it to that single company and break all the others relying on it,
+	# so treat it as already linked.
+	linked_companies = (
+		{d.company for d in fiscal_year_doc.companies} if fiscal_year_doc.companies else {company}
+	)
 
 	if company not in linked_companies:
 		fiscal_year_doc.append("companies", {"company": company})
