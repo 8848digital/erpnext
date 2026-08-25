@@ -584,7 +584,15 @@ def create_merge_logs(invoice_by_customer, closing_entry=None):
 					merge_log.posting_time = (
 						get_time(closing_entry.get("posting_time")) if closing_entry else nowtime()
 					)
-					merge_log.company = closing_entry.get("company") if closing_entry else None
+					if closing_entry:
+						merge_log.company = closing_entry.get("company")
+					elif _invoices:
+						# company is mandatory on POS Invoice Merge Log. Without a
+						# closing entry to take it from, derive it from the POS
+						# invoices being merged - they are all for one company.
+						merge_log.company = frappe.db.get_value(
+							"POS Invoice", _invoices[0].get("pos_invoice"), "company"
+						)
 					merge_log.customer = customer
 					merge_log.pos_closing_entry = closing_entry.get("name") if closing_entry else None
 					merge_log.set("pos_invoices", _invoices)
