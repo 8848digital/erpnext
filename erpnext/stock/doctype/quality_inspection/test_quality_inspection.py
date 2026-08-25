@@ -1242,6 +1242,14 @@ def setup_fy_gls_cost_center():
 	if len(matching_fy_list) > 0:
 		for fy in matching_fy_list:
 			fiscal_year = frappe.get_doc("Fiscal Year", fy["name"])
+			if not fiscal_year.companies:
+				# A Fiscal Year with no companies listed is unrestricted and already
+				# applies to every company (see `get_fiscal_years`). Appending one
+				# here would restrict it to that single company and break all the
+				# others relying on it, so leave it alone.
+				is_company = True
+				break
+
 			for years in fiscal_year.companies:
 				if years.company == company:
 					is_company = True

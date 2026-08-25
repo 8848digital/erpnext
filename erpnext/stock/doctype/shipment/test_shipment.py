@@ -342,8 +342,13 @@ def get_shipment_company():
 
 	if not exists:
 		fy_doc = frappe.get_doc("Fiscal Year", fiscal_year)
-		fy_doc.append("companies", {"company": company})
-		fy_doc.save()
+		# A Fiscal Year with no companies listed is unrestricted and already
+		# applies to every company (see `get_fiscal_years`). Appending one here
+		# would restrict it to that single company and break all the others
+		# relying on it, so leave it alone.
+		if fy_doc.companies:
+			fy_doc.append("companies", {"company": company})
+			fy_doc.save()
 
 	return frappe.get_doc("Company",company)
 
