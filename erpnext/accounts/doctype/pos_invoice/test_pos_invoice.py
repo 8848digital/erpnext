@@ -1030,12 +1030,25 @@ class TestPOSInvoice(unittest.TestCase):
 		inv.loyalty_points = before_lp_details.loyalty_points
 		inv.loyalty_redemption_account = "Cash - _TC"
 		inv.loyalty_amount = before_lp_details.loyalty_points * before_lp_details.conversion_factor
+		# Derive the amounts from the invoice's own total rather than a
+		# hardcoded 10000 - this invoice is raised at rate 9000, and the
+		# customer's accumulated loyalty points grow with every run, so the
+		# hardcoded figure eventually underpays and validate_full_payment()
+		# raises PartialPaymentValidationError.
+		inv.save()
+		invoice_total = flt(inv.rounded_total) or flt(inv.grand_total)
 		inv.append(
 			"payments",
-			{"mode_of_payment": "Cash", "account": "Cash - _TC", "amount": 10000 - inv.loyalty_amount},
+			{
+				"mode_of_payment": "Cash",
+				"account": "Cash - _TC",
+				"amount": invoice_total - inv.loyalty_amount,
+			},
 		)
-		inv.paid_amount = 10000 - inv.loyalty_amount
-		inv.save()
+		# paid_amount must be assigned after the final save: set_paid_amount()
+		# recomputes it from the payment rows while docstatus is 0, so an
+		# assignment made before another save() is silently overwritten.
+		inv.paid_amount = invoice_total
 		inv.submit()
 		closing_enrty = make_closing_entry_from_opening(opening_entry)
 		closing_enrty.submit()
