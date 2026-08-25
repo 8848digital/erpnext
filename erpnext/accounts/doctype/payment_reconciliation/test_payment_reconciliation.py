@@ -3263,7 +3263,13 @@ def create_fiscal_year(company, year_start_date, year_end_date):
 		return fy_doc
 	else:
 		fy_doc = frappe.get_doc("Fiscal Year", fy_docname)
-		if not frappe.db.exists("Fiscal Year Company", {"parent": fy_docname, "company": company}):
+		# A Fiscal Year with no companies listed is unrestricted and already
+		# applies to every company (see `get_fiscal_years`). Appending one here
+		# would restrict it to that single company and break all the others
+		# relying on it, so leave it alone.
+		if fy_doc.companies and not frappe.db.exists(
+			"Fiscal Year Company", {"parent": fy_docname, "company": company}
+		):
 			fy_doc.append("companies", {"company": company})
 			fy_doc.save()
 		return fy_doc

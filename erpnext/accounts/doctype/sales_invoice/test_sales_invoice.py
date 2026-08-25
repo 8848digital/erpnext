@@ -8433,7 +8433,15 @@ def create_company_and_supplier():
 		).insert(ignore_permissions=True)
 
 	fiscal_year_doc = frappe.get_doc("Fiscal Year", fiscal_year)
-	linked_companies = {d.company for d in fiscal_year_doc.companies}
+	# A Fiscal Year with no companies listed is unrestricted and already applies
+	# to every company (see `get_fiscal_years`). Appending one here would
+	# restrict it to that single company and break all the others relying on it,
+	# so treat it as already linked.
+	linked_companies = (
+		{d.company for d in fiscal_year_doc.companies}
+		if fiscal_year_doc.companies
+		else {parent_company, child_company}
+	)
 
 	if parent_company not in linked_companies:
 		fiscal_year_doc.append("companies", {"company": parent_company})

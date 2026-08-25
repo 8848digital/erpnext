@@ -101,8 +101,13 @@ class TestProfitAndLossStatement(AccountsTestMixin, FrappeTestCase):
 			filters={"disabled": 0, "year_start_date": ("<=", find_for), "year_end_date": (">=", find_for)},
 		)[0]
 		prev_fy = frappe.get_doc("Fiscal Year", _x.name)
-		prev_fy.append("companies", {"company": self.company})
-		prev_fy.save()
+		# A Fiscal Year with no companies listed is unrestricted and already
+		# applies to every company (see `get_fiscal_years`). Appending one here
+		# would restrict it to that single company and break all the others
+		# relying on it, so leave it alone.
+		if prev_fy.companies:
+			prev_fy.append("companies", {"company": self.company})
+			prev_fy.save()
 
 		# make SI on both of them
 		prev_fy_si = self.create_sales_invoice(qty=1, rate=450, do_not_submit=True)
