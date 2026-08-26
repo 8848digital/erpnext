@@ -508,6 +508,8 @@ bank_reconciliation_doctypes = [
 accounting_dimension_doctypes = [
 	"GL Entry",
 	"FL Entry",
+	"Account",
+	"Period Closing Voucher",
 	"Payment Ledger Entry",
 	"Sales Invoice",
 	"Purchase Invoice",
