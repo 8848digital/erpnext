@@ -331,7 +331,7 @@ class Deferred_Revenue_and_Expense_Report:
 				gle.posting_date.as_("gle_posting_date"),
 				functions.Sum(gle.debit).as_("debit"),
 				functions.Sum(gle.credit).as_("credit"),
-				posted,
+				# posted,
 			)
 			.where(
 				(inv.docstatus == 1)

@@ -111,7 +111,7 @@
    "oldfieldname": "parent_account",
    "oldfieldtype": "Link",
    "options": "Account",
-   "reqd": 1,
+   "reqd": 0,
    "search_index": 1
   },
   {

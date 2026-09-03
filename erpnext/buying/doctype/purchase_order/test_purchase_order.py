@@ -11,7 +11,7 @@ import frappe
 from frappe.query_builder import DocType
 
 # import pandas as pd
-from frappe.tests.utils import FrappeTestCase, change_settings, if_app_installed
+from frappe.tests.utils import FrappeTestCase, change_settings
 from frappe.utils import add_days, add_years, flt, get_year_ending, get_year_start, getdate, nowdate, today
 
 from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
@@ -2360,7 +2360,7 @@ class TestPurchaseOrder(FrappeTestCase):
 		self.assertEqual(pi.items[0].rate, 117)
 		self.assertEqual(pi.items[0].discount_percentage, 10)
 
-	@if_app_installed("india_compliance")
+	
 	def test_po_to_pr_with_gst_partly_paid_TC_B_085(self):
 		# Scenario : PO => PR with GST Partly Paid
 		get_company_supplier = get_company_or_supplier()
@@ -3437,7 +3437,7 @@ class TestPurchaseOrder(FrappeTestCase):
 		self.assertEqual(doc_po.status, "Completed")
 		self.assertEqual(doc_pr.status, "Completed")
 
-	@if_app_installed("india_compliance")
+	
 	def test_inter_state_CGST_and_SGST_TC_B_097(self):
 		get_company_supplier = get_company_or_supplier()
 		company = get_company_supplier.get("company")
@@ -3985,7 +3985,7 @@ class TestPurchaseOrder(FrappeTestCase):
 			if entries.account == "Creditors - _TC":
 				self.assertEqual(entries.credit, 11900)
 
-	@if_app_installed("india_compliance")
+	
 	def test_po_with_on_net_total_account_type_TC_B_134(self):
 		get_company_supplier = get_company_or_supplier()
 		company = get_company_supplier.get("company")
@@ -4199,7 +4199,7 @@ class TestPurchaseOrder(FrappeTestCase):
 			if entries.account == "Creditors - TC-3":
 				self.assertEqual(entries.credit, 2300)
 
-	@if_app_installed("india_compliance")
+	
 	def test_po_with_all_account_type_TC_B_136(self):
 		get_company_supplier = get_company_or_supplier()
 		company = get_company_supplier.get("company")
@@ -4930,7 +4930,7 @@ class TestPurchaseOrder(FrappeTestCase):
 		self.assertEqual(doc_po.status, "Completed")
 		self.assertEqual(doc_pi.status, "Paid")
 
-	@if_app_installed("india_compliance")
+	
 	def test_po_to_pi_with_Adv_payment_entry_n_tax_TC_B_074(self):
 		# Scenario : PO => PE => PR => PI [With Adv Payment and Tax]
 		get_data = get_company_or_supplier()
@@ -4992,7 +4992,7 @@ class TestPurchaseOrder(FrappeTestCase):
 		self.assertEqual(doc_po.status, "Completed")
 		self.assertEqual(doc_pi.status, "Paid")
 
-	@if_app_installed("india_compliance")
+	
 	def test_po_to_pi_with_partial_payment_entry_TC_B_075(self):
 		# Scenario : PO => PE => PR => PI [With Adv Partial Payment and Tax]
 		get_data = get_company_or_supplier()
@@ -5072,7 +5072,7 @@ class TestPurchaseOrder(FrappeTestCase):
 		self.assertEqual(doc_po.status, "Completed")
 		self.assertEqual(doc_pi.status, "Paid")
 
-	@if_app_installed("india_compliance")
+	
 	def test_default_uom_with_po_pr_pi_TC_B_105(self):
 		# item as box => po => pr => pi with GST
 		from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_company
@@ -5519,7 +5519,7 @@ class TestPurchaseOrder(FrappeTestCase):
 		self.assertEqual(gl_entries_pe[1].get("account"), "Creditors - TC-3")
 		self.assertEqual(gl_entries_pe[1].get("debit"), 1250)
 
-	@if_app_installed("india_compliance")
+	
 	def test_shipping_rule_fixed_pr_pi_pe_with_gst_TC_B_109(self):
 		get_company_supplier = get_company_or_supplier()
 		company = get_company_supplier.get("company")
@@ -5611,7 +5611,7 @@ class TestPurchaseOrder(FrappeTestCase):
 		)
 		self.assertTrue(gl_entries_pe)
 
-	@if_app_installed("india_compliance")
+	
 	def test_shipping_rule_net_total_pr_pi_pe_with_gst_TC_B_110(self):
 		get_company_supplier = get_company_or_supplier()
 		company = get_company_supplier.get("company")
@@ -5702,7 +5702,7 @@ class TestPurchaseOrder(FrappeTestCase):
 		pi_outstanding = frappe.db.get_value("Purchase Invoice", pi.name, "outstanding_amount")
 		self.assertEqual(pi_outstanding, 0)
 
-	@if_app_installed("india_compliance")
+	
 	def test_shipping_rule_net_weight_pr_pi_pe_with_gst_TC_B_111(self):
 		get_company_supplier = get_company_or_supplier()
 		company = get_company_supplier.get("company")
@@ -5812,7 +5812,7 @@ class TestPurchaseOrder(FrappeTestCase):
 		self.assertEqual(gl_entries_pe[1].get("account"), "Creditors - TC-5")
 		self.assertEqual(gl_entries_pe[1].get("debit"), 1430)
 
-	@if_app_installed("india_compliance")
+	
 	def test_shipping_rule_fixed_restricted_country_po_with_gst_TC_B_115(self):
 		get_company_supplier = create_data()
 		company = get_company_supplier.get("child_company")
@@ -5861,7 +5861,7 @@ class TestPurchaseOrder(FrappeTestCase):
 			str(cm.exception), "Shipping rule not applicable for country India in Shipping Address"
 		)
 
-	@if_app_installed("india_compliance")
+	
 	def test_shipping_rule_net_total_restricted_country_po_with_gst_TC_B_116(self):
 		get_company_supplier = create_data()
 		company = get_company_supplier.get("child_company")
@@ -7169,7 +7169,7 @@ class TestPurchaseOrder(FrappeTestCase):
 				if entry["credit"]:
 					self.assertEqual(entry["credit"], expected_pi_entries[entry["account"]])
 
-	@if_app_installed("india_compliance")
+	
 	def test_po_with_update_items_TC_B_128(self):
 		get_company_supplier = get_company_or_supplier()
 		company = get_company_supplier.get("company")
@@ -7238,7 +7238,7 @@ class TestPurchaseOrder(FrappeTestCase):
 		self.assertEqual(po.total_taxes_and_charges, 1350)
 		self.assertEqual(po.grand_total, 8850)
 
-	@if_app_installed("india_compliance")
+	
 	def test_po_with_partial_pr_and_update_items_TC_B_129(self):
 		from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import (
 			create_company_and_supplier as create_data,
@@ -7298,7 +7298,7 @@ class TestPurchaseOrder(FrappeTestCase):
 		self.assertEqual(po.total_taxes_and_charges, 360)
 		self.assertEqual(po.grand_total, 2360)
 
-	@if_app_installed("india_compliance")
+	
 	def test_po_with_partial_pi_and_update_items_TC_B_130(self):
 		from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import (
 			create_company_and_supplier as create_data,
@@ -7378,7 +7378,7 @@ class TestPurchaseOrder(FrappeTestCase):
 		self.assertEqual(pi_2.items[0].qty, 7)
 		self.assertEqual(pi_2.items[0].rate, 2000)
 
-	@if_app_installed("india_compliance")
+	
 	def test_po_with_parking_charges_pr_pi_TC_B_137(self):
 		from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import (
 			create_company_and_supplier as create_data,
@@ -7483,7 +7483,7 @@ class TestPurchaseOrder(FrappeTestCase):
 			self.assertEqual(entry["debit"], expected_pi_entries.get(entry["account"], {}).get("debit", 0))
 			self.assertEqual(entry["credit"], expected_pi_entries.get(entry["account"], {}).get("credit", 0))
 
-	@if_app_installed("india_compliance")
+	
 	def test_po_with_create_tax_template_5_pr_pi_3_TC_B_146(self):
 		supplier = create_supplier(supplier_name="_Test Supplier PO")
 		company = "_Test Company"
@@ -7685,7 +7685,7 @@ class TestPurchaseOrder(FrappeTestCase):
 		self.assertEqual(je.total_debit, 1000.11)
 		self.assertEqual(je.total_credit, 1000.11)
 
-	@if_app_installed("india_compliance")
+	
 	def test_po_with_environmental_cess_pr_pi_TC_B_138(self):
 		get_company_supplier = get_company_or_supplier()
 		company = get_company_supplier.get("company")
@@ -7782,7 +7782,7 @@ class TestPurchaseOrder(FrappeTestCase):
 			self.assertEqual(entry["debit"], expected_pi_entries.get(entry["account"], {}).get("debit", 0))
 			self.assertEqual(entry["credit"], expected_pi_entries.get(entry["account"], {}).get("credit", 0))
 
-	@if_app_installed("india_compliance")
+	
 	def test_po_with_transportation_charges_pr_pi_TC_B_139(self):
 		get_company_supplier = get_company_or_supplier()
 		company = get_company_supplier.get("company")
@@ -8015,7 +8015,7 @@ class TestPurchaseOrder(FrappeTestCase):
 		# frappe.delete_doc("Budget", budget.name,force=1)
 		# frappe.delete_doc("Purchase Order", po.name,force=1)
 
-	@if_app_installed("india_compliance")
+	
 	def test_po_with_damage_claims_pr_pi_TC_B_140(self):
 		get_company_supplier = get_company_or_supplier()
 		company = get_company_supplier.get("company")
@@ -8123,7 +8123,7 @@ class TestPurchaseOrder(FrappeTestCase):
 			self.assertEqual(entry["debit"], expected_pi_entries.get(entry["account"], {}).get("debit", 0))
 			self.assertEqual(entry["credit"], expected_pi_entries.get(entry["account"], {}).get("credit", 0))
 
-	@if_app_installed("india_compliance")
+	
 	def test_po_with_item_tax_5_pr_pi_TC_B_142(self):
 		get_company_supplier = create_data()
 		company = get_company_supplier.get("child_company")
@@ -8232,7 +8232,7 @@ class TestPurchaseOrder(FrappeTestCase):
 					self.assertEqual(entry["debit"], expected_pi_entries[accounts]["debit"])
 					self.assertEqual(entry["credit"], expected_pi_entries[accounts]["credit"])
 
-	@if_app_installed("india_compliance")
+	
 	def test_po_with_multiple_items_single_item_tax_10_pr_pi_TC_B_143(self):
 		get_company_supplier = get_company_or_supplier()
 		company = get_company_supplier.get("company")
@@ -8349,7 +8349,7 @@ class TestPurchaseOrder(FrappeTestCase):
 			self.assertEqual(entry["debit"], expected_pi_entries.get(entry["account"], {}).get("debit", 0))
 			self.assertEqual(entry["credit"], expected_pi_entries.get(entry["account"], {}).get("credit", 0))
 
-	@if_app_installed("india_compliance")
+	
 	def test_po_not_assign_tax_template_directly_pr_pi_TC_B_144(self):
 			get_company_supplier = create_data()
 			company = get_company_supplier.get("child_company")
@@ -8469,7 +8469,7 @@ class TestPurchaseOrder(FrappeTestCase):
 						self.assertEqual(entry.get("credit"), expected_pi_entries[k].get("credit"))
 
 
-	@if_app_installed("india_compliance")
+	
 	def test_po_with_create_tax_template_5_pr_pi_2_TC_B_145(self):
 		supplier = create_supplier(supplier_name="_Test Supplier PO")
 		company = "_Test Company"
@@ -8747,7 +8747,7 @@ class TestPurchaseOrder(FrappeTestCase):
 		self.assertEqual(po_1.status, "To Receive and Bill")
 		self.assertEqual(po_2.status, "To Receive and Bill")
 
-	@if_app_installed("projects")
+	
 	def test_validate_available_budget_TC_B_160(self):
 		from unittest.mock import patch
 
@@ -8817,7 +8817,7 @@ class TestPurchaseOrder(FrappeTestCase):
 			msg_args, _ = mock_msgprint.call_args
 			self.assertIn("Available Budget Limit Exceeded", msg_args[0])
 
-	@if_app_installed("projects")
+	
 	def test_update_committed_overall_budge_TC_B_161(self):
 		project_name = "test_project" + frappe.generate_hash(length=5)
 		if not frappe.db.exists("Project", {"project_name": project_name}):
@@ -8864,7 +8864,7 @@ class TestPurchaseOrder(FrappeTestCase):
 		po.load_from_db()
 		po.cancel()
 
-	@if_app_installed("projects")
+	
 	def test_locked_update_committed_overall_budget_TC_B_162(self):
 		project_name = "test_project" + frappe.generate_hash(length=5)
 		if not frappe.db.exists("Project", {"project_name": project_name}):
@@ -8921,7 +8921,7 @@ class TestPurchaseOrder(FrappeTestCase):
 
 		self.assertIn("this WBS is locked", str(cm.exception))
 
-	@if_app_installed("projects")
+	
 	def test_locked_committed_overall_budget_mr_po_TC_B_163(self):
 		project_name = "test_project" + frappe.generate_hash(length=5)
 		if not frappe.db.exists("Project", {"project_name": project_name}):

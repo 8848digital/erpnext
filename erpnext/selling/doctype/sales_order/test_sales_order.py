@@ -8,7 +8,7 @@ from datetime import datetime
 import frappe
 import frappe.permissions
 from frappe.core.doctype.user_permission.test_user_permission import create_user
-from frappe.tests.utils import FrappeTestCase, change_settings, if_app_installed
+from frappe.tests.utils import FrappeTestCase, change_settings
 from frappe.utils import add_days, add_months, add_to_date, flt, getdate, nowdate, today
 
 from erpnext.accounts.test.accounts_mixin import AccountsTestMixin
@@ -2535,7 +2535,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		self.assertEqual(si.status, "Unpaid", "Sales Invoice not created")
 		self.validate_gl_entries(si.name, 25000)
 
-	@if_app_installed("india_compliance")
+	
 	def test_sales_order_with_partial_advance_payment_TC_S_041(self):
 		make_item("_Test Item", {"is_stock_item": 1})
 		get_or_create_fiscal_year("_Test Company")
@@ -2901,7 +2901,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		self.assertEqual(si.status, "Unpaid", "Sales Invoice not created")
 		self.validate_gl_entries(si.name, 5000)
 
-	@if_app_installed("india_compliance")
+	
 	def test_sales_order_full_payment_with_gst_TC_S_011(self):
 		so = self.create_and_submit_sales_order_with_gst("_Test Item", qty=1, rate=5000)
 
@@ -2960,7 +2960,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		dn.reload()
 		self.assertEqual(dn.status, "Completed")
 
-	@if_app_installed("india_compliance")
+	
 	def test_sales_order_partial_payment_with_gst_TC_S_012(self):
 		so = self.create_and_submit_sales_order_with_gst("_Test Item", qty=4, rate=5000)
 
@@ -3077,7 +3077,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		dn2.reload()
 		self.assertEqual(dn2.status, "Completed")
 
-	@if_app_installed("india_compliance")
+	
 	def test_sales_order_partial_sales_invoice_with_gst_TC_S_013(self):
 		so = self.create_and_submit_sales_order_with_gst("_Test Item", qty=4, rate=5000)
 
@@ -3158,7 +3158,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		dn.reload()
 		self.assertEqual(dn.status, "Completed")
 
-	@if_app_installed("india_compliance")
+	
 	def test_sales_order_create_dn_via_si_with_gst_TC_S_014(self):
 		make_item("_Test Item", {"is_stock_item": 1})
 		so = self.create_and_submit_sales_order_with_gst("_Test Item", qty=4, rate=5000)
@@ -3225,7 +3225,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		)
 		self.assertEqual(dn_acc_debit, 20000)
 
-	@if_app_installed("india_compliance")
+	
 	def test_sales_order_create_partial_dn_via_si_with_gst_TC_S_015(self):
 		make_item("_Test Item", {"is_stock_item": 1})
 		so = self.create_and_submit_sales_order_with_gst("_Test Item", qty=4, rate=5000)
@@ -3303,7 +3303,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		self.assertEqual(gl_entries_dn2["Stock In Hand - _TIRC"], 10000)
 		self.assertEqual(gl_entries_dn2["Cost of Goods Sold - _TIRC"], 10000)
 
-	@if_app_installed("india_compliance")
+	
 	def test_sales_order_update_stock_in_si_with_gst_TC_S_018(self):
 		so = self.create_and_submit_sales_order_with_gst("_Test Item", qty=4, rate=5000)
 
@@ -3346,7 +3346,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		so.reload()
 		self.assertEqual(so.status, "Completed")
 
-	@if_app_installed("india_compliance")
+	
 	def test_sales_order_update_stock_in_partial_si_with_gst_TC_S_019(self):
 		so = self.create_and_submit_sales_order_with_gst("_Test Item", qty=4, rate=5000)
 
@@ -3419,7 +3419,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		so.reload()
 		self.assertEqual(so.status, "Completed")
 
-	@if_app_installed("india_compliance")
+	
 	def test_sales_order_for_service_item_with_gst_TC_S_020(self):
 		make_item("_Test Item", {"is_stock_item": 1})
 		so = self.create_and_submit_sales_order_with_gst("_Test Item", qty=1, rate=5000)
@@ -4446,7 +4446,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		so.reload()
 		self.assertEqual(so.status, "To Deliver", "Sales Order not updated")
 
-	@if_app_installed("india_compliance")
+	
 	def test_sales_order_create_si_via_pe_dn_with_gst_TC_S_042(self):
 		from erpnext.accounts.doctype.payment_entry.test_payment_entry import create_payment_entry
 
@@ -4555,7 +4555,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 			450,
 		)
 
-	@if_app_installed("india_compliance")
+	
 	def test_sales_order_create_si_via_partial_pe_dn_with_gst_TC_S_043(self):
 		make_item("_Test Item", {"is_stock_item": 1})
 		so = self.create_and_submit_sales_order_with_gst("_Test Item", qty=1, rate=5000)
@@ -4656,7 +4656,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		self.assertEqual(si.outstanding_amount, 0)
 		self.assertEqual(si.status, "Paid")
 
-	@if_app_installed("india_compliance")
+	
 	def test_sales_order_with_full_advance_payment_and_shipping_rule_TC_S_044(self):
 		make_item("_Test Item", {"is_stock_item": 1})
 		get_or_create_fiscal_year("_Test Company")
@@ -4717,7 +4717,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 			200,
 		)
 
-	@if_app_installed("india_compliance")
+	
 	def test_sales_order_with_partial_advance_payment_and_shipping_rule_TC_S_045(self):
 		make_item("_Test Item", {"is_stock_item": 1})
 		get_or_create_fiscal_year
@@ -5275,7 +5275,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 			200,
 		)
 
-	@if_app_installed("india_compliance")
+	
 	def test_sales_order_creating_si_with_product_bundle_and_gst_rule_TC_S_059(self):
 		from erpnext.accounts.doctype.sales_invoice.test_sales_invoice import create_registered_company
 
@@ -5438,7 +5438,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 			15000,
 		)
 
-	@if_app_installed("india_compliance")
+	
 	def test_sales_order_creating_invoice_with_installation_note_and_gst_TC_S_062(self):
 		make_item("_Test Item", {"is_stock_item": 1})
 		so = self.create_and_submit_sales_order_with_gst("_Test Item", qty=5, rate=5000)
@@ -5635,7 +5635,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 
 		return si
 
-	@if_app_installed("india_compliance")
+	
 	@change_settings("Stock Settings", {"enable_stock_reservation": 1})
 	def test_sales_order_for_stock_reservation_with_gst_TC_S_065(self):
 		get_or_create_fiscal_year("_Test Indian Registered Company")
@@ -6307,7 +6307,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 			5000,
 		)
 
-	@if_app_installed("india_compliance")
+	
 	def test_sales_order_delivery_trip_creating_si_with_gst_TC_S_094(self):
 		make_item("_Test Item", {"is_stock_item": 1})
 		so = self.create_and_submit_sales_order_with_gst("_Test Item", qty=1, rate=5000)
@@ -6431,7 +6431,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		)
 		self.assertEqual(si2_acc_debit, 15000)
 
-	@if_app_installed("india_compliance")
+	
 	def test_so_with_item_tax_creating_si_with_payment_TC_S_096(self):
 		make_item("_Test Item", {"is_stock_item": 1})
 		make_stock_entry(item_code="_Test Item", qty=10, rate=5000, target="_Test Warehouse - _TC")
@@ -6478,7 +6478,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		si.reload()
 		self.assertEqual(si.status, "Paid")
 
-	@if_app_installed("india_compliance")
+	
 	def test_so_with_item_tax_creating_double_entries_with_1payment_TC_S_097(self):
 		make_item("_Test Item", {"is_stock_item": 1})
 		make_stock_entry(item_code="_Test Item", qty=10, rate=5000, target="_Test Warehouse - _TC")
@@ -6598,7 +6598,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		self.assertEqual(gl_debits["Cash - _TC"], 21000)
 		self.assertEqual(total_debtors_credit, 21000)
 
-	@if_app_installed("india_compliance")
+	
 	def test_so_with_item_tax_creating_double_entries_with_2payment_TC_S_098(self):
 		make_stock_entry(item_code="_Test Item", qty=10, rate=5000, target="_Test Warehouse - _TC")
 
@@ -6752,7 +6752,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		self.assertEqual(so.status, "To Bill")
 		self.assertEqual(purchase_orders[0].status, "Delivered")
 
-	@if_app_installed("india_compliance")
+	
 	def test_so_to_po_with_gst_TC_S_110(self):
 		from erpnext.buying.doctype.purchase_order.purchase_order import update_status
 		from erpnext.selling.doctype.sales_order.sales_order import make_purchase_order_for_default_supplier
@@ -6846,7 +6846,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		self.assertEqual(si.status, "Unpaid")
 		self.assertEqual(pi.status, "Unpaid")
 
-	@if_app_installed("india_compliance")
+	
 	def test_so_to_si_with_po_with_gst_TC_S_115(self):
 		from erpnext.buying.doctype.purchase_order.purchase_order import (
 			make_purchase_invoice as make_pi_from_po,
@@ -7066,7 +7066,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		si.submit()
 		self.assertEqual(si.grand_total, 900)
 
-	@if_app_installed("sales_commission")
+	
 	def test_so_with_maintenance_visit_TC_S_138(self):
 		from erpnext.maintenance.doctype.maintenance_visit.test_maintenance_visit import make_sales_person
 		from erpnext.selling.doctype.sales_order.sales_order import make_maintenance_visit
@@ -8165,7 +8165,7 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		self.assertEqual(so.items[0].delivery_date, add_days(today(), 10))
 
 
-@if_app_installed("india_compliance")
+
 def create_test_tax_data():
 	if not frappe.db.exists("Tax Category", "In-State"):
 		frappe.get_doc({"doctype": "Tax Category", "title": "In-State"}).insert()
@@ -8217,7 +8217,7 @@ def create_test_tax_data():
 		).insert()
 
 
-@if_app_installed("india_compliance")
+
 def test_item_tax_template(**data):
 	from india_compliance.gst_india.overrides.transaction import get_valid_accounts
 	from india_compliance.gst_india.utils import get_gst_accounts_by_type

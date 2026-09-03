@@ -5,7 +5,7 @@
 import frappe
 from frappe import _
 from frappe.model.mapper import get_mapped_doc
-from frappe.tests.utils import if_app_installed
+
 from frappe.utils import flt, getdate, nowdate
 
 from erpnext.controllers.selling_controller import SellingController
@@ -526,7 +526,6 @@ def _make_customer(source_name, ignore_permissions=False):
 	return None
 
 
-@if_app_installed("erpnext_crm")
 def create_customer_from_lead(lead_name, ignore_permissions=False):
 	from erpnext_crm.erpnext_crm.doctype.lead.lead import _make_customer
 
@@ -540,7 +539,6 @@ def create_customer_from_lead(lead_name, ignore_permissions=False):
 		handle_mandatory_error(e, customer, lead_name)
 
 
-@if_app_installed("erpnext_crm")
 def create_customer_from_prospect(prospect_name, ignore_permissions=False):
 	from erpnext_crm.erpnext_crm.doctype.prospect.prospect import make_customer as make_customer_from_prospect
 

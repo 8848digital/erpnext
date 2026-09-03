@@ -3,7 +3,7 @@
 
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_field
-from frappe.tests.utils import FrappeTestCase, if_app_installed
+from frappe.tests.utils import FrappeTestCase
 from frappe.utils import nowdate, nowtime
 
 from erpnext.stock.doctype.delivery_note.test_delivery_note import create_delivery_note
@@ -203,7 +203,7 @@ class TestInventoryDimension(FrappeTestCase):
 
 		self.assertEqual(sle_rack, "Rack 1")
 
-	@if_app_installed("Projects")
+	
 	def test_check_standard_dimensions(self):
 		create_inventory_dimension(
 			reference_document="Project",

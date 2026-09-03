@@ -4,11 +4,14 @@
 
 from json import loads
 from typing import TYPE_CHECKING, Optional
+from pypika.functions import Coalesce
+from collections import defaultdict
 
 import frappe
 import frappe.defaults
 from frappe import _, qb, throw
 from frappe.model.meta import get_field_precision
+from frappe.desk.reportview import build_match_conditions
 from frappe.query_builder import AliasedQuery, Case, Criterion, Table
 from frappe.query_builder.functions import Count, Max, Sum
 from frappe.query_builder.utils import DocType
@@ -1770,7 +1773,15 @@ def auto_create_exchange_rate_revaluation_daily() -> None:
 	)
 	create_err_and_its_journals(companies)
 
+def get_link_fields_grouped_by_option(doctype):
+	meta = frappe.get_meta(doctype)
+	link_fields_map = defaultdict(list)
 
+	for df in meta.fields:
+		if df.fieldtype == "Link" and df.options and not df.ignore_user_permissions:
+			link_fields_map[df.options].append(df.fieldname)
+
+	return link_fields_map
 
 def build_qb_match_conditions(doctype, user=None) -> list:
 	match_filters = build_match_conditions(doctype, user, False)
