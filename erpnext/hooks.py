@@ -521,6 +521,7 @@ accounting_dimension_doctypes = [
 	"Purchase Invoice Item",
 	"Purchase Order Item",
 	"Sales Order Item",
+	"Journal Entry",
 	"Journal Entry Account",
 	"Material Request Item",
 	"Delivery Note Item",
